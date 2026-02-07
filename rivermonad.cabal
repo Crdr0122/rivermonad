@@ -63,9 +63,9 @@ executable rivermonad
 
   c-sources:
     c_src/river-wm.c
+    c_src/registry.c
 
-  include-dirs:
-    include
-
+  include-dirs: c_src
+  extra-libraries: wayland-client
   -- Base language which the package is written in.
   default-language: GHC2024
