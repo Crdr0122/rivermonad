@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (forever)
 import Foreign.Ptr
 import Wayland.Client
 import Wayland.Protocol.RiverWM
@@ -15,11 +16,10 @@ main = do
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
 
-  listener <- pure get_registry_listener
-  _ <- wl_proxy_add_listener (castPtr registry) listener nullPtr
+  reg_listener <- pure get_registry_listener
+  _ <- wl_proxy_add_listener (castPtr registry) reg_listener nullPtr
 
   _ <- wl_display_roundtrip display
-  putStrLn "Roundtrip complete!"
 
   comp <- pure get_compositor
   if comp == nullPtr
@@ -30,3 +30,15 @@ main = do
   if river == nullPtr
     then putStrLn "River NOT bound"
     else putStrLn "River bound!"
+
+  listener <- pure get_river_wm_listener
+
+  _ <-
+    wl_proxy_add_listener
+      (castPtr river)
+      listener
+      nullPtr
+
+  _ <- wl_display_roundtrip display
+  forever $ do
+    wl_display_dispatch display

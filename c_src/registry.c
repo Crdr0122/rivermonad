@@ -11,7 +11,6 @@ static struct river_output *output = NULL;
 static void registry_global(void *data, struct wl_registry *registry,
                             uint32_t name, const char *interface,
                             uint32_t version) {
-  printf("global: %s\n", interface);
   if (strcmp(interface, wl_compositor_interface.name) == 0) {
     compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
     printf("Bound wl_compositor!\n");
