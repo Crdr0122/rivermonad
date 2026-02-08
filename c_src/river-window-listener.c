@@ -26,6 +26,8 @@ static void handle_dimensions_hint(void *data, struct river_window_v1 *window,
                                    int32_t max_width, int32_t max_height) {
   // printf("Window dimensions\n");
 }
+static void handle_dimensions(void *data, struct river_window_v1 *window,
+                              int32_t width, int32_t height) {}
 
 static void handle_pointer_move_requested(void *data,
                                           struct river_window_v1 *window,
@@ -56,11 +58,15 @@ static void handle_exit_fullscreen_requested(void *data,
 static void handle_minimize_requested(void *data,
                                       struct river_window_v1 *window) {}
 
+static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
+                                  int32_t pid) {}
+
 static const struct river_window_v1_listener window_listener = {
-    .title = handle_title,
-    .app_id = handle_app_id,
     .closed = handle_closed,
     .dimensions_hint = handle_dimensions_hint,
+    .dimensions = handle_dimensions,
+    .title = handle_title,
+    .app_id = handle_app_id,
     .parent = handle_parent,
     .decoration_hint = handle_decoration_hint,
     .pointer_move_requested = handle_pointer_move_requested,
@@ -71,6 +77,7 @@ static const struct river_window_v1_listener window_listener = {
     .fullscreen_requested = handle_fullscreen_requested,
     .exit_fullscreen_requested = handle_exit_fullscreen_requested,
     .minimize_requested = handle_minimize_requested,
+    .unreliable_pid = handle_unreliable_pid,
 };
 
 const struct river_window_v1_listener *get_river_window_listener(void) {

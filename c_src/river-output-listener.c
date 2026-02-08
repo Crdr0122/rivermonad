@@ -3,6 +3,10 @@
 #include <wayland-client.h>
 
 /* Haskell callback */
+extern void hs_output_dimensions(void *data, struct river_output_v1 *output,
+                                 int32_t width, int32_t height);
+extern void hs_output_position(void *data, struct river_output_v1 *output,
+                               int32_t x, int32_t y);
 
 static void handle_removed(void *data, struct river_output_v1 *output) {
   printf("Output removed\n");
@@ -11,11 +15,13 @@ static void handle_removed(void *data, struct river_output_v1 *output) {
 static void handle_dimensions(void *data, struct river_output_v1 *output,
                               int32_t width, int32_t height) {
   printf("Output dimensions %ux%u\n", width, height);
+  hs_output_dimensions(data, output, width, height);
 }
 
 static void handle_position(void *data, struct river_output_v1 *output,
                             int32_t x, int32_t y) {
   printf("Output position %d %d\n", x, y);
+  hs_output_position(data, output, x, y);
 }
 
 static void handle_wl_output(void *data, struct river_output_v1 *output,

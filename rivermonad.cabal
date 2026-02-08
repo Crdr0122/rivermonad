@@ -49,16 +49,19 @@ executable rivermonad
   main-is: Main.hs
   -- Modules included in this executable, other than Main.
   other-modules:
+    Types
+    Layout
     Wayland.Client
     Wayland.Protocol.Core
+    Wayland.Protocol.ImportedFunctions
     Wayland.Protocol.RiverWM
-    Types
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
   -- Other library packages from which modules are imported.
   build-depends:
     base ^>=4.20.2.0,
+    containers,
     text,
 
   -- Directories containing source files.
@@ -67,8 +70,8 @@ executable rivermonad
 
   c-sources:
     c_src/registry.c
-    c_src/river-window-listener.c
     c_src/river-output-listener.c
+    c_src/river-window-listener.c
     c_src/river-wm-listener.c
     c_src/river-wm.c
 

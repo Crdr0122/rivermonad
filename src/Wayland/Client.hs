@@ -5,16 +5,19 @@ module Wayland.Client where
 
 import Foreign
 import Foreign.C
-
-data WlDisplay
-data WlRegistry
-data WlProxy
+import Types
 
 foreign import capi "wayland-client.h wl_display_connect"
   wl_display_connect :: CString -> IO (Ptr WlDisplay)
 
 foreign import capi "wayland-client.h wl_display_dispatch"
   wl_display_dispatch :: Ptr WlDisplay -> IO CInt
+
+foreign import capi "wayland-client.h wl_display_flush"
+  wl_display_flush :: Ptr WlDisplay -> IO ()
+
+foreign import capi "wayland-client.h wl_display_get_fd"
+  wl_display_get_fd :: Ptr WlDisplay -> IO (CInt)
 
 foreign import capi "wayland-client.h wl_display_roundtrip"
   wl_display_roundtrip :: Ptr WlDisplay -> IO CInt
@@ -38,6 +41,4 @@ foreign import capi "wayland-client.h wl_proxy_add_listener"
     IO CInt
 
 foreign import ccall unsafe "get_registry_listener" get_registry_listener :: Ptr ()
-
 foreign import ccall unsafe "get_compositor" get_compositor :: Ptr ()
-
