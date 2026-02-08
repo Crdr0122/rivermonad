@@ -5,6 +5,7 @@
 
 extern void hs_on_new_window(void *data, void *window);
 extern void hs_on_new_output(void *data, void *output);
+extern void hs_on_new_seat(void *data, void *seat);
 extern void hs_manage_start(void *data, struct river_window_manager_v1 *wm);
 extern void hs_render_start(void *data, struct river_window_manager_v1 *wm);
 extern const struct river_window_listener *get_river_window_listener(void);
@@ -21,7 +22,7 @@ static void handle_output(void *data, struct river_window_manager_v1 *wm,
 
 static void handle_seat(void *data, struct river_window_manager_v1 *wm,
                         struct river_seat_v1 *seat) {
-  printf("River: new seat\n");
+  hs_on_new_seat(data, seat);
 }
 
 static void handle_manage_start(void *data,

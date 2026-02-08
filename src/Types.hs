@@ -1,15 +1,19 @@
 module Types where
 
-import Control.Concurrent.MVar
+import Data.IORef
 import Data.Map
 import Foreign
 
+data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show)
+type WMStateRef = IORef WMState
 data WMState = WMState
-  { manageQueue :: MVar (IO ())
-  , renderQueue :: MVar (IO ())
-  , allWindows :: MVar (Map (Ptr RiverWindow) Window)
-  , allOutputs :: MVar (Map (Ptr RiverOutput) Output)
-  , focusedOutput :: MVar (Ptr RiverOutput)
+  { manageQueue :: IO ()
+  , renderQueue :: IO ()
+  , allWindows :: Map (Ptr RiverWindow) Window
+  , allOutputs :: Map (Ptr RiverOutput) Output
+  , focusedWindow :: Ptr RiverWindow
+  , focusedOutput :: Ptr RiverOutput
+  , currentSeat :: Ptr RiverSeat
   }
 
 data WlDisplay
@@ -18,6 +22,9 @@ data WlProxy
 data RiverNode
 data RiverWindow
 data RiverOutput
+data RiverSeat
+data RiverShellSurface
+data RiverPointer
 data RiverWMManager
 
 data Window = Window

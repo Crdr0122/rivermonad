@@ -1,7 +1,7 @@
 module Main where
 
-import Control.Concurrent.MVar
 import Control.Monad (forever)
+import Data.IORef
 import Data.Map qualified as M
 import Foreign.Ptr
 import Foreign.StablePtr
@@ -20,12 +20,18 @@ main = do
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
 
-  mQueue <- newMVar (pure ())
-  rQueue <- newMVar (pure ())
-  focusedO <- newEmptyMVar
-  w <- newMVar M.empty
-  o <- newMVar M.empty
-  st <- newStablePtr (WMState mQueue rQueue w o focusedO)
+  st <-
+    newIORef
+      WMState
+        { manageQueue = pure ()
+        , renderQueue = pure ()
+        , allWindows = M.empty
+        , allOutputs = M.empty
+        , focusedWindow = nullPtr
+        , focusedOutput = nullPtr
+        , currentSeat = nullPtr
+        }
+  stPtr <- newStablePtr st
 
   reg_listener <- pure get_registry_listener
   _ <- wl_proxy_add_listener (castPtr registry) reg_listener nullPtr
@@ -43,7 +49,7 @@ main = do
     else putStrLn "River bound!"
 
   listener <- pure get_river_wm_listener
-  _ <- wl_proxy_add_listener (castPtr river) listener (castStablePtrToPtr st)
+  _ <- wl_proxy_add_listener (castPtr river) listener (castStablePtrToPtr stPtr)
 
   _ <- wl_display_roundtrip display
 

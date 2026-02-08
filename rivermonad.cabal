@@ -72,6 +72,7 @@ executable rivermonad
     c_src/registry.c
     c_src/river-output-listener.c
     c_src/river-window-listener.c
+    c_src/river-seat-listener.c
     c_src/river-wm-listener.c
     c_src/river-wm.c
 

@@ -10,6 +10,7 @@ foreign import ccall unsafe "get_river" get_river :: Ptr ()
 foreign import ccall unsafe "get_river_wm_listener" get_river_wm_listener :: Ptr ()
 foreign import ccall unsafe "get_river_window_listener" get_river_window_listener :: Ptr ()
 foreign import ccall unsafe "get_river_output_listener" get_river_output_listener :: Ptr ()
+foreign import ccall unsafe "get_river_seat_listener" get_river_seat_listener :: Ptr ()
 
 foreign import capi "river-wm.h river_window_manager_v1_manage_finish"
   river_window_manager_v1_manage_finish :: Ptr RiverWMManager -> IO ()
@@ -73,3 +74,25 @@ foreign import capi "river-wm.h river_node_v1_place_bottom"
   river_node_v1_place_bottom :: Ptr RiverNode -> IO ()
 foreign import capi "river-wm.h river_node_v1_place_above"
   river_node_v1_place_above :: Ptr RiverNode -> Ptr RiverNode -> IO ()
+
+foreign import capi "river-wm.h river_output_v1_destroy"
+  river_output_v1_destroy :: Ptr RiverOutput -> IO ()
+
+foreign import capi "river-wm.h river_seat_v1_destroy"
+  river_seat_v1_destroy :: Ptr RiverSeat -> IO ()
+foreign import capi "river-wm.h river_seat_v1_focus_window"
+  river_seat_v1_focus_window :: Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+foreign import capi "river-wm.h river_seat_v1_focus_shell_surface"
+  river_seat_v1_focus_shell_surface :: Ptr RiverSeat -> Ptr RiverShellSurface -> IO ()
+foreign import capi "river-wm.h river_seat_v1_clear_focus"
+  river_seat_v1_clear_focus :: Ptr RiverSeat -> IO ()
+foreign import capi "river-wm.h river_seat_v1_op_start_pointer"
+  river_seat_v1_op_start_pointer :: Ptr RiverSeat -> IO ()
+foreign import capi "river-wm.h river_seat_v1_op_end"
+  river_seat_v1_op_end :: Ptr RiverSeat -> IO ()
+foreign import capi "river-wm.h river_seat_v1_get_pointer_binding"
+  river_seat_v1_get_pointer_binding :: Ptr RiverSeat -> Word32 -> Word32 -> IO (Ptr RiverPointer)
+foreign import capi "river-wm.h river_seat_v1_set_xcursor_theme"
+  river_seat_v1_set_xcursor_theme :: Ptr RiverSeat -> CString -> Word32 -> IO ()
+foreign import capi "river-wm.h river_seat_v1_pointer_warp"
+  river_seat_v1_pointer_warp :: Ptr RiverSeat -> CInt -> CInt -> IO ()
