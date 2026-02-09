@@ -3,7 +3,7 @@ module Wayland.Handlers.Output where
 -- import Data.Text qualified as T
 
 import Data.IORef
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
 import Foreign
 import Types
 import Wayland.Client

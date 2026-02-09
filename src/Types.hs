@@ -1,22 +1,25 @@
 module Types where
 
 import Data.IORef
-import Data.Map
+import Data.Map.Strict
 import Data.Sequence as S
 import Foreign
+import Utils.BiMap
 
 data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show)
+type WorkspaceID = Int
 type WMStateRef = IORef WMState
 data WMState = WMState
   { manageQueue :: IO ()
   , renderQueue :: IO ()
   , allWindows :: Map (Ptr RiverWindow) Window
   , allOutputs :: Map (Ptr RiverOutput) Output
-  , focusedWindow :: Ptr RiverWindow
+  , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
-  , focusedWorkspace :: Int
-  , currentSeat :: Ptr RiverSeat
-  , allWorkspaces :: Map Int Workspace
+  , focusedWorkspace :: WorkspaceID
+  , focusedSeat :: Ptr RiverSeat
+  , workspaceLayouts :: Map WorkspaceID LayoutType
+  , allWorkspaces :: BiMap WorkspaceID (Ptr RiverWindow)
   }
 
 data WlDisplay
@@ -48,12 +51,6 @@ data Output = Output
   , outY :: Int
   }
   deriving (Eq)
-
-data Workspace = Workspace
-  { workspaceNum :: Int
-  , tileOrder :: Seq (Ptr RiverWindow) -- Ordering specific to this tag
-  , layoutType :: LayoutType -- e.g., Stack, Monocle, Floating
-  }
 
 data LayoutType = Monocle | Stack | Floating | Deck
 

@@ -1,12 +1,14 @@
 module Layout where
 
-import Data.Map qualified as M
+import Data.Foldable
+import Data.Map.Strict qualified as M
 import Data.Maybe
 import Types
+import Utils.BiMap qualified as B
 import Wayland.Protocol.ImportedFunctions
 
-applyLayout :: WMState -> IO (IO ())
-applyLayout state = do
+startLayout :: WMState -> IO (IO ())
+startLayout state = do
   let mOut = M.lookup (focusedOutput state) (allOutputs state)
   case mOut of
     Nothing -> return (pure ())
@@ -36,9 +38,11 @@ applyLayout state = do
 
 getTileableWindows :: WMState -> [Window]
 getTileableWindows state =
-  filter
-    (\w -> not (isFloating w) && not (isFullscreen w))
-    (M.elems (allWindows state))
+  let
+    windowPtrs = toList (B.lookupBs (focusedWorkspace state) (allWorkspaces state))
+    windows = map ((allWindows state) M.!) windowPtrs
+   in
+    filter (\w -> not (isFloating w) && not (isFullscreen w)) windows
 
 calculateStack :: Rect -> [Window] -> [(Window, Rect)]
 calculateStack _ [] = []

@@ -2,20 +2,22 @@ module Main where
 
 import Control.Monad (forever)
 import Data.IORef
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
+import Data.Sequence qualified as S
 import Foreign.Ptr
 import Foreign.StablePtr
 import Types
+import Utils.BiMap qualified as B
 import Wayland.Client
 import Wayland.Protocol.ImportedFunctions
 
 main :: IO ()
 main = do
-  display <- wl_display_connect nullPtr
+  display <- wlDisplayConnect nullPtr
   if display == nullPtr
     then putStrLn "Failed to connect to Wayland"
     else putStrLn "Connected to Wayland!"
-  registry <- wl_display_get_registry display
+  registry <- wlDisplayGetRegistry display
   if registry == nullPtr
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
@@ -26,21 +28,22 @@ main = do
         { manageQueue = pure ()
         , renderQueue = pure ()
         , allWindows = M.empty
-        , focusedWindow = nullPtr
+        , focusedWindow = Nothing
         , allOutputs = M.empty
         , focusedOutput = nullPtr
-        , allWorkspaces = M.empty
-        , currentSeat = nullPtr
+        , allWorkspaces = B.empty
+        , focusedSeat = nullPtr
         , focusedWorkspace = 1
+        , workspaceLayouts = M.empty
         }
   stPtr <- newStablePtr st
 
-  reg_listener <- pure get_registry_listener
-  _ <- wl_proxy_add_listener (castPtr registry) reg_listener nullPtr
+  reg_listener <- pure getRegistryListener
+  _ <- wlProxyAddListener (castPtr registry) reg_listener nullPtr
 
-  _ <- wl_display_roundtrip display
+  _ <- wlDisplayRoundtrip display
 
-  comp <- pure get_compositor
+  comp <- pure getCompositor
   if comp == nullPtr
     then putStrLn "Compositor NOT bound"
     else putStrLn "Compositor bound!"
@@ -51,10 +54,10 @@ main = do
     else putStrLn "River bound!"
 
   wmListener <- pure getRiverWmListener
-  _ <- wl_proxy_add_listener (castPtr river) wmListener (castStablePtrToPtr stPtr)
+  _ <- wlProxyAddListener (castPtr river) wmListener (castStablePtrToPtr stPtr)
 
-  _ <- wl_display_roundtrip display
+  _ <- wlDisplayRoundtrip display
 
   forever $ do
-    _ <- wl_display_dispatch display
+    _ <- wlDisplayRoundtrip display
     pure ()

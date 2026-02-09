@@ -3,17 +3,19 @@ module Wayland.Handlers.RiverWM where
 -- import Data.Text qualified as T
 
 import Data.IORef
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
+import Data.Sequence qualified as S
 import Foreign
 import Layout
 import Types
+import Utils.BiMap qualified as B
 import Wayland.Client
 import Wayland.Protocol.ImportedFunctions
 
 foreign export ccall "hs_on_new_window"
   hsOnNewWindow :: Ptr () -> Ptr RiverWindow -> IO ()
 foreign export ccall "hs_on_new_output"
-  hsOnNewOutput:: Ptr () -> Ptr RiverOutput -> IO ()
+  hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
 foreign export ccall "hs_on_new_seat"
   hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()
 foreign export ccall "hs_manage_start"
@@ -31,23 +33,29 @@ hsOnNewWindow dataPtr win = do
           , isFloating = False
           , isFullscreen = False
           }
-  _ <- wl_proxy_add_listener (castPtr win) getRiverWindowListener dataPtr
+  _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do
     let newWindowsList = M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-    state{allWindows = newWindowsList, manageQueue = newManageQueue, focusedWindow = win}
+        newWorkspaces = B.insert (focusedWorkspace state) win (allWorkspaces state)
+    state
+      { allWindows = newWindowsList
+      , manageQueue = newManageQueue
+      , focusedWindow = Just (win)
+      , allWorkspaces = newWorkspaces
+      }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()
 hsOnNewSeat dataPtr seat = do
-  _ <- wl_proxy_add_listener (castPtr seat) getRiverSeatListener dataPtr
+  _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyIORef stateIORef $ \state -> state{currentSeat = seat}
+  modifyIORef stateIORef $ \state -> state{focusedSeat = seat}
 
 hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOnNewOutput dataPtr output = do
   let o = Output output 0 0 0 0
-  _ <- wl_proxy_add_listener (castPtr output) getRiverOutputListener dataPtr
+  _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateMVar $ \state -> do
     let newOutputsList = M.insert output o (allOutputs state)
@@ -58,7 +66,7 @@ hsManageStart dataPtr wmManager = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   manageQueue state
-  renderActions <- applyLayout state
+  renderActions <- startLayout state
   riverWindowManagerManageFinish wmManager
   writeIORef
     stateIORef

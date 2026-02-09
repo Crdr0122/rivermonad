@@ -51,6 +51,7 @@ executable rivermonad
   other-modules:
     Types
     Layout
+    Utils.BiMap
     Wayland.Client
     Wayland.Protocol.Core
     Wayland.Protocol.ImportedFunctions

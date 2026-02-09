@@ -1,21 +1,14 @@
 #include "river-wm.h"
 #include <stdio.h>
 
-extern struct river_output *get_first_output(void);
+extern void hs_window_closed(void *data, struct river_window_v1 *window);
 
 static void handle_title(void *data, struct river_window_v1 *window,
-                         const char *title) {
-  printf("Window title: %s\n", title);
-}
+                         const char *title) {}
 
 static void handle_app_id(void *data, struct river_window_v1 *window,
-                          const char *app_id) {
-  printf("Window app_id: %s\n", app_id);
-}
+                          const char *app_id) {}
 
-static void handle_closed(void *data, struct river_window_v1 *window) {
-  river_window_v1_destroy(window);
-}
 static void handle_parent(void *data, struct river_window_v1 *window,
                           struct river_window_v1 *parent) {}
 static void handle_decoration_hint(void *data, struct river_window_v1 *window,
@@ -23,9 +16,8 @@ static void handle_decoration_hint(void *data, struct river_window_v1 *window,
 
 static void handle_dimensions_hint(void *data, struct river_window_v1 *window,
                                    int32_t min_width, int32_t min_height,
-                                   int32_t max_width, int32_t max_height) {
-  // printf("Window dimensions\n");
-}
+                                   int32_t max_width, int32_t max_height) {}
+
 static void handle_dimensions(void *data, struct river_window_v1 *window,
                               int32_t width, int32_t height) {}
 
@@ -62,7 +54,7 @@ static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
                                   int32_t pid) {}
 
 static const struct river_window_v1_listener window_listener = {
-    .closed = handle_closed,
+    .closed = hs_window_closed,
     .dimensions_hint = handle_dimensions_hint,
     .dimensions = handle_dimensions,
     .title = handle_title,
