@@ -26,7 +26,7 @@ static void handle_removed(void *data, struct river_output_v1 *output) {
 
 static void handle_wl_output(void *data, struct river_output_v1 *output,
                              uint32_t name) {
-  printf("Output name %u\n", name);
+  // printf("Output name %u\n", name);
 }
 
 static const struct river_output_v1_listener output_listener = {

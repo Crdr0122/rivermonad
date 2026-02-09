@@ -19,7 +19,7 @@ applyLayout state = do
       -- River expects propose_dimensions during the manage cycle
       mapM_
         ( \(w, rect) ->
-            river_window_v1_propose_dimensions (winPtr w) (fromIntegral $ rw rect) (fromIntegral $ rh rect)
+            riverWindowProposeDimensions (winPtr w) (fromIntegral $ rw rect) (fromIntegral $ rh rect)
         )
         layout
 
@@ -28,7 +28,7 @@ applyLayout state = do
       let renderActions =
             mapM_
               ( \(w, rect) ->
-                  river_node_v1_set_position (nodePtr w) (fromIntegral $ rx rect) (fromIntegral $ ry rect)
+                  riverNodeSetPosition (nodePtr w) (fromIntegral $ rx rect) (fromIntegral $ ry rect)
               )
               layout
 

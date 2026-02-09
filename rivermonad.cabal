@@ -54,7 +54,10 @@ executable rivermonad
     Wayland.Client
     Wayland.Protocol.Core
     Wayland.Protocol.ImportedFunctions
-    Wayland.Protocol.RiverWM
+    Wayland.Handlers.RiverWM
+    Wayland.Handlers.Window
+    Wayland.Handlers.Output
+    Wayland.Handlers.Seat
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -75,6 +78,7 @@ executable rivermonad
     c_src/river-seat-listener.c
     c_src/river-wm-listener.c
     c_src/river-wm.c
+    c_src/river-xkb.c
 
   include-dirs: c_src
   extra-libraries: wayland-client

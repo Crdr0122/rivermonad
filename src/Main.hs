@@ -26,10 +26,12 @@ main = do
         { manageQueue = pure ()
         , renderQueue = pure ()
         , allWindows = M.empty
-        , allOutputs = M.empty
         , focusedWindow = nullPtr
+        , allOutputs = M.empty
         , focusedOutput = nullPtr
+        , allWorkspaces = M.empty
         , currentSeat = nullPtr
+        , focusedWorkspace = 1
         }
   stPtr <- newStablePtr st
 
@@ -43,13 +45,13 @@ main = do
     then putStrLn "Compositor NOT bound"
     else putStrLn "Compositor bound!"
 
-  river <- pure get_river
+  river <- pure getRiver
   if river == nullPtr
     then putStrLn "River NOT bound"
     else putStrLn "River bound!"
 
-  listener <- pure get_river_wm_listener
-  _ <- wl_proxy_add_listener (castPtr river) listener (castStablePtrToPtr stPtr)
+  wmListener <- pure getRiverWmListener
+  _ <- wl_proxy_add_listener (castPtr river) wmListener (castStablePtrToPtr stPtr)
 
   _ <- wl_display_roundtrip display
 

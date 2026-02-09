@@ -2,6 +2,7 @@ module Types where
 
 import Data.IORef
 import Data.Map
+import Data.Sequence as S
 import Foreign
 
 data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show)
@@ -13,7 +14,9 @@ data WMState = WMState
   , allOutputs :: Map (Ptr RiverOutput) Output
   , focusedWindow :: Ptr RiverWindow
   , focusedOutput :: Ptr RiverOutput
+  , focusedWorkspace :: Int
   , currentSeat :: Ptr RiverSeat
+  , allWorkspaces :: Map Int Workspace
   }
 
 data WlDisplay
@@ -26,6 +29,8 @@ data RiverSeat
 data RiverShellSurface
 data RiverPointer
 data RiverWMManager
+
+data WlSurface
 
 data Window = Window
   { winPtr :: Ptr RiverWindow
@@ -43,6 +48,14 @@ data Output = Output
   , outY :: Int
   }
   deriving (Eq)
+
+data Workspace = Workspace
+  { workspaceNum :: Int
+  , tileOrder :: Seq (Ptr RiverWindow) -- Ordering specific to this tag
+  , layoutType :: LayoutType -- e.g., Stack, Monocle, Floating
+  }
+
+data LayoutType = Monocle | Stack | Floating | Deck
 
 newtype RiverEdge = RiverEdge Int
   deriving (Eq, Show, Bits)

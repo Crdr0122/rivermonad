@@ -15,6 +15,10 @@ static void handle_unavailable(void *data, struct river_window_manager_v1 *wm) {
   printf("River WM unavailable (another WM running)\n");
 }
 
+static void handle_finished(void *data, struct river_window_manager_v1 *wm) {
+  river_window_manager_v1_destroy(wm);
+}
+
 static void handle_output(void *data, struct river_window_manager_v1 *wm,
                           struct river_output_v1 *output) {
   hs_on_new_output(data, output);
@@ -27,13 +31,11 @@ static void handle_seat(void *data, struct river_window_manager_v1 *wm,
 
 static void handle_manage_start(void *data,
                                 struct river_window_manager_v1 *wm) {
-  printf("River: manage start\n");
   hs_manage_start(data, wm);
 }
 
 static void handle_render_start(void *data,
                                 struct river_window_manager_v1 *wm) {
-  printf("River: render start\n");
   hs_render_start(data, wm);
 }
 
@@ -50,6 +52,7 @@ static void handle_window(void *data, struct river_window_manager_v1 *wm,
 
 static const struct river_window_manager_v1_listener wm_listener = {
     .unavailable = handle_unavailable,
+    .finished = handle_finished,
     .output = handle_output,
     .seat = handle_seat,
     .window = handle_window,
