@@ -1,6 +1,6 @@
 {-# LANGUAGE CApiFFI #-}
 
-module Wayland.Protocol.ImportedFunctions where
+module Wayland.ImportedFunctions where
 
 import Foreign
 import Foreign.C
@@ -42,7 +42,7 @@ foreign import capi "river-wm.h river_window_v1_use_csd"
 foreign import capi "river-wm.h river_window_v1_use_ssd"
   riverWindowUseSsd :: Ptr RiverWindow -> IO ()
 foreign import capi "river-wm.h river_window_v1_set_borders"
-  riverWindowSetBorders :: Ptr RiverWindow -> Word32 -> CInt -> RiverEdge -> Word32 -> Word32 -> Word32 -> IO ()
+  riverWindowSetBorders :: Ptr RiverWindow -> CUInt -> CInt -> RiverEdge -> CUInt -> CUInt -> CUInt -> IO ()
 foreign import capi "river-wm.h river_window_v1_set_tiled"
   riverWindowSetTiled :: Ptr RiverWindow -> RiverEdge -> IO ()
 foreign import capi "river-wm.h river_window_v1_get_decoration_above"
@@ -54,7 +54,7 @@ foreign import capi "river-wm.h river_window_v1_inform_resize_start"
 foreign import capi "river-wm.h river_window_v1_inform_resize_end"
   riverWindowInformResizeEnd :: Ptr RiverWindow -> IO ()
 foreign import capi "river-wm.h river_window_v1_set_capabilities"
-  riverWindowSetCapabilities :: Ptr RiverWindow -> Word32 -> IO ()
+  riverWindowSetCapabilities :: Ptr RiverWindow -> CUInt -> IO ()
 foreign import capi "river-wm.h river_window_v1_inform_maximized"
   riverWindowInformMaximized :: Ptr RiverWindow -> IO ()
 foreign import capi "river-wm.h river_window_v1_inform_unmaximized"
@@ -75,7 +75,7 @@ foreign import capi "river-wm.h river_window_v1_set_content_clip_box"
 foreign import capi "river-wm.h river_node_v1_destroy"
   riverNodeDestroy :: Ptr RiverNode -> IO ()
 foreign import capi "river-wm.h river_node_v1_set_position"
-  riverNodeSetPosition :: Ptr RiverNode -> Word32 -> Word32 -> IO ()
+  riverNodeSetPosition :: Ptr RiverNode -> CUInt -> CUInt -> IO ()
 foreign import capi "river-wm.h river_node_v1_place_top"
   riverNodePlaceTop :: Ptr RiverNode -> IO ()
 foreign import capi "river-wm.h river_node_v1_place_bottom"
@@ -101,11 +101,13 @@ foreign import capi "river-wm.h river_seat_v1_op_start_pointer"
 foreign import capi "river-wm.h river_seat_v1_op_end"
   riverSeatOpEnd :: Ptr RiverSeat -> IO ()
 foreign import capi "river-wm.h river_seat_v1_get_pointer_binding"
-  riverSeatGetPointerBinding :: Ptr RiverSeat -> Word32 -> Word32 -> IO (Ptr RiverPointer)
+  riverSeatGetPointerBinding :: Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverPointer)
 foreign import capi "river-wm.h river_seat_v1_set_xcursor_theme"
-  riverSeatSetXcursorTheme :: Ptr RiverSeat -> CString -> Word32 -> IO ()
+  riverSeatSetXcursorTheme :: Ptr RiverSeat -> CString -> CUInt -> IO ()
 foreign import capi "river-wm.h river_seat_v1_pointer_warp"
   riverSeatPointerWarp :: Ptr RiverSeat -> CInt -> CInt -> IO ()
 
 foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_get_xkb_binding"
-  riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CInt -> CInt -> IO (Ptr RiverXkbBinding)
+  riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)
+foreign import capi "river-xkb-binding.h river_xkb_binding_v1_enable"
+  riverXkbBindingEnable :: Ptr RiverXkbBinding -> IO ()

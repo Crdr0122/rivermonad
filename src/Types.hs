@@ -2,8 +2,8 @@ module Types where
 
 import Data.IORef
 import Data.Map.Strict
-import Data.Sequence as S
 import Foreign
+import Foreign.C
 import Utils.BiMap
 
 data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show)
@@ -35,6 +35,8 @@ data RiverPointer
 data RiverWMManager
 data RiverXkbBinding
 data RiverXkbBindings
+type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
+
 
 data WlSurface
 
@@ -56,8 +58,8 @@ data Output = Output
   deriving (Eq)
 
 data KeyConfig = KeyConfig
-  { keysym :: Word32
-  , mods :: Word32
+  { keysym :: CUInt
+  , mods :: CUInt
   , action :: WMState -> IO ()
   }
 

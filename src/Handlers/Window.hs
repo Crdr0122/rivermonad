@@ -1,4 +1,4 @@
-module Wayland.Handlers.Window where
+module Handlers.Window where
 
 import Control.Monad (when)
 import Data.IORef
@@ -9,7 +9,7 @@ import Layout
 import Types
 import Utils.BiMap qualified as B
 import Wayland.Client
-import Wayland.Protocol.ImportedFunctions
+import Wayland.ImportedFunctions
 
 foreign export ccall "hs_window_closed"
   hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()

@@ -53,14 +53,15 @@ executable rivermonad
     Config
     Layout
     Utils.BiMap
+    Utils.Keysyms
+    Utils.KeyDispatches
     Wayland.Client
-    Wayland.Protocol.Core
-    Wayland.Protocol.ImportedFunctions
-    Wayland.Handlers.RiverWM
-    Wayland.Handlers.Window
-    Wayland.Handlers.Output
-    Wayland.Handlers.Seat
-    Wayland.Handlers.XkbBindings
+    Wayland.ImportedFunctions
+    Handlers.RiverWM
+    Handlers.Window
+    Handlers.Output
+    Handlers.Seat
+    Handlers.XkbBindings
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:

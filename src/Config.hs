@@ -1,9 +1,23 @@
 module Config where
 
+import Data.IORef
 import Data.Map qualified as M
 import Foreign
+import Foreign.C
 import Types
-import Wayland.Protocol.ImportedFunctions
+import Utils.KeyDispatches
+import Utils.Keysyms
+import Wayland.ImportedFunctions
 
-allKeyBindings :: M.Map (Word32, Word32) (WMState -> IO (WMState))
-allKeyBindings = M.fromList []
+allKeyBindings :: [((CUInt, CUInt), IORef WMState -> IO ())]
+allKeyBindings = [((keyQ, modAlt), closeCurrentWindow)]
+
+allKeyBindingdsTransformed :: [((CUInt, CUInt), XkbCallback)]
+allKeyBindingdsTransformed =
+  map
+    ( \((k, m), f) ->
+        ( (k, m)
+        , (\dataPtr _ -> deRefStablePtr (castPtrToStablePtr dataPtr) >>= f)
+        )
+    )
+    allKeyBindings

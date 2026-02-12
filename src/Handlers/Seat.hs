@@ -1,4 +1,4 @@
-module Wayland.Handlers.Seat where
+module Handlers.Seat where
 
 import Data.IORef
 import Data.Map.Strict qualified as M
@@ -6,7 +6,7 @@ import Foreign
 import Layout
 import Types
 import Wayland.Client
-import Wayland.Protocol.ImportedFunctions
+import Wayland.ImportedFunctions
 
 foreign export ccall "hs_pointer_enter"
   hsPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()

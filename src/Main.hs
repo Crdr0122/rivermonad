@@ -10,7 +10,7 @@ import Foreign.StablePtr
 import Types
 import Utils.BiMap qualified as B
 import Wayland.Client
-import Wayland.Protocol.ImportedFunctions
+import Wayland.ImportedFunctions
 
 main :: IO ()
 main = do

@@ -28,9 +28,9 @@ foreign import capi "wayland-client.h wl_display_get_registry"
 foreign import capi "wayland-client.h wl_registry_bind"
   wlRegistryBind ::
     Ptr WlRegistry ->
-    Word32 ->
+    CUInt ->
     Ptr () ->
-    Word32 ->
+    CUInt ->
     IO (Ptr WlProxy)
 
 foreign import capi "wayland-client.h wl_proxy_add_listener"

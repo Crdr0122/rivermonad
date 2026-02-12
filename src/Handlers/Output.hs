@@ -1,13 +1,11 @@
-module Wayland.Handlers.Output where
-
--- import Data.Text qualified as T
+module Handlers.Output where
 
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
 import Types
 import Wayland.Client
-import Wayland.Protocol.ImportedFunctions
+import Wayland.ImportedFunctions
 
 foreign export ccall "hs_output_position"
   hsOutputPosition :: Ptr () -> Ptr RiverOutput -> Int -> Int -> IO ()

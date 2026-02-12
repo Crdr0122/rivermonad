@@ -5,7 +5,7 @@ import Data.Map.Strict qualified as M
 import Data.Maybe
 import Types
 import Utils.BiMap qualified as B
-import Wayland.Protocol.ImportedFunctions
+import Wayland.ImportedFunctions
 
 startLayout :: WMState -> IO (IO ())
 startLayout state = do
