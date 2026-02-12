@@ -50,7 +50,17 @@ hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()
 hsOnNewSeat dataPtr seat = do
   _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyIORef stateIORef $ \state -> state{focusedSeat = seat}
+  state <- readIORef stateIORef
+  pressedPtr <- mkXkbCallback onPressed
+  releasedPtr <- mkXkbCallback (\_ _ -> putStrLn "Released")
+  stopRepeatPtr <- mkXkbCallback (\_ _ -> return ())
+  let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
+  listenerPtr <- malloc :: IO (Ptr XkbBindingListener)
+  poke listenerPtr listener
+  let bindingManager = currentXkbBindings state
+  newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat 113 8
+  _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
+  writeIORef stateIORef state{focusedSeat = seat}
 
 hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOnNewOutput dataPtr output = do
@@ -91,3 +101,27 @@ startupApplyManage w = do
 
 startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()
 startupApplyRender _ _ = pure ()
+
+type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
+data XkbBindingListener = XkbBindingListener
+  { xkbPressed :: FunPtr XkbCallback
+  , xkbReleased :: FunPtr XkbCallback
+  , xkbStopRepeat :: FunPtr XkbCallback
+  }
+
+instance Storable XkbBindingListener where
+  sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 3
+  alignment _ = alignment (nullPtr :: Ptr ())
+  poke ptr (XkbBindingListener p r s) = do
+    let pSize = sizeOf (nullPtr :: Ptr ())
+    poke (ptr `plusPtr` (pSize * 0)) p
+    poke (ptr `plusPtr` (pSize * 1)) r
+    poke (ptr `plusPtr` (pSize * 2)) s
+
+foreign import ccall "wrapper"
+  mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
+
+onPressed :: Ptr () -> Ptr RiverXkbBinding -> IO ()
+onPressed dataPtr _ = do
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  putStrLn "Key pressed! Updating state..."

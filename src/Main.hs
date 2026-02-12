@@ -1,5 +1,6 @@
 module Main where
 
+import Config
 import Control.Monad (forever)
 import Data.IORef
 import Data.Map.Strict qualified as M
@@ -22,6 +23,28 @@ main = do
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
 
+  reg_listener <- pure getRegistryListener
+  _ <- wlProxyAddListener (castPtr registry) reg_listener nullPtr
+
+  _ <- wlDisplayRoundtrip display
+
+  let
+    comp = getCompositor
+    river = getRiver
+    xkbBindings = getXkbBindings
+
+  if comp == nullPtr
+    then putStrLn "Compositor NOT bound"
+    else putStrLn "Compositor bound!"
+
+  if river == nullPtr
+    then putStrLn "River NOT bound"
+    else putStrLn "River bound!"
+
+  if xkbBindings == nullPtr
+    then putStrLn "XKb NOT bound"
+    else putStrLn "XKb bound!"
+
   st <-
     newIORef
       WMState
@@ -35,26 +58,11 @@ main = do
         , focusedSeat = nullPtr
         , focusedWorkspace = 1
         , workspaceLayouts = M.empty
+        , currentXkbBindings = xkbBindings
         }
   stPtr <- newStablePtr st
 
-  reg_listener <- pure getRegistryListener
-  _ <- wlProxyAddListener (castPtr registry) reg_listener nullPtr
-
-  _ <- wlDisplayRoundtrip display
-
-  comp <- pure getCompositor
-  if comp == nullPtr
-    then putStrLn "Compositor NOT bound"
-    else putStrLn "Compositor bound!"
-
-  river <- pure getRiver
-  if river == nullPtr
-    then putStrLn "River NOT bound"
-    else putStrLn "River bound!"
-
-  wmListener <- pure getRiverWmListener
-  _ <- wlProxyAddListener (castPtr river) wmListener (castStablePtrToPtr stPtr)
+  _ <- wlProxyAddListener (castPtr river) getRiverWmListener (castStablePtrToPtr stPtr)
 
   _ <- wlDisplayRoundtrip display
 

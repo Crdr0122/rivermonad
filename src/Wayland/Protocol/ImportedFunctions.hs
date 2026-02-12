@@ -106,3 +106,6 @@ foreign import capi "river-wm.h river_seat_v1_set_xcursor_theme"
   riverSeatSetXcursorTheme :: Ptr RiverSeat -> CString -> Word32 -> IO ()
 foreign import capi "river-wm.h river_seat_v1_pointer_warp"
   riverSeatPointerWarp :: Ptr RiverSeat -> CInt -> CInt -> IO ()
+
+foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_get_xkb_binding"
+  riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CInt -> CInt -> IO (Ptr RiverXkbBinding)

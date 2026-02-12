@@ -50,6 +50,7 @@ executable rivermonad
   -- Modules included in this executable, other than Main.
   other-modules:
     Types
+    Config
     Layout
     Utils.BiMap
     Wayland.Client
@@ -59,6 +60,7 @@ executable rivermonad
     Wayland.Handlers.Window
     Wayland.Handlers.Output
     Wayland.Handlers.Seat
+    Wayland.Handlers.XkbBindings
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -79,7 +81,7 @@ executable rivermonad
     c_src/river-seat-listener.c
     c_src/river-wm-listener.c
     c_src/river-wm.c
-    c_src/river-xkb.c
+    c_src/river-xkb-binding.c
 
   include-dirs: c_src
   extra-libraries: wayland-client

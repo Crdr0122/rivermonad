@@ -20,6 +20,7 @@ data WMState = WMState
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
   , allWorkspaces :: BiMap WorkspaceID (Ptr RiverWindow)
+  , currentXkbBindings :: Ptr RiverXkbBindings
   }
 
 data WlDisplay
@@ -32,6 +33,8 @@ data RiverSeat
 data RiverShellSurface
 data RiverPointer
 data RiverWMManager
+data RiverXkbBinding
+data RiverXkbBindings
 
 data WlSurface
 
@@ -51,6 +54,12 @@ data Output = Output
   , outY :: Int
   }
   deriving (Eq)
+
+data KeyConfig = KeyConfig
+  { keysym :: Word32
+  , mods :: Word32
+  , action :: WMState -> IO ()
+  }
 
 data LayoutType = Monocle | Stack | Floating | Deck
 
