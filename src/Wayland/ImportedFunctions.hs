@@ -6,7 +6,7 @@ import Foreign
 import Foreign.C
 import Types
 
-foreign import ccall unsafe "get_river" getRiver :: Ptr ()
+foreign import ccall unsafe "get_river" getRiver :: Ptr RiverWMManager
 foreign import ccall unsafe "get_river_wm_listener" getRiverWmListener :: Ptr ()
 foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :: Ptr ()
 foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()
@@ -109,5 +109,8 @@ foreign import capi "river-wm.h river_seat_v1_pointer_warp"
 
 foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_get_xkb_binding"
   riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)
+foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_destroy"
+  riverXkbBindingsDestroy :: Ptr RiverXkbBindings -> IO ()
+
 foreign import capi "river-xkb-binding.h river_xkb_binding_v1_enable"
   riverXkbBindingEnable :: Ptr RiverXkbBinding -> IO ()

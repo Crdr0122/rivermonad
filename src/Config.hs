@@ -1,23 +1,53 @@
 module Config where
 
+import Data.Bits ((.|.))
 import Data.IORef
 import Data.Map qualified as M
-import Foreign
-import Foreign.C
+import Foreign.C (CUInt)
 import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
-import Wayland.ImportedFunctions
+import Utils.Layouts
 
-allKeyBindings :: [((CUInt, CUInt), IORef WMState -> IO ())]
-allKeyBindings = [((keyQ, modAlt), closeCurrentWindow)]
+allKeyBindings :: [(CUInt, CUInt, IORef WMState -> IO ())]
+allKeyBindings =
+  [ (keyQ, modSuper, closeCurrentWindow)
+  , (keyTab, modSuper, cycleWindows)
+  , (keyTab, modSuper .|. modShift, cycleWindowsBack)
+  , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
+  , (keyF, modSuper, toggleFullscreenCurrentWindow)
+  , (keyEnter, modSuper, exec "foot")
+  , (keyZ, modSuper, exec "foot -e yazi")
+  , (keyX, modSuper, exec "foot -e nvim")
+  , (keyV, modSuper, exec "foot -e calpersonal")
+  , (keyB, modSuper, exec "foot -e btop")
+  , (keyN, modSuper, exec "foot -e ncmpcpp")
+  , (keyM, modSuper, exec "foot -e neomutt")
+  , (keyD, modSuper, exec "~/.config/rofi/launcher/launcher.sh")
+  , (key1, modSuper, switchWorkspace 1)
+  , (key2, modSuper, switchWorkspace 2)
+  , (key3, modSuper, switchWorkspace 3)
+  , (key4, modSuper, switchWorkspace 4)
+  , (key5, modSuper, switchWorkspace 5)
+  , (key6, modSuper, switchWorkspace 6)
+  , (key7, modSuper, switchWorkspace 7)
+  , (key8, modSuper, switchWorkspace 8)
+  , (key9, modSuper, switchWorkspace 9)
+  ]
 
-allKeyBindingdsTransformed :: [((CUInt, CUInt), XkbCallback)]
-allKeyBindingdsTransformed =
-  map
-    ( \((k, m), f) ->
-        ( (k, m)
-        , (\dataPtr _ -> deRefStablePtr (castPtrToStablePtr dataPtr) >>= f)
-        )
-    )
-    allKeyBindings
+defaultLayouts :: M.Map Int LayoutType
+defaultLayouts =
+  M.fromList
+    [ (1, twoPaneLayout)
+    , (2, stackLayout)
+    , (3, monocleLayout)
+    , (4, monocleLayout)
+    , (5, monocleLayout)
+    , (6, monocleLayout)
+    , (7, monocleLayout)
+    , (8, monocleLayout)
+    , (9, monocleLayout)
+    ]
+
+execOnStart :: [String]
+execOnStart = ["foot"]

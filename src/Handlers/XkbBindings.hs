@@ -1,6 +1,5 @@
 module Handlers.XkbBindings where
 
-import Config
 import Data.IORef
 import Foreign
 import Foreign.C
@@ -22,20 +21,24 @@ instance Storable XkbBindingListener where
     poke (ptr `plusPtr` (pSize * 0)) p
     poke (ptr `plusPtr` (pSize * 1)) r
     poke (ptr `plusPtr` (pSize * 2)) s
+  peek ptr = do
+    let offset = sizeOf (nullPtr :: Ptr ())
+    pressed <- peek (castPtr ptr) :: IO (FunPtr XkbCallback)
+    released <- peekByteOff ptr offset :: IO (FunPtr XkbCallback)
+    stopRepeat <- peekByteOff ptr (offset * 2) :: IO (FunPtr XkbCallback)
+    pure $ XkbBindingListener pressed released stopRepeat
 
 foreign import ccall "wrapper"
   mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
 
-registerKeybind :: Ptr () -> Ptr RiverSeat -> ((CUInt, CUInt), IORef WMState -> IO ()) -> IO ()
-registerKeybind dataPtr seat ((key, modifier), f) = do
+registerKeybind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, IORef WMState -> IO ()) -> IO ()
+registerKeybind dataPtr seat (key, modifier, onPressed) = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
 
-  let onPressed = (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= f)
-
-  pressedPtr <- mkXkbCallback onPressed
-  releasedPtr <- mkXkbCallback (\_ _ -> putStrLn "Released")
-  stopRepeatPtr <- mkXkbCallback (\_ _ -> return ())
+  pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
+  releasedPtr <- mkXkbCallback (\_ _ -> pure ())
+  stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
 
   let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
       bindingManager = currentXkbBindings state
@@ -45,4 +48,3 @@ registerKeybind dataPtr seat ((key, modifier), f) = do
   _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
   writeIORef stateIORef state{manageQueue = manageQueue state >> riverXkbBindingEnable newBinding}
-

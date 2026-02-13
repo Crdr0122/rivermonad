@@ -1,4 +1,4 @@
-module Utils.BiMap (BiMap, empty, insert, lookupA, lookupBs, delete, move) where
+module Utils.BiMap (BiMap, empty, insert, lookupA, lookupBs, delete, move, insertSeq) where
 
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S
@@ -18,6 +18,17 @@ insert a b bimap@(BiMap ab ba)
       let ab' = M.insertWith (S.><) a (S.singleton b) ab
           ba' = M.insert b a ba
        in BiMap ab' ba'
+
+insertSeq :: (Ord a, Ord b) => a -> S.Seq b -> BiMap a b -> BiMap a b
+insertSeq a bs (BiMap ab ba) = BiMap ab' ba
+ where
+  ab' = M.insert a bs ab
+
+-- \| M.member b ba = bimap
+-- \| otherwise =
+--     let ab' = M.insertWith (S.><) a (S.singleton b) ab
+--         ba' = M.insert b a ba
+--      in BiMap ab' ba'
 
 lookupA :: (Ord b) => b -> BiMap a b -> Maybe a
 lookupA b = M.lookup b . bToA

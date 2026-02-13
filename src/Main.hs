@@ -4,11 +4,11 @@ import Config
 import Control.Monad (forever)
 import Data.IORef
 import Data.Map.Strict qualified as M
-import Data.Sequence qualified as S
 import Foreign.Ptr
 import Foreign.StablePtr
 import Types
 import Utils.BiMap qualified as B
+import Utils.KeyDispatches
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -54,11 +54,13 @@ main = do
         , focusedWindow = Nothing
         , allOutputs = M.empty
         , focusedOutput = nullPtr
-        , allWorkspaces = B.empty
+        , allWorkspacesTiled = B.empty
+        , allWorkspacesFloating = B.empty
         , focusedSeat = nullPtr
         , focusedWorkspace = 1
-        , workspaceLayouts = M.empty
+        , workspaceLayouts = defaultLayouts
         , currentXkbBindings = xkbBindings
+        , currentWmManager = river
         }
   stPtr <- newStablePtr st
 
@@ -66,6 +68,8 @@ main = do
 
   _ <- wlDisplayRoundtrip display
 
+  mapM_ (flip exec st) execOnStart
+
   forever $ do
-    _ <- wlDisplayRoundtrip display
+    _ <- wlDisplayDispatch display
     pure ()

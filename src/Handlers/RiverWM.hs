@@ -1,11 +1,8 @@
 module Handlers.RiverWM where
 
--- import Data.Text qualified as T
-
 import Config
 import Data.IORef
 import Data.Map.Strict qualified as M
-import Data.Sequence qualified as S
 import Foreign
 import Handlers.XkbBindings
 import Layout
@@ -40,12 +37,12 @@ hsOnNewWindow dataPtr win = do
   modifyIORef stateIORef $ \state -> do
     let newWindowsList = M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-        newWorkspaces = B.insert (focusedWorkspace state) win (allWorkspaces state)
+        newWorkspacesTiled = B.insert (focusedWorkspace state) win (allWorkspacesTiled state)
     state
       { allWindows = newWindowsList
       , manageQueue = newManageQueue
       , focusedWindow = Just (win)
-      , allWorkspaces = newWorkspaces
+      , allWorkspacesTiled = newWorkspacesTiled
       }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()

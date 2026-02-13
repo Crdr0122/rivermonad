@@ -55,6 +55,7 @@ executable rivermonad
     Utils.BiMap
     Utils.Keysyms
     Utils.KeyDispatches
+    Utils.Layouts
     Wayland.Client
     Wayland.ImportedFunctions
     Handlers.RiverWM
@@ -70,6 +71,7 @@ executable rivermonad
     base ^>=4.20.2.0,
     containers,
     text,
+    process,
 
   -- Directories containing source files.
   hs-source-dirs:

@@ -19,8 +19,10 @@ data WMState = WMState
   , focusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
-  , allWorkspaces :: BiMap WorkspaceID (Ptr RiverWindow)
+  , allWorkspacesTiled :: BiMap WorkspaceID (Ptr RiverWindow)
+  , allWorkspacesFloating :: BiMap WorkspaceID (Ptr RiverWindow)
   , currentXkbBindings :: Ptr RiverXkbBindings
+  , currentWmManager :: Ptr RiverWMManager
   }
 
 data WlDisplay
@@ -36,7 +38,6 @@ data RiverWMManager
 data RiverXkbBinding
 data RiverXkbBindings
 type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
-
 
 data WlSurface
 
@@ -63,7 +64,7 @@ data KeyConfig = KeyConfig
   , action :: WMState -> IO ()
   }
 
-data LayoutType = Monocle | Stack | Floating | Deck
+data LayoutType = LayoutType {layoutName :: String, layoutFun :: Rect -> [Window] -> [(Window, Rect)]}
 
 newtype RiverEdge = RiverEdge Int
   deriving (Eq, Show, Bits)
