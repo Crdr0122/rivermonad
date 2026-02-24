@@ -49,20 +49,20 @@ executable rivermonad
   main-is: Main.hs
   -- Modules included in this executable, other than Main.
   other-modules:
-    Types
     Config
+    Handlers.Output
+    Handlers.RiverWM
+    Handlers.Seat
+    Handlers.Window
+    Handlers.XkbBindings
     Layout
+    Types
     Utils.BiMap
-    Utils.Keysyms
     Utils.KeyDispatches
+    Utils.Keysyms
     Utils.Layouts
     Wayland.Client
     Wayland.ImportedFunctions
-    Handlers.RiverWM
-    Handlers.Window
-    Handlers.Output
-    Handlers.Seat
-    Handlers.XkbBindings
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -70,8 +70,8 @@ executable rivermonad
   build-depends:
     base ^>=4.20.2.0,
     containers,
-    text,
     process,
+    text,
 
   -- Directories containing source files.
   hs-source-dirs:
@@ -80,13 +80,17 @@ executable rivermonad
   c-sources:
     c_src/registry.c
     c_src/river-output-listener.c
-    c_src/river-window-listener.c
     c_src/river-seat-listener.c
+    c_src/river-window-listener.c
     c_src/river-wm-listener.c
-    c_src/river-wm.c
-    c_src/river-xkb-binding.c
+    generated/river-layer-shell.c
+    generated/river-wm.c
+    generated/river-xkb-binding.c
 
-  include-dirs: c_src
+  include-dirs:
+    c_src
+    generated
+
   extra-libraries: wayland-client
   -- Base language which the package is written in.
   default-language: GHC2024

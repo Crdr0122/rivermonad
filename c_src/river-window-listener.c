@@ -1,7 +1,9 @@
-#include "river-wm.h"
+#include "../generated/river-wm.h"
 #include <stdio.h>
 
 extern void hs_window_closed(void *data, struct river_window_v1 *window);
+extern void hs_window_dimensions(void *data, struct river_window_v1 *window,
+                                 int32_t width, int32_t height);
 
 static void handle_title(void *data, struct river_window_v1 *window,
                          const char *title) {}
@@ -17,9 +19,6 @@ static void handle_decoration_hint(void *data, struct river_window_v1 *window,
 static void handle_dimensions_hint(void *data, struct river_window_v1 *window,
                                    int32_t min_width, int32_t min_height,
                                    int32_t max_width, int32_t max_height) {}
-
-static void handle_dimensions(void *data, struct river_window_v1 *window,
-                              int32_t width, int32_t height) {}
 
 static void handle_pointer_move_requested(void *data,
                                           struct river_window_v1 *window,
@@ -56,7 +55,7 @@ static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
 static const struct river_window_v1_listener window_listener = {
     .closed = hs_window_closed,
     .dimensions_hint = handle_dimensions_hint,
-    .dimensions = handle_dimensions,
+    .dimensions = hs_window_dimensions,
     .title = handle_title,
     .app_id = handle_app_id,
     .parent = handle_parent,

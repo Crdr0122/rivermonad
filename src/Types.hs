@@ -6,7 +6,7 @@ import Foreign
 import Foreign.C
 import Utils.BiMap
 
-data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show)
+data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show, Eq)
 type WorkspaceID = Int
 type WMStateRef = IORef WMState
 data WMState = WMState
@@ -37,6 +37,8 @@ data RiverPointer
 data RiverWMManager
 data RiverXkbBinding
 data RiverXkbBindings
+data RiverLayerShell
+data RiverLayerShellOutput
 type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
 
 data WlSurface
@@ -46,6 +48,10 @@ data Window = Window
   , nodePtr :: Ptr RiverNode
   , isFloating :: Bool
   , isFullscreen :: Bool
+  , floatingWidth :: CInt
+  , floatingHeight :: CInt
+  , floatingX :: CInt
+  , floatingY :: CInt
   }
   deriving (Eq)
 

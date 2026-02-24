@@ -1,6 +1,8 @@
 module Handlers.RiverWM where
 
 import Config
+
+-- import Data.Bits ((.|.))
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
@@ -31,6 +33,10 @@ hsOnNewWindow dataPtr win = do
           , nodePtr = node
           , isFloating = False
           , isFullscreen = False
+          , floatingHeight = 0
+          , floatingWidth = 0
+          , floatingX = 0
+          , floatingY = 0
           }
   _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
@@ -87,7 +93,7 @@ hsRenderStart dataPtr wmManager = do
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do
   let use_ssd = riverWindowUseSsd w
-      set_tiled = riverWindowSetTiled w edgeBottom
+      set_tiled = riverWindowSetTiled w (edgeBottom .|. edgeLeft .|. edgeRight .|. edgeTop)
   set_tiled >> use_ssd
 
 startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()

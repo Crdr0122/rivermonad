@@ -16,6 +16,7 @@ allKeyBindings =
   , (keyTab, modSuper .|. modShift, cycleWindowsBack)
   , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
   , (keyF, modSuper, toggleFullscreenCurrentWindow)
+  , (keySpace, modSuper, toggleFloatingCurrentWindow)
   , (keyEnter, modSuper, exec "foot")
   , (keyZ, modSuper, exec "foot -e yazi")
   , (keyX, modSuper, exec "foot -e nvim")
@@ -50,4 +51,9 @@ defaultLayouts =
     ]
 
 execOnStart :: [String]
-execOnStart = ["foot"]
+execOnStart =
+  [ "foot"
+  ]
+
+borderPx :: Int
+borderPx = 2

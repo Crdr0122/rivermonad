@@ -35,6 +35,41 @@ toggleFullscreenCurrentWindow stateIORef = do
       riverWindowManagerManageDirty (currentWmManager state)
       writeIORef stateIORef state{allWindows = newWindows, manageQueue = manageQueue state >> action}
 
+toggleFloatingCurrentWindow :: IORef WMState -> IO ()
+toggleFloatingCurrentWindow stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just win -> if isFloating (allWindows state M.! win) then tileCurrentWindow stateIORef else floatCurrentWindow stateIORef
+
+floatCurrentWindow :: IORef WMState -> IO ()
+floatCurrentWindow stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just win -> do
+      let float x = x{isFloating = True}
+          newWindows = M.adjust float win (allWindows state)
+          newTiled = B.delete win (allWorkspacesTiled state)
+          newFloating = B.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+
+      riverWindowManagerManageDirty (currentWmManager state)
+      writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
+
+tileCurrentWindow :: IORef WMState -> IO ()
+tileCurrentWindow stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just win -> do
+      let tile x = x{isFloating = False}
+          newWindows = M.adjust tile win (allWindows state)
+          newFloating = B.delete win (allWorkspacesFloating state)
+          newTiled = B.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+
+      riverWindowManagerManageDirty (currentWmManager state)
+      writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
+
 cycleWindows :: IORef WMState -> IO ()
 cycleWindows stateIORef = do
   state <- readIORef stateIORef
@@ -71,28 +106,33 @@ switchWorkspace :: WorkspaceID -> IORef WMState -> IO ()
 switchWorkspace workspaceID stateIORef = do
   state <- readIORef stateIORef
   let
-    currentFocused = focusedWorkspace state
-  unless (workspaceID == currentFocused) $ do
+    currentFocusedWorkspace = focusedWorkspace state
+  unless (workspaceID == currentFocusedWorkspace) $ do
     let
-      currentWindowsTiled = B.lookupBs currentFocused (allWorkspacesTiled state)
-      currentWindowsFloating = B.lookupBs currentFocused (allWorkspacesFloating state)
+      currentWindowsTiled = B.lookupBs currentFocusedWorkspace (allWorkspacesTiled state)
+      currentWindowsFloating = B.lookupBs currentFocusedWorkspace (allWorkspacesFloating state)
       newWindowsTiled = B.lookupBs workspaceID (allWorkspacesTiled state)
       newWindowsFloating = B.lookupBs workspaceID (allWorkspacesFloating state)
 
       hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
       showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
 
+      newFocusedWindow
+        | S.null newWindowsFloating && S.null newWindowsTiled = Nothing
+        | otherwise = focusedWindow state
+
     writeIORef
       stateIORef
       state
         { renderQueue = renderQueue state >> hidingActions >> showingActions
         , focusedWorkspace = workspaceID
+        , focusedWindow = newFocusedWindow
         }
     riverWindowManagerManageDirty (currentWmManager state)
 
 cycleLayout :: [LayoutType] -> IORef WMState -> IO ()
 cycleLayout [] _ = pure ()
-cycleLayout layouts@(x : _) stateIORef = do
+cycleLayout layouts stateIORef = do
   state <- readIORef stateIORef
   let oldWorkspaceLayouts = workspaceLayouts state
       curr = focusedWorkspace state
@@ -101,7 +141,7 @@ cycleLayout layouts@(x : _) stateIORef = do
     Nothing -> pure ()
     Just i -> do
       let
-        nextLayout = if i + 1 < length layouts then layouts !! (i + 1) else x
+        nextLayout = layouts !! ((i + 1) `mod` length layouts)
         newWorkspaceLayouts = M.insert curr nextLayout oldWorkspaceLayouts
       writeIORef stateIORef state{workspaceLayouts = newWorkspaceLayouts}
       riverWindowManagerManageDirty $ currentWmManager state

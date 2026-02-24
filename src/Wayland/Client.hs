@@ -43,3 +43,4 @@ foreign import capi "wayland-client.h wl_proxy_add_listener"
 foreign import ccall unsafe "get_registry_listener" getRegistryListener :: Ptr ()
 foreign import ccall unsafe "get_compositor" getCompositor :: Ptr ()
 foreign import ccall unsafe "get_xkb_bindings" getXkbBindings :: Ptr RiverXkbBindings
+foreign import ccall unsafe "get_layer_shell" getLayerShell :: Ptr RiverLayerShell
