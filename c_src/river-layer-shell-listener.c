@@ -1,23 +1,17 @@
-#include "../generated/river-wm.h"
+#include "../generated/river-layer-shell.h"
 #include <stdio.h>
 #include <wayland-client.h>
 
 /* Haskell callback */
-extern void hs_output_dimensions(void *data, struct river_output_v1 *output,
-                                 int32_t width, int32_t height);
-extern void hs_output_position(void *data, struct river_output_v1 *output,
-                               int32_t x, int32_t y);
-extern void hs_output_removed(void *data, struct river_output_v1 *output);
-extern void hs_output_wl_output(void *data, struct river_output_v1 *output,
-                                uint32_t name);
+extern void hs_layer_shell_output_non_exclusive_area(
+    void *data, struct river_layer_shell_output_v1 *output, int32_t x,
+    int32_t y, int32_t width, int32_t height);
 
-static const struct river_output_v1_listener output_listener = {
-    .removed = hs_output_removed,
-    .position = hs_output_position,
-    .dimensions = hs_output_dimensions,
-    .wl_output = hs_output_wl_output,
-};
+static const struct river_layer_shell_output_v1_listener
+    layer_shell_output_listener = {
+        .non_exclusive_area = hs_layer_shell_output_non_exclusive_area};
 
-const struct river_output_v1_listener *get_river_output_listener(void) {
-  return &output_listener;
+const struct river_layer_shell_output_v1_listener *
+get_river_layer_shell_output_listener(void) {
+  return &layer_shell_output_listener;
 }

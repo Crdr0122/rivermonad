@@ -7,6 +7,7 @@ import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
 import Handlers.XkbBindings
+import Handlers.LayerShell
 import Layout
 import Types
 import Utils.BiMap qualified as B
@@ -61,12 +62,21 @@ hsOnNewSeat dataPtr seat = do
 
 hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOnNewOutput dataPtr output = do
-  let o = Output output 0 0 0 0
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state <- readIORef stateIORef
+  newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
+  let o = Output output newLayerShellOutputPtr 0 0 0 0
+      newOutputsList = M.insert output o (allOutputs state)
+      newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
   _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyIORef stateMVar $ \state -> do
-    let newOutputsList = M.insert output o (allOutputs state)
-    state{allOutputs = newOutputsList, focusedOutput = output}
+  _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
+  writeIORef
+    stateIORef
+    state
+      { allOutputs = newOutputsList
+      , focusedOutput = output
+      , allLayerShellOutputs = newLayerShellOutputs
+      }
 
 hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsManageStart dataPtr wmManager = do

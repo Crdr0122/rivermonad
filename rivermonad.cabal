@@ -55,6 +55,7 @@ executable rivermonad
     Handlers.Seat
     Handlers.Window
     Handlers.XkbBindings
+    Handlers.LayerShell
     Layout
     Types
     Utils.BiMap
@@ -83,6 +84,7 @@ executable rivermonad
     c_src/river-seat-listener.c
     c_src/river-window-listener.c
     c_src/river-wm-listener.c
+    c_src/river-layer-shell-listener.c
     generated/river-layer-shell.c
     generated/river-wm.c
     generated/river-xkb-binding.c

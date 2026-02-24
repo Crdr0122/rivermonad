@@ -49,8 +49,17 @@ hsOutputRemoved dataPtr output = do
   riverOutputDestroy output
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
+  let lsPtr = outLayerShell $ allOutputs state M.! output
+  riverLayerShellOutputDestroy lsPtr
   let newOutputs = M.delete output (allOutputs state)
+      newLayerShells = M.delete lsPtr (allLayerShellOutputs state)
       newFocusedOutput
         | focusedOutput state == output = nullPtr
         | otherwise = focusedOutput state
-  writeIORef stateIORef state{allOutputs = newOutputs, focusedOutput = newFocusedOutput}
+  writeIORef
+    stateIORef
+    state
+      { allOutputs = newOutputs
+      , focusedOutput = newFocusedOutput
+      , allLayerShellOutputs = newLayerShells
+      }

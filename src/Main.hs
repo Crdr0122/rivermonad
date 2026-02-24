@@ -32,6 +32,7 @@ main = do
     comp = getCompositor
     river = getRiver
     xkbBindings = getXkbBindings
+    layerShell = getLayerShell
 
   if comp == nullPtr
     then putStrLn "Compositor NOT bound"
@@ -53,14 +54,17 @@ main = do
         , allWindows = M.empty
         , focusedWindow = Nothing
         , allOutputs = M.empty
+        , allLayerShellOutputs = M.empty
         , focusedOutput = nullPtr
         , allWorkspacesTiled = B.empty
         , allWorkspacesFloating = B.empty
         , focusedSeat = nullPtr
         , focusedWorkspace = 1
+        , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts
-        , currentXkbBindings = xkbBindings
         , currentWmManager = river
+        , currentXkbBindings = xkbBindings
+        , currentLayerShell = layerShell
         }
   stPtr <- newStablePtr st
 

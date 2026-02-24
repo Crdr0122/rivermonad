@@ -14,15 +14,18 @@ data WMState = WMState
   , renderQueue :: IO ()
   , allWindows :: Map (Ptr RiverWindow) Window
   , allOutputs :: Map (Ptr RiverOutput) Output
+  , allLayerShellOutputs :: Map (Ptr RiverLayerShellOutput) (Ptr RiverOutput)
   , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
   , focusedWorkspace :: WorkspaceID
+  , lastFocusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
   , allWorkspacesTiled :: BiMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiMap WorkspaceID (Ptr RiverWindow)
-  , currentXkbBindings :: Ptr RiverXkbBindings
   , currentWmManager :: Ptr RiverWMManager
+  , currentXkbBindings :: Ptr RiverXkbBindings
+  , currentLayerShell :: Ptr RiverLayerShell
   }
 
 data WlDisplay
@@ -39,6 +42,7 @@ data RiverXkbBinding
 data RiverXkbBindings
 data RiverLayerShell
 data RiverLayerShellOutput
+data RiverLayerShellSeat
 type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
 
 data WlSurface
@@ -57,6 +61,7 @@ data Window = Window
 
 data Output = Output
   { outPtr :: Ptr RiverOutput
+  , outLayerShell :: Ptr RiverLayerShellOutput
   , outWidth :: Int
   , outHeight :: Int
   , outX :: Int
