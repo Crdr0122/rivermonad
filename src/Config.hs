@@ -3,7 +3,8 @@ module Config where
 import Data.Bits ((.|.))
 import Data.IORef
 import Data.Map qualified as M
-import Foreign.C (CUInt)
+import Data.Word (Word32)
+import Foreign.C (CInt, CUInt)
 import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
@@ -55,5 +56,8 @@ execOnStart =
   [ "foot"
   ]
 
-borderPx :: Int
+borderPx :: CInt
 borderPx = 2
+borderColor, focusedBorderColor :: Word32
+borderColor = 0x444444ff
+focusedBorderColor = 0x7fc8ffff

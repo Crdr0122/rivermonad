@@ -7,7 +7,6 @@ import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
 import Handlers.XkbBindings
-import Handlers.LayerShell
 import Layout
 import Types
 import Utils.BiMap qualified as B
@@ -103,7 +102,7 @@ hsRenderStart dataPtr wmManager = do
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do
   let use_ssd = riverWindowUseSsd w
-      set_tiled = riverWindowSetTiled w (edgeBottom .|. edgeLeft .|. edgeRight .|. edgeTop)
+      set_tiled = riverWindowSetTiled w edgeAll
   set_tiled >> use_ssd
 
 startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()

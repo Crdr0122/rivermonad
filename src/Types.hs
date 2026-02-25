@@ -80,7 +80,8 @@ data LayoutType = LayoutType {layoutName :: String, layoutFun :: Rect -> [Window
 newtype RiverEdge = RiverEdge Int
   deriving (Eq, Show, Bits)
 
-edgeNone, edgeTop, edgeBottom, edgeLeft, edgeRight :: RiverEdge
+edgeNone, edgeTop, edgeBottom, edgeLeft, edgeRight, edgeAll :: RiverEdge
+edgeAll = edgeBottom .|. edgeLeft .|. edgeTop .|. edgeRight
 edgeNone = RiverEdge 0
 edgeTop = RiverEdge 1
 edgeBottom = RiverEdge 2

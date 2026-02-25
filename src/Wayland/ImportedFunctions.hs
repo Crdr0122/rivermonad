@@ -43,7 +43,7 @@ foreign import capi "river-wm.h river_window_v1_use_csd"
 foreign import capi "river-wm.h river_window_v1_use_ssd"
   riverWindowUseSsd :: Ptr RiverWindow -> IO ()
 foreign import capi "river-wm.h river_window_v1_set_borders"
-  riverWindowSetBorders :: Ptr RiverWindow -> CUInt -> CInt -> RiverEdge -> CUInt -> CUInt -> CUInt -> IO ()
+  riverWindowSetBorders :: Ptr RiverWindow -> RiverEdge -> CInt -> CUInt -> CUInt -> CUInt -> CUInt -> IO ()
 foreign import capi "river-wm.h river_window_v1_set_tiled"
   riverWindowSetTiled :: Ptr RiverWindow -> RiverEdge -> IO ()
 foreign import capi "river-wm.h river_window_v1_get_decoration_above"
