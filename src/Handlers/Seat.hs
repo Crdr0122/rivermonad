@@ -1,6 +1,6 @@
 module Handlers.Seat where
 
-import Control.Monad (unless, when)
+import Control.Monad (when)
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
@@ -14,35 +14,32 @@ foreign export ccall "hs_window_interaction"
   hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 
 hsPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsPointerEnter _ _ _ = pure ()
-
--- hsPointerEnter dataPtr seat win = do
---   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   state <- readIORef stateIORef
---   let focusWin = riverSeatFocusWindow seat win
---       window = (allWindows state) M.! win
---       node = nodePtr window
---   when (isFloating window) $ do
---     writeIORef
---       stateIORef
---       state
---         { focusedWindow = Just (win)
---         , manageQueue = manageQueue state >> focusWin >> riverNodePlaceTop node
---         }
-
-hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsWindowInteraction dataPtr seat win = do
+hsPointerEnter dataPtr seat win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   let focusWin = riverSeatFocusWindow seat win
       window = (allWindows state) M.! win
       node = nodePtr window
-      raiseNode
-        | isFloating window = riverNodePlaceTop node
-        | otherwise = pure ()
+      newActions
+        | isFloating window = focusWin >> riverNodePlaceTop node
+        | otherwise = focusWin
   writeIORef
     stateIORef
     state
       { focusedWindow = Just (win)
-      , manageQueue = manageQueue state >> focusWin >> raiseNode
+      , manageQueue = manageQueue state >> newActions
       }
+
+hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+hsWindowInteraction dataPtr _ win = do
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state <- readIORef stateIORef
+  let window = (allWindows state) M.! win
+      node = nodePtr window
+  when (isFloating window) $ do
+    writeIORef
+      stateIORef
+      state
+        { focusedWindow = Just (win)
+        , manageQueue = manageQueue state >> riverNodePlaceTop node
+        }

@@ -146,5 +146,16 @@ cycleLayout layouts stateIORef = do
       writeIORef stateIORef state{workspaceLayouts = newWorkspaceLayouts}
       riverWindowManagerManageDirty $ currentWmManager state
 
+modifyLayoutRatio :: Int -> IORef WMState -> IO ()
+modifyLayoutRatio change stateIORef = do
+  state <- readIORef stateIORef
+  let newWorkspaceRatios =
+        M.insertWith
+          (\n o -> let m = n + o in if m > 0 && m < 100 then m else o)
+          (focusedWorkspace state)
+          change
+          (workspaceRatios state)
+  writeIORef stateIORef state{workspaceRatios = newWorkspaceRatios}
+
 exec :: String -> IORef WMState -> IO ()
 exec command _ = spawnCommand command >> pure ()

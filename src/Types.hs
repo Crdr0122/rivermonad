@@ -21,6 +21,7 @@ data WMState = WMState
   , lastFocusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
+  , workspaceRatios :: Map WorkspaceID Int
   , allWorkspacesTiled :: BiMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiMap WorkspaceID (Ptr RiverWindow)
   , currentWmManager :: Ptr RiverWMManager
@@ -76,15 +77,14 @@ data KeyConfig = KeyConfig
   , action :: WMState -> IO ()
   }
 
-data LayoutType = LayoutType {layoutName :: String, layoutFun :: Rect -> [Window] -> [(Window, Rect)]}
+data LayoutType = LayoutType {layoutName :: String, layoutFun :: Int -> Rect -> [Window] -> [(Window, Rect)]}
 
-newtype RiverEdge = RiverEdge Int
-  deriving (Eq, Show, Bits)
+type RiverEdge = CUInt
 
 edgeNone, edgeTop, edgeBottom, edgeLeft, edgeRight, edgeAll :: RiverEdge
 edgeAll = edgeBottom .|. edgeLeft .|. edgeTop .|. edgeRight
-edgeNone = RiverEdge 0
-edgeTop = RiverEdge 1
-edgeBottom = RiverEdge 2
-edgeLeft = RiverEdge 4
-edgeRight = RiverEdge 8
+edgeNone = 0
+edgeTop = 1
+edgeBottom = 2
+edgeLeft = 4
+edgeRight = 8

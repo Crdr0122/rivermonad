@@ -26,6 +26,8 @@ allKeyBindings =
   , (keyN, modSuper, exec "foot -e ncmpcpp")
   , (keyM, modSuper, exec "foot -e neomutt")
   , (keyD, modSuper, exec "~/.config/rofi/launcher/launcher.sh")
+  , (keyE, modSuper, exec "~/.config/rofi/notification/notification.sh")
+  , (keyO, modSuper, exec "~/.config/rofi/password/password.sh")
   , (key1, modSuper, switchWorkspace 1)
   , (key2, modSuper, switchWorkspace 2)
   , (key3, modSuper, switchWorkspace 3)
@@ -35,9 +37,11 @@ allKeyBindings =
   , (key7, modSuper, switchWorkspace 7)
   , (key8, modSuper, switchWorkspace 8)
   , (key9, modSuper, switchWorkspace 9)
+  , (keyEqual, modSuper, modifyLayoutRatio 4)
+  , (keyMinus, modSuper, modifyLayoutRatio (-4))
   ]
 
-defaultLayouts :: M.Map Int LayoutType
+defaultLayouts :: M.Map WorkspaceID LayoutType
 defaultLayouts =
   M.fromList
     [ (1, twoPaneLayout)
@@ -50,6 +54,11 @@ defaultLayouts =
     , (8, monocleLayout)
     , (9, monocleLayout)
     ]
+
+defaultRatios :: M.Map WorkspaceID Int
+defaultRatios =
+  M.fromList $
+    zip [1 .. 9] (repeat 60)
 
 execOnStart :: [String]
 execOnStart =

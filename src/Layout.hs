@@ -1,4 +1,4 @@
-module Layout where
+module Layout (startLayout) where
 
 import Config
 import Data.Foldable
@@ -17,7 +17,8 @@ startLayout state = do
     Just out -> do
       let (tileable, fullscreened, allNeededWindowPtrs) = getTileableWindows state
           geometry = Rect{rx = outX out, ry = outY out, rh = outHeight out, rw = outWidth out}
-          layout = layoutFun (workspaceLayouts state M.! focusedWorkspace state) geometry tileable
+          ratio = workspaceRatios state M.! focusedWorkspace state
+          layout = layoutFun (workspaceLayouts state M.! focusedWorkspace state) ratio geometry tileable
           borderedLayout = shrinkWindows (fromIntegral borderPx) layout
 
       -- Step A: Send manage requests immediately
@@ -38,7 +39,7 @@ startLayout state = do
               borderedLayout
 
           renderBorderActions =
-            mapM_ (renderBorder (focusedWindow state) (unpackRGBA borderColor) (unpackRGBA focusedBorderColor)) allNeededWindowPtrs
+            mapM_ (renderBorder (focusedWindow state) bColor fColor) allNeededWindowPtrs
 
       return $
         renderNodeActions >> lowerAllWindows tileable >> raiseAllWindows fullscreened >> renderBorderActions
@@ -48,8 +49,8 @@ getTileableWindows state =
   let
     windowPtrs = toList (B.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
     windowFloatingPtrs = toList (B.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
-    windows = map ((allWindows state) M.!) windowPtrs
-    floatingWindows = map ((allWindows state) M.!) windowFloatingPtrs
+    windows = fmap ((allWindows state) M.!) windowPtrs
+    floatingWindows = fmap ((allWindows state) M.!) windowFloatingPtrs
     tileable = filter (not . isFullscreen) windows
     -- floating = filter (not . isFullscreen) floatingWindows
     fullscreened = filter isFullscreen windows ++ filter isFullscreen floatingWindows
@@ -78,14 +79,37 @@ shrinkWindows b =
 
 renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> Ptr RiverWindow -> IO ()
 renderBorder Nothing (r, g, b, a) _ w = riverWindowSetBorders w edgeAll borderPx r g b a
-renderBorder (Just focused) (r, g, b, a) (fg, fr, fb, fa) w
+renderBorder (Just focused) (r, g, b, a) (fr, fg, fb, fa) w
   | w == focused = riverWindowSetBorders w edgeAll borderPx fr fg fb fa
   | otherwise = riverWindowSetBorders w edgeAll borderPx r g b a
 
-unpackRGBA :: Word32 -> (CUInt, CUInt, CUInt, CUInt)
-unpackRGBA rgba =
-  ( fromIntegral ((rgba `shiftR` 24) .&. 0xFF) -- R
-  , fromIntegral ((rgba `shiftR` 16) .&. 0xFF) -- G
-  , fromIntegral ((rgba `shiftR` 8) .&. 0xFF) -- B
-  , fromIntegral (rgba .&. 0xFF) -- A
-  )
+translateColor :: Word32 -> (CUInt, CUInt, CUInt, CUInt)
+translateColor rgba = (toCU r', toCU g', toCU b', toCU a')
+ where
+  -- Extract 8-bit components
+  r = (rgba `shiftR` 24) .&. 0xFF
+  g = (rgba `shiftR` 16) .&. 0xFF
+  b = (rgba `shiftR` 8) .&. 0xFF
+  a = rgba .&. 0xFF
+
+  -- 1. Scale to 32-bit range (0xFF -> 0xFFFFFFFF)
+  -- We use (x * 0x01010101) to distribute the 8 bits across 32 bits evenly
+  scale8to32 x = fromIntegral x * 0x01010101 :: Word64
+
+  a32 = scale8to32 a
+
+  -- 2. Pre-multiply (Color * Alpha / MaxAlpha)
+  -- We use Word64 to prevent overflow during multiplication
+  premult c = (scale8to32 c * a32) `div` 0xFFFFFFFF
+
+  r' = fromIntegral (premult r) :: Word32
+  g' = fromIntegral (premult g) :: Word32
+  b' = fromIntegral (premult b) :: Word32
+  a' = fromIntegral a32 :: Word32
+
+  toCU = fromIntegral
+
+bColor :: (CUInt, CUInt, CUInt, CUInt)
+bColor = translateColor borderColor
+fColor :: (CUInt, CUInt, CUInt, CUInt)
+fColor = translateColor focusedBorderColor

@@ -62,6 +62,7 @@ main = do
         , focusedWorkspace = 1
         , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts
+        , workspaceRatios = defaultRatios
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell

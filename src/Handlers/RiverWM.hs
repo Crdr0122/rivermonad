@@ -69,6 +69,7 @@ hsOnNewOutput dataPtr output = do
       newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
   _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
   _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
+  riverLayerShellOutputSetDefault newLayerShellOutputPtr
   writeIORef
     stateIORef
     state
@@ -97,12 +98,12 @@ hsRenderStart dataPtr wmManager = do
   state <- readIORef stateIORef
   renderQueue state
   riverWindowManagerRenderFinish wmManager
-  writeIORef stateIORef state{renderQueue = return ()}
+  writeIORef stateIORef state{renderQueue = pure ()}
 
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do
   let use_ssd = riverWindowUseSsd w
-      set_tiled = riverWindowSetTiled w edgeAll
+      set_tiled = riverWindowSetTiled w 15
   set_tiled >> use_ssd
 
 startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()

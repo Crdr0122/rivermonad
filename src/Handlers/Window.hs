@@ -4,6 +4,7 @@ import Control.Monad (when)
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Data.Maybe
+import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Types
@@ -22,11 +23,17 @@ hsWindowClosed dataPtr win = do
   let newWindows = M.delete win (allWindows state)
       newWorkspaces = B.delete win (allWorkspacesTiled state)
       newWorkspacesFloating = B.delete win (allWorkspacesFloating state)
+      remTiled = B.lookupBs (focusedWorkspace state) newWorkspaces
+      remFloating = B.lookupBs (focusedWorkspace state) newWorkspacesFloating
       f = focusedWindow state
       newFocusedWin
         | isNothing f = Nothing
-        | fromJust f == win = Nothing
-        | otherwise = f
+        | fromJust f /= win = f
+        | otherwise = case S.viewl remTiled of
+            w S.:< _ -> Just w
+            S.EmptyL -> case S.viewl remFloating of
+              w S.:< _ -> Just w
+              S.EmptyL -> Nothing
   writeIORef
     stateIORef
     state

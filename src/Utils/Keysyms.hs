@@ -86,6 +86,12 @@ keySpace = 0x0020
 keyTab :: CUInt
 keyTab = 0xFF09
 
+keyMinus :: CUInt
+keyMinus = 0x002d
+
+keyEqual :: CUInt
+keyEqual = 0x003d
+
 -- Modifiers
 modNone :: CUInt
 modNone = 0
