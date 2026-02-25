@@ -51,6 +51,7 @@ getTileableWindows state =
     windows = map ((allWindows state) M.!) windowPtrs
     floatingWindows = map ((allWindows state) M.!) windowFloatingPtrs
     tileable = filter (not . isFullscreen) windows
+    -- floating = filter (not . isFullscreen) floatingWindows
     fullscreened = filter isFullscreen windows ++ filter isFullscreen floatingWindows
    in
     (tileable, fullscreened, windowPtrs ++ windowFloatingPtrs)

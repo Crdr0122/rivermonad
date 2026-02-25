@@ -6,6 +6,8 @@
 
 extern void hs_pointer_enter(void *data, struct river_seat_v1 *seat,
                              struct river_window_v1 *window);
+extern void hs_window_interaction(void *data, struct river_seat_v1 *seat,
+                                  struct river_window_v1 *window);
 
 static void handle_removed(void *data, struct river_seat_v1 *seat) {
   river_seat_v1_destroy(seat);
@@ -14,9 +16,6 @@ static void handle_wl_seat(void *data, struct river_seat_v1 *seat,
                            uint32_t name) {}
 
 static void handle_pointer_leave(void *data, struct river_seat_v1 *seat) {}
-
-static void handle_window_interaction(void *data, struct river_seat_v1 *seat,
-                                      struct river_window_v1 *window) {}
 
 static void
 handle_shell_surface_interaction(void *data, struct river_seat_v1 *seat,
@@ -36,7 +35,7 @@ static const struct river_seat_v1_listener seat_listener = {
     .wl_seat = handle_wl_seat,
     .pointer_enter = hs_pointer_enter,
     .pointer_leave = handle_pointer_leave,
-    .window_interaction = handle_window_interaction,
+    .window_interaction = hs_window_interaction,
     .shell_surface_interaction = handle_shell_surface_interaction,
     .op_delta = handle_op_delta,
     .op_release = handle_op_release,

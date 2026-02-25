@@ -102,11 +102,18 @@ foreign import capi "river-wm.h river_seat_v1_op_start_pointer"
 foreign import capi "river-wm.h river_seat_v1_op_end"
   riverSeatOpEnd :: Ptr RiverSeat -> IO ()
 foreign import capi "river-wm.h river_seat_v1_get_pointer_binding"
-  riverSeatGetPointerBinding :: Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverPointer)
+  riverSeatGetPointerBinding :: Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverPointerBinding)
 foreign import capi "river-wm.h river_seat_v1_set_xcursor_theme"
   riverSeatSetXcursorTheme :: Ptr RiverSeat -> CString -> CUInt -> IO ()
 foreign import capi "river-wm.h river_seat_v1_pointer_warp"
   riverSeatPointerWarp :: Ptr RiverSeat -> CInt -> CInt -> IO ()
+
+foreign import capi "river-wm.h river_pointer_binding_v1_destroy"
+  riverPointerBindingDestroy :: Ptr RiverPointerBinding -> IO ()
+foreign import capi "river-wm.h river_pointer_binding_v1_enable"
+  riverPointerBindingEnable :: Ptr RiverPointerBinding -> IO ()
+foreign import capi "river-wm.h river_pointer_binding_v1_disable"
+  riverPointerBindingDisable :: Ptr RiverPointerBinding -> IO ()
 
 foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_get_xkb_binding"
   riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)

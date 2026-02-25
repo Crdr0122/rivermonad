@@ -36,14 +36,15 @@ data RiverWindow
 data RiverOutput
 data RiverSeat
 data RiverShellSurface
-data RiverPointer
 data RiverWMManager
 data RiverXkbBinding
 data RiverXkbBindings
 data RiverLayerShell
 data RiverLayerShellOutput
 data RiverLayerShellSeat
+data RiverPointerBinding
 type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
+type PointerCallback = Ptr () -> Ptr RiverPointerBinding -> IO ()
 
 data WlSurface
 
