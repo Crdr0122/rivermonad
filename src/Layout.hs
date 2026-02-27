@@ -6,7 +6,7 @@ import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
 import Types
-import Utils.BiMap qualified as B
+import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
 startLayout :: WMState -> IO (IO ())
@@ -47,10 +47,11 @@ startLayout state = do
 getTileableWindows :: WMState -> ([Window], [Window], [Ptr RiverWindow])
 getTileableWindows state =
   let
-    windowPtrs = toList (B.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
-    windowFloatingPtrs = toList (B.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
-    windows = fmap ((allWindows state) M.!) windowPtrs
-    floatingWindows = fmap ((allWindows state) M.!) windowFloatingPtrs
+    windowPtrs = toList (BS.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
+    windowFloatingPtrs = toList (BS.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
+    allW = allWindows state
+    windows = fmap (allW M.!) windowPtrs
+    floatingWindows = fmap (allW M.!) windowFloatingPtrs
     tileable = filter (not . isFullscreen) windows
     -- floating = filter (not . isFullscreen) floatingWindows
     fullscreened = filter isFullscreen windows ++ filter isFullscreen floatingWindows

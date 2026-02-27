@@ -4,7 +4,7 @@ import Data.IORef
 import Data.Map.Strict
 import Foreign
 import Foreign.C
-import Utils.BiMap
+import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show, Eq)
 type WorkspaceID = Int
@@ -22,8 +22,8 @@ data WMState = WMState
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
   , workspaceRatios :: Map WorkspaceID Int
-  , allWorkspacesTiled :: BiMap WorkspaceID (Ptr RiverWindow)
-  , allWorkspacesFloating :: BiMap WorkspaceID (Ptr RiverWindow)
+  , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
+  , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell

@@ -7,7 +7,7 @@ import Data.Map qualified as M
 import Data.Sequence qualified as S
 import System.Process
 import Types
-import Utils.BiMap qualified as B
+import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
 closeCurrentWindow :: IORef WMState -> IO ()
@@ -50,8 +50,8 @@ floatCurrentWindow stateIORef = do
     Just win -> do
       let float x = x{isFloating = True}
           newWindows = M.adjust float win (allWindows state)
-          newTiled = B.delete win (allWorkspacesTiled state)
-          newFloating = B.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+          newTiled = BS.delete win (allWorkspacesTiled state)
+          newFloating = BS.insert (focusedWorkspace state) win (allWorkspacesFloating state)
 
       riverWindowManagerManageDirty (currentWmManager state)
       writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
@@ -64,8 +64,8 @@ tileCurrentWindow stateIORef = do
     Just win -> do
       let tile x = x{isFloating = False}
           newWindows = M.adjust tile win (allWindows state)
-          newFloating = B.delete win (allWorkspacesFloating state)
-          newTiled = B.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+          newFloating = BS.delete win (allWorkspacesFloating state)
+          newTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
 
       riverWindowManagerManageDirty (currentWmManager state)
       writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
@@ -75,7 +75,7 @@ cycleWindows stateIORef = do
   state <- readIORef stateIORef
   let
     work = focusedWorkspace state
-    oldTiledWindows = B.lookupBs work $ allWorkspacesTiled state
+    oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
   unless (S.null oldTiledWindows) $
     case S.viewr oldTiledWindows of
       S.EmptyR -> pure ()
@@ -83,7 +83,7 @@ cycleWindows stateIORef = do
         writeIORef
           stateIORef
           state
-            { allWorkspacesTiled = B.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
+            { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
             }
 
 cycleWindowsBack :: IORef WMState -> IO ()
@@ -91,7 +91,7 @@ cycleWindowsBack stateIORef = do
   state <- readIORef stateIORef
   let
     work = focusedWorkspace state
-    oldTiledWindows = B.lookupBs work $ allWorkspacesTiled state
+    oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
   unless (S.null oldTiledWindows) $
     case S.viewr oldTiledWindows of
       S.EmptyR -> pure ()
@@ -99,7 +99,7 @@ cycleWindowsBack stateIORef = do
         writeIORef
           stateIORef
           state
-            { allWorkspacesTiled = B.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
+            { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
             }
 
 switchWorkspace :: WorkspaceID -> IORef WMState -> IO ()
@@ -109,10 +109,10 @@ switchWorkspace workspaceID stateIORef = do
     currentFocusedWorkspace = focusedWorkspace state
   unless (workspaceID == currentFocusedWorkspace) $ do
     let
-      currentWindowsTiled = B.lookupBs currentFocusedWorkspace (allWorkspacesTiled state)
-      currentWindowsFloating = B.lookupBs currentFocusedWorkspace (allWorkspacesFloating state)
-      newWindowsTiled = B.lookupBs workspaceID (allWorkspacesTiled state)
-      newWindowsFloating = B.lookupBs workspaceID (allWorkspacesFloating state)
+      currentWindowsTiled = BS.lookupBs currentFocusedWorkspace (allWorkspacesTiled state)
+      currentWindowsFloating = BS.lookupBs currentFocusedWorkspace (allWorkspacesFloating state)
+      newWindowsTiled = BS.lookupBs workspaceID (allWorkspacesTiled state)
+      newWindowsFloating = BS.lookupBs workspaceID (allWorkspacesFloating state)
 
       hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
       showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
