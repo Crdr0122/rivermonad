@@ -7,7 +7,7 @@ import Data.Map.Strict qualified as M
 import Foreign.Ptr
 import Foreign.StablePtr
 import Types
-import Utils.BiMap qualified as B
+import Utils.BiSeqMap qualified as BS
 import Utils.KeyDispatches
 import Wayland.Client
 import Wayland.ImportedFunctions
@@ -56,8 +56,8 @@ main = do
         , allOutputs = M.empty
         , allLayerShellOutputs = M.empty
         , focusedOutput = nullPtr
-        , allWorkspacesTiled = B.empty
-        , allWorkspacesFloating = B.empty
+        , allWorkspacesTiled = BS.empty
+        , allWorkspacesFloating = BS.empty
         , focusedSeat = nullPtr
         , focusedWorkspace = 1
         , lastFocusedWorkspace = 1

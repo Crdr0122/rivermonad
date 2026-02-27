@@ -9,7 +9,7 @@ import Foreign
 import Handlers.XkbBindings
 import Layout
 import Types
-import Utils.BiMap qualified as B
+import Utils.BiSeqMap qualified as BS
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -40,7 +40,7 @@ hsOnNewWindow dataPtr win = do
   modifyIORef stateIORef $ \state -> do
     let newWindowsList = M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-        newWorkspacesTiled = B.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+        newWorkspacesTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
     state
       { allWindows = newWindowsList
       , manageQueue = newManageQueue

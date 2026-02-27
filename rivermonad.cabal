@@ -59,7 +59,7 @@ executable rivermonad
     Handlers.XkbBindings
     Layout
     Types
-    Utils.BiMap
+    Utils.BiSeqMap
     Utils.KeyDispatches
     Utils.Keysyms
     Utils.Layouts

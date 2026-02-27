@@ -8,7 +8,7 @@ import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Types
-import Utils.BiMap qualified as B
+import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_window_closed"
@@ -21,10 +21,10 @@ hsWindowClosed dataPtr win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   let newWindows = M.delete win (allWindows state)
-      newWorkspaces = B.delete win (allWorkspacesTiled state)
-      newWorkspacesFloating = B.delete win (allWorkspacesFloating state)
-      remTiled = B.lookupBs (focusedWorkspace state) newWorkspaces
-      remFloating = B.lookupBs (focusedWorkspace state) newWorkspacesFloating
+      newWorkspaces = BS.delete win (allWorkspacesTiled state)
+      newWorkspacesFloating = BS.delete win (allWorkspacesFloating state)
+      remTiled = BS.lookupBs (focusedWorkspace state) newWorkspaces
+      remFloating = BS.lookupBs (focusedWorkspace state) newWorkspacesFloating
       f = focusedWindow state
       newFocusedWin
         | isNothing f = Nothing
