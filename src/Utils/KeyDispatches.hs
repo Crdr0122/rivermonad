@@ -86,6 +86,24 @@ cycleWindows stateIORef = do
             { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
             }
 
+cycleWindowSlaves :: IORef WMState -> IO ()
+cycleWindowSlaves stateIORef = do
+  state <- readIORef stateIORef
+  let
+    work = focusedWorkspace state
+    oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
+  unless (S.null oldTiledWindows) $
+    case S.viewr oldTiledWindows of
+      S.EmptyR -> pure ()
+      hs S.:> h -> case S.viewr hs of
+        S.EmptyR -> pure ()
+        hss S.:> h2 -> do
+          writeIORef
+            stateIORef
+            state
+              { allWorkspacesTiled = BS.insertSeq work ((h2 S.<| hss) S.|> h) (allWorkspacesTiled state)
+              }
+
 cycleWindowsBack :: IORef WMState -> IO ()
 cycleWindowsBack stateIORef = do
   state <- readIORef stateIORef
