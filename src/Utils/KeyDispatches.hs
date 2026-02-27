@@ -77,8 +77,8 @@ floatCurrentWindow stateIORef = do
             (\w -> w{isFloating = True, floatingGeometry = Just newGeo})
             win
             (allWindows state)
-        newTiled = B.delete win (allWorkspacesTiled state)
-        newFloating = B.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+        newTiled = BS.delete win (allWorkspacesTiled state)
+        newFloating = BS.insert (focusedWorkspace state) win (allWorkspacesFloating state)
 
       writeIORef
         stateIORef
@@ -160,28 +160,30 @@ switchWorkspace workspaceID stateIORef = do
   state <- readIORef stateIORef
   let
     currentFocusedWorkspace = focusedWorkspace state
-  unless (workspaceID == currentFocusedWorkspace) $ do
-    let
-      currentWindowsTiled = BS.lookupBs currentFocusedWorkspace (allWorkspacesTiled state)
-      currentWindowsFloating = BS.lookupBs currentFocusedWorkspace (allWorkspacesFloating state)
-      newWindowsTiled = BS.lookupBs workspaceID (allWorkspacesTiled state)
-      newWindowsFloating = BS.lookupBs workspaceID (allWorkspacesFloating state)
+    (prevWork, nextWork) = if (workspaceID == currentFocusedWorkspace) then (currentFocusedWorkspace, lastFocusedWorkspace state) else (currentFocusedWorkspace, workspaceID)
+    currentWindowsTiled = BS.lookupBs prevWork (allWorkspacesTiled state)
+    currentWindowsFloating = BS.lookupBs prevWork (allWorkspacesFloating state)
+    newWindowsTiled = BS.lookupBs nextWork (allWorkspacesTiled state)
+    newWindowsFloating = BS.lookupBs nextWork (allWorkspacesFloating state)
 
-      hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
-      showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
+    hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
+    showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
 
-      newFocusedWindow
-        | S.null newWindowsFloating && S.null newWindowsTiled = Nothing
-        | otherwise = focusedWindow state
+    newFocusedWindow = case S.viewl newWindowsTiled of
+      w S.:< _ -> Just w
+      S.EmptyL -> case S.viewl newWindowsFloating of
+        w S.:< _ -> Just w
+        S.EmptyL -> Nothing
 
-    writeIORef
-      stateIORef
-      state
-        { renderQueue = renderQueue state >> hidingActions >> showingActions
-        , focusedWorkspace = workspaceID
-        , focusedWindow = newFocusedWindow
-        }
-    riverWindowManagerManageDirty (currentWmManager state)
+  writeIORef
+    stateIORef
+    state
+      { renderQueue = renderQueue state >> hidingActions >> showingActions
+      , focusedWorkspace = nextWork
+      , lastFocusedWorkspace = prevWork
+      , focusedWindow = newFocusedWindow
+      }
+  riverWindowManagerManageDirty (currentWmManager state)
 
 cycleLayout :: [LayoutType] -> IORef WMState -> IO ()
 cycleLayout [] _ = pure ()
