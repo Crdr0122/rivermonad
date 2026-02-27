@@ -7,6 +7,7 @@ import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
 import Handlers.XkbBindings
+import Handlers.PointerBindings
 import Layout
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -55,6 +56,7 @@ hsOnNewSeat dataPtr seat = do
   state <- readIORef stateIORef
   writeIORef stateIORef state{focusedSeat = seat}
   mapM_ (registerKeybind dataPtr seat) allKeyBindings
+  mapM_ (registerPointerbind dataPtr seat) allPointerBindings
 
 hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOnNewOutput dataPtr output = do

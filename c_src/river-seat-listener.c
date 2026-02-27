@@ -8,6 +8,9 @@ extern void hs_pointer_enter(void *data, struct river_seat_v1 *seat,
                              struct river_window_v1 *window);
 extern void hs_window_interaction(void *data, struct river_seat_v1 *seat,
                                   struct river_window_v1 *window);
+extern void hs_op_delta(void *data, struct river_seat_v1 *seat, int32_t dx,
+                        int32_t dy);
+extern void hs_op_release(void *data, struct river_seat_v1 *seat);
 
 static void handle_removed(void *data, struct river_seat_v1 *seat) {
   river_seat_v1_destroy(seat);
@@ -22,11 +25,6 @@ handle_shell_surface_interaction(void *data, struct river_seat_v1 *seat,
                                  struct river_shell_surface_v1 *shell_surface) {
 }
 
-static void handle_op_delta(void *data, struct river_seat_v1 *seat, int32_t dx,
-                            int32_t dy) {}
-
-static void handle_op_release(void *data, struct river_seat_v1 *seat) {}
-
 static void handle_pointer_position(void *data, struct river_seat_v1 *seat,
                                     int32_t x, int32_t y) {}
 
@@ -37,8 +35,8 @@ static const struct river_seat_v1_listener seat_listener = {
     .pointer_leave = handle_pointer_leave,
     .window_interaction = hs_window_interaction,
     .shell_surface_interaction = handle_shell_surface_interaction,
-    .op_delta = handle_op_delta,
-    .op_release = handle_op_release,
+    .op_delta = hs_op_delta,
+    .op_release = hs_op_release,
     .pointer_position = handle_pointer_position,
 };
 

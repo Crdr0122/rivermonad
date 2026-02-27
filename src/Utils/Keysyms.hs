@@ -92,6 +92,10 @@ keyMinus = 0x002d
 keyEqual :: CUInt
 keyEqual = 0x003d
 
+-- Pointer
+keyPointerLeft :: CUInt
+keyPointerLeft = 0xfee0
+
 -- Modifiers
 modNone :: CUInt
 modNone = 0

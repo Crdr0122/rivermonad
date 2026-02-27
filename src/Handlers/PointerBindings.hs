@@ -1,8 +1,6 @@
 module Handlers.PointerBindings where
 
-import Control.Monad (when)
 import Data.IORef
-import Data.Map qualified as M
 import Foreign
 import Foreign.C
 import Types
@@ -30,8 +28,8 @@ instance Storable PointerBindingListener where
 foreign import ccall "wrapper"
   mkPointerCallback :: PointerCallback -> IO (FunPtr PointerCallback)
 
-registerKeybind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ()) -> IO ()
-registerKeybind dataPtr seat (key, modifier, onPressed, onReleased) = do
+registerPointerbind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ()) -> IO ()
+registerPointerbind dataPtr seat (key, modifier, onPressed, onReleased) = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
 
@@ -39,26 +37,9 @@ registerKeybind dataPtr seat (key, modifier, onPressed, onReleased) = do
   releasedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onReleased)
 
   let listener = PointerBindingListener pressedPtr releasedPtr
-      bindingManager = currentXkbBindings state
   listenerPtr <- malloc :: IO (Ptr PointerBindingListener)
   poke listenerPtr listener
-  newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
+  newBinding <- riverSeatGetPointerBinding seat key modifier
   _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-  writeIORef stateIORef state{manageQueue = manageQueue state >> riverXkbBindingEnable newBinding}
-
-dragWindow :: IORef WMState -> IO ()
-dragWindow stateIORef = do
-  state <- readIORef stateIORef
-  let needToDrag = case focusedWindow state of
-        Nothing -> False
-        Just w -> isFloating (allWindows state M.! w)
-  when needToDrag $ do
-    riverSeatOpStartPointer (focusedSeat state)
-    writeIORef stateIORef state{draggingWindow = needToDrag}
-
-stopDragging :: IORef WMState -> IO ()
-stopDragging stateIORef = do
-  state <- readIORef stateIORef
-  let stop = riverSeatOpEnd (focusedSeat state)
-  writeIORef stateIORef state{manageQueue = manageQueue state >> stop}
+  writeIORef stateIORef state{manageQueue = manageQueue state >> riverPointerBindingEnable newBinding}

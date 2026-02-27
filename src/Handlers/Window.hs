@@ -29,11 +29,11 @@ hsWindowClosed dataPtr win = do
       newFocusedWin
         | isNothing f = Nothing
         | fromJust f /= win = f
-        | otherwise = case S.viewl remTiled of
-            w S.:< _ -> Just w
-            S.EmptyL -> case S.viewl remFloating of
-              w S.:< _ -> Just w
-              S.EmptyL -> Nothing
+        | otherwise = case remTiled of
+            w S.:<| _ -> Just w
+            S.Empty -> case remFloating of
+              w S.:<| _ -> Just w
+              S.Empty -> Nothing
   writeIORef
     stateIORef
     state

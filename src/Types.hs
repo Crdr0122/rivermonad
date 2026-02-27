@@ -27,7 +27,8 @@ data WMState = WMState
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell
-  , draggingWindow :: Bool
+  , isDraggingWindow :: Bool
+  , currentOpDelta :: (Int, Int)
   }
 
 data WlDisplay

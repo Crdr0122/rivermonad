@@ -66,7 +66,8 @@ main = do
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell
-        , draggingWindow = False
+        , isDraggingWindow = False
+        , currentOpDelta = (0, 0)
         }
   stPtr <- newStablePtr st
 

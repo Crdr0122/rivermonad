@@ -3,6 +3,7 @@ module Layout (startLayout) where
 import Config
 import Data.Foldable
 import Data.Map.Strict qualified as M
+import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Types
@@ -18,7 +19,7 @@ startLayout state = do
       let (tileable, fullscreened, allNeededWindowPtrs) = getTileableWindows state
           geometry = Rect{rx = outX out, ry = outY out, rh = outHeight out, rw = outWidth out}
           ratio = workspaceRatios state M.! focusedWorkspace state
-          layout = layoutFun (workspaceLayouts state M.! focusedWorkspace state) ratio geometry tileable
+          layout = layoutFun (workspaceLayouts state M.! focusedWorkspace state) ratio geometry (toList tileable)
           borderedLayout = shrinkWindows (fromIntegral borderPx) layout
 
       -- Step A: Send manage requests immediately
@@ -39,29 +40,29 @@ startLayout state = do
               borderedLayout
 
           renderBorderActions =
-            mapM_ (renderBorder (focusedWindow state) bColor fColor) allNeededWindowPtrs
+            mapM_ (renderBorder (focusedWindow state) bColor fColor borderPx) allNeededWindowPtrs
 
       return $
         renderNodeActions >> lowerAllWindows tileable >> raiseAllWindows fullscreened >> renderBorderActions
 
-getTileableWindows :: WMState -> ([Window], [Window], [Ptr RiverWindow])
+getTileableWindows :: WMState -> (S.Seq Window, S.Seq Window, S.Seq (Ptr RiverWindow))
 getTileableWindows state =
   let
-    windowPtrs = toList (BS.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
-    windowFloatingPtrs = toList (BS.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
+    windowPtrs = (BS.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
+    windowFloatingPtrs = (BS.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
     allW = allWindows state
     windows = fmap (allW M.!) windowPtrs
     floatingWindows = fmap (allW M.!) windowFloatingPtrs
-    tileable = filter (not . isFullscreen) windows
+    tileable = S.filter (not . isFullscreen) windows
     -- floating = filter (not . isFullscreen) floatingWindows
-    fullscreened = filter isFullscreen windows ++ filter isFullscreen floatingWindows
+    fullscreened = S.filter isFullscreen (windows S.>< floatingWindows)
    in
-    (tileable, fullscreened, windowPtrs ++ windowFloatingPtrs)
+    (tileable, fullscreened, windowPtrs S.>< windowFloatingPtrs)
 
-raiseAllWindows :: [Window] -> IO ()
+raiseAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 
-lowerAllWindows :: [Window] -> IO ()
+lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
 
 shrinkWindows :: Int -> [(Window, Rect)] -> [(Window, Rect)]
@@ -78,11 +79,11 @@ shrinkWindows b =
         )
     )
 
-renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> Ptr RiverWindow -> IO ()
-renderBorder Nothing (r, g, b, a) _ w = riverWindowSetBorders w edgeAll borderPx r g b a
-renderBorder (Just focused) (r, g, b, a) (fr, fg, fb, fa) w
-  | w == focused = riverWindowSetBorders w edgeAll borderPx fr fg fb fa
-  | otherwise = riverWindowSetBorders w edgeAll borderPx r g b a
+renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> CInt -> Ptr RiverWindow -> IO ()
+renderBorder Nothing (r, g, b, a) _ bPx w = riverWindowSetBorders w edgeAll bPx r g b a
+renderBorder (Just focused) (r, g, b, a) (fr, fg, fb, fa) bPx w
+  | w == focused = riverWindowSetBorders w edgeAll bPx fr fg fb fa
+  | otherwise = riverWindowSetBorders w edgeAll bPx r g b a
 
 translateColor :: Word32 -> (CUInt, CUInt, CUInt, CUInt)
 translateColor rgba = (toCU r', toCU g', toCU b', toCU a')

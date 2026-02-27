@@ -1,6 +1,6 @@
 module Utils.KeyDispatches where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.IORef
 import Data.List
 import Data.Map qualified as M
@@ -111,15 +111,14 @@ cycleWindows stateIORef = do
   let
     work = focusedWorkspace state
     oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
-  unless (S.null oldTiledWindows) $
-    case S.viewr oldTiledWindows of
-      S.EmptyR -> pure ()
-      hs S.:> h ->
-        writeIORef
-          stateIORef
-          state
-            { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
-            }
+  case oldTiledWindows of
+    S.Empty -> pure ()
+    hs S.:|> h ->
+      writeIORef
+        stateIORef
+        state
+          { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
+          }
 
 cycleWindowSlaves :: IORef WMState -> IO ()
 cycleWindowSlaves stateIORef = do
@@ -127,17 +126,16 @@ cycleWindowSlaves stateIORef = do
   let
     work = focusedWorkspace state
     oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
-  unless (S.null oldTiledWindows) $
-    case S.viewr oldTiledWindows of
-      S.EmptyR -> pure ()
-      hs S.:> h -> case S.viewr hs of
-        S.EmptyR -> pure ()
-        hss S.:> h2 -> do
-          writeIORef
-            stateIORef
-            state
-              { allWorkspacesTiled = BS.insertSeq work ((h2 S.<| hss) S.|> h) (allWorkspacesTiled state)
-              }
+  case oldTiledWindows of
+    S.Empty -> pure ()
+    h S.:<| hs -> case hs of
+      S.Empty -> pure ()
+      h2 S.:<| hss -> do
+        writeIORef
+          stateIORef
+          state
+            { allWorkspacesTiled = BS.insertSeq work (h S.<| (hss S.|> h2)) (allWorkspacesTiled state)
+            }
 
 cycleWindowsBack :: IORef WMState -> IO ()
 cycleWindowsBack stateIORef = do
@@ -145,22 +143,52 @@ cycleWindowsBack stateIORef = do
   let
     work = focusedWorkspace state
     oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
-  unless (S.null oldTiledWindows) $
-    case S.viewr oldTiledWindows of
-      S.EmptyR -> pure ()
-      hs S.:> h ->
-        writeIORef
-          stateIORef
-          state
-            { allWorkspacesTiled = BS.insertSeq work (h S.<| hs) (allWorkspacesTiled state)
-            }
+  case oldTiledWindows of
+    S.Empty -> pure ()
+    h S.:<| hs ->
+      writeIORef
+        stateIORef
+        state
+          { allWorkspacesTiled = BS.insertSeq work (hs S.|> h) (allWorkspacesTiled state)
+          }
+
+zoomWindow :: IORef WMState -> IO ()
+zoomWindow stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just currentWin -> do
+      unless (isFloating (allWindows state M.! currentWin)) $ do
+        let
+          workspace = focusedWorkspace state
+          bimap = allWorkspacesTiled state
+          currentSeq = BS.lookupBs workspace bimap
+          newSeq = case currentSeq of
+            S.Empty -> currentSeq
+            w S.:<| ws ->
+              if w == currentWin
+                then
+                  ( case ws of
+                      S.Empty -> currentSeq
+                      w2 S.:<| wss -> w2 S.<| (w S.<| wss)
+                  )
+                else case S.elemIndexL currentWin ws of
+                  Nothing -> currentSeq
+                  Just i -> currentWin S.<| (S.update i w ws)
+
+        let newWorkspacesTiled = BS.insertSeq workspace newSeq bimap
+        writeIORef stateIORef state{allWorkspacesTiled = newWorkspacesTiled}
+        riverWindowManagerManageDirty (currentWmManager state)
 
 switchWorkspace :: WorkspaceID -> IORef WMState -> IO ()
 switchWorkspace workspaceID stateIORef = do
   state <- readIORef stateIORef
   let
     currentFocusedWorkspace = focusedWorkspace state
-    (prevWork, nextWork) = if (workspaceID == currentFocusedWorkspace) then (currentFocusedWorkspace, lastFocusedWorkspace state) else (currentFocusedWorkspace, workspaceID)
+    (prevWork, nextWork) =
+      if (workspaceID == currentFocusedWorkspace)
+        then (currentFocusedWorkspace, lastFocusedWorkspace state)
+        else (currentFocusedWorkspace, workspaceID)
     currentWindowsTiled = BS.lookupBs prevWork (allWorkspacesTiled state)
     currentWindowsFloating = BS.lookupBs prevWork (allWorkspacesFloating state)
     newWindowsTiled = BS.lookupBs nextWork (allWorkspacesTiled state)
@@ -169,11 +197,11 @@ switchWorkspace workspaceID stateIORef = do
     hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
     showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
 
-    newFocusedWindow = case S.viewl newWindowsTiled of
-      w S.:< _ -> Just w
-      S.EmptyL -> case S.viewl newWindowsFloating of
-        w S.:< _ -> Just w
-        S.EmptyL -> Nothing
+    newFocusedWindow = case newWindowsFloating of
+      w S.:<| _ -> Just w
+      S.Empty -> case newWindowsTiled of
+        w S.:<| _ -> Just w
+        S.Empty -> Nothing
 
   writeIORef
     stateIORef
@@ -214,3 +242,19 @@ modifyLayoutRatio change stateIORef = do
 
 exec :: String -> IORef WMState -> IO ()
 exec command _ = spawnCommand command >> pure ()
+
+dragWindow :: IORef WMState -> IO ()
+dragWindow stateIORef = do
+  state <- readIORef stateIORef
+  let needToDrag = case focusedWindow state of
+        Nothing -> False
+        Just w -> isFloating (allWindows state M.! w)
+  when needToDrag $ do
+    riverSeatOpStartPointer (focusedSeat state)
+    writeIORef stateIORef state{isDraggingWindow = needToDrag}
+
+stopDragging :: IORef WMState -> IO ()
+stopDragging stateIORef = do
+  state <- readIORef stateIORef
+  let stop = riverSeatOpEnd (focusedSeat state)
+  writeIORef stateIORef state{manageQueue = manageQueue state >> stop, isDraggingWindow = False}

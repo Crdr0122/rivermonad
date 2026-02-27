@@ -1,4 +1,13 @@
-module Config where
+module Config (
+  allKeyBindings,
+  defaultLayouts,
+  defaultRatios,
+  borderColor,
+  borderPx,
+  focusedBorderColor,
+  execOnStart,
+  allPointerBindings,
+) where
 
 import Data.Bits ((.|.))
 import Data.IORef
@@ -13,10 +22,11 @@ import Utils.Layouts
 allKeyBindings :: [(CUInt, CUInt, IORef WMState -> IO ())]
 allKeyBindings =
   [ (keyQ, modSuper, closeCurrentWindow)
-  , (keyTab, modSuper, cycleWindows)
+  , (keyTab, modSuper, cycleWindowsOrSlaves)
   , (keyTab, modSuper .|. modShift, cycleWindowsBack)
   , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
   , (keyF, modSuper, toggleFullscreenCurrentWindow)
+  , (keyT, modSuper, zoomWindow)
   , (keySpace, modSuper, toggleFloatingCurrentWindow)
   , (keyEnter, modSuper, exec "foot")
   , (keyZ, modSuper, exec "foot -e yazi")
@@ -39,6 +49,11 @@ allKeyBindings =
   , (key9, modSuper, switchWorkspace 9)
   , (keyEqual, modSuper, modifyLayoutRatio 4)
   , (keyMinus, modSuper, modifyLayoutRatio (-4))
+  ]
+
+allPointerBindings :: [(CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ())]
+allPointerBindings =
+  [ (272, 8, dragWindow, stopDragging)
   ]
 
 defaultLayouts :: M.Map WorkspaceID LayoutType
@@ -70,3 +85,10 @@ borderPx = 2
 borderColor, focusedBorderColor :: Word32
 borderColor = 0x444444ff
 focusedBorderColor = 0x7fc8ffff
+
+cycleWindowsOrSlaves :: IORef WMState -> IO ()
+cycleWindowsOrSlaves stateIORef = do
+  state <- readIORef stateIORef
+  case layoutName (workspaceLayouts state M.! (focusedWorkspace state)) of
+    "TwoPane" -> cycleWindowSlaves stateIORef
+    _ -> cycleWindows stateIORef
