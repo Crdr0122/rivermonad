@@ -27,6 +27,7 @@ data WMState = WMState
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell
+  , draggingWindow :: Bool
   }
 
 data WlDisplay
@@ -54,10 +55,7 @@ data Window = Window
   , nodePtr :: Ptr RiverNode
   , isFloating :: Bool
   , isFullscreen :: Bool
-  , floatingWidth :: CInt
-  , floatingHeight :: CInt
-  , floatingX :: CInt
-  , floatingY :: CInt
+  , floatingGeometry :: Maybe Rect
   }
   deriving (Eq)
 

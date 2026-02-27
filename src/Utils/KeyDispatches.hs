@@ -48,13 +48,48 @@ floatCurrentWindow stateIORef = do
   case focusedWindow state of
     Nothing -> pure ()
     Just win -> do
-      let float x = x{isFloating = True}
-          newWindows = M.adjust float win (allWindows state)
-          newTiled = B.delete win (allWorkspacesTiled state)
-          newFloating = B.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+      let
+        o = allOutputs state M.! focusedOutput state
+        oldWindow = (allWindows state M.! win)
+        (calcPos, mAction, rAction) =
+          ( Rect
+              { rx = offsetX
+              , ry = offsetY
+              , rw = w
+              , rh = h
+              }
+          , riverWindowProposeDimensions win (fromIntegral w) (fromIntegral h)
+          , riverNodeSetPosition
+              (nodePtr oldWindow)
+              (fromIntegral (offsetX + outX o))
+              (fromIntegral (offsetY + outY o))
+          )
+         where
+          w = outWidth o * 6 `div` 10
+          h = outHeight o * 6 `div` 10
+          offsetX = (outWidth o - w) `div` 2
+          offsetY = (outHeight o - h) `div` 2
+        (newGeo) = case floatingGeometry oldWindow of
+          Nothing -> calcPos
+          Just g -> g
+        newWindows =
+          M.adjust
+            (\w -> w{isFloating = True, floatingGeometry = Just newGeo})
+            win
+            (allWindows state)
+        newTiled = B.delete win (allWorkspacesTiled state)
+        newFloating = B.insert (focusedWorkspace state) win (allWorkspacesFloating state)
 
+      writeIORef
+        stateIORef
+        state
+          { allWindows = newWindows
+          , allWorkspacesFloating = newFloating
+          , allWorkspacesTiled = newTiled
+          , manageQueue = manageQueue state >> mAction
+          , renderQueue = renderQueue state >> rAction
+          }
       riverWindowManagerManageDirty (currentWmManager state)
-      writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
 
 tileCurrentWindow :: IORef WMState -> IO ()
 tileCurrentWindow stateIORef = do

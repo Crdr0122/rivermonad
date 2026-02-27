@@ -17,17 +17,11 @@ hsPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsPointerEnter dataPtr seat win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
-  let focusWin = riverSeatFocusWindow seat win
-      window = (allWindows state) M.! win
-      node = nodePtr window
-      newActions
-        | isFloating window = focusWin >> riverNodePlaceTop node
-        | otherwise = focusWin
   writeIORef
     stateIORef
     state
       { focusedWindow = Just (win)
-      , manageQueue = manageQueue state >> newActions
+      , manageQueue = manageQueue state >> riverSeatFocusWindow seat win
       }
 
 hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()

@@ -58,10 +58,10 @@ getTileableWindows state =
     (tileable, fullscreened, windowPtrs ++ windowFloatingPtrs)
 
 raiseAllWindows :: [Window] -> IO ()
-raiseAllWindows = mapM_ (\w -> riverNodePlaceTop (nodePtr w))
+raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 
 lowerAllWindows :: [Window] -> IO ()
-lowerAllWindows = mapM_ (\w -> riverNodePlaceBottom (nodePtr w))
+lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
 
 shrinkWindows :: Int -> [(Window, Rect)] -> [(Window, Rect)]
 shrinkWindows b =

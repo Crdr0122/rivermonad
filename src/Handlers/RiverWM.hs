@@ -33,10 +33,7 @@ hsOnNewWindow dataPtr win = do
           , nodePtr = node
           , isFloating = False
           , isFullscreen = False
-          , floatingHeight = 0
-          , floatingWidth = 0
-          , floatingX = 0
-          , floatingY = 0
+          , floatingGeometry = Nothing
           }
   _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)

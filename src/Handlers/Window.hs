@@ -50,6 +50,11 @@ hsWindowDimensions dataPtr winP width height = do
   state <- readIORef stateIORef
   let w = allWindows state M.! winP
   when (isFloating w) $ do
-    let newWindow = w{floatingHeight = height, floatingWidth = width}
+    let newGeometry =
+          (fromMaybe (Rect 0 0 0 0) (floatingGeometry w))
+            { rw = fromIntegral width
+            , rh = fromIntegral height
+            }
+        newWindow = w{floatingGeometry = Just newGeometry}
         newAllWindows = M.insert winP newWindow (allWindows state)
     writeIORef stateIORef state{allWindows = newAllWindows}
