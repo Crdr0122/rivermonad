@@ -67,7 +67,8 @@ main = do
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell
         , opDeltaState = None
-        , currentOpDelta = (0, 0)
+        , currentOpDelta = (0, 0, 0, 0)
+        , cursorPosition = (0, 0)
         }
   stPtr <- newStablePtr st
 

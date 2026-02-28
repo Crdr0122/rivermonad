@@ -49,7 +49,7 @@ hsWindowDimensions dataPtr winP width height = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state@WMState{opDeltaState} <- readIORef stateIORef
   case opDeltaState of
-    Resizing -> pure ()
+    Resizing _ -> pure ()
     _ -> do
       let w@Window{isFloating, floatingGeometry} = allWindows state M.! winP
       when isFloating $ do

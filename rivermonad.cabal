@@ -89,6 +89,8 @@ executable rivermonad
     generated/river-layer-shell.c
     generated/river-wm.c
     generated/river-xkb-binding.c
+    generated/river-xkb-config.c
+    generated/river-input-management.c
 
   include-dirs:
     c_src

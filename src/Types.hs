@@ -21,17 +21,18 @@ data WMState = WMState
   , lastFocusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
-  , workspaceRatios :: Map WorkspaceID CInt
+  , workspaceRatios :: Map WorkspaceID Double
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell
   , opDeltaState :: OpDeltaState
-  , currentOpDelta :: (CInt, CInt)
+  , currentOpDelta :: (CInt, CInt, CInt, CInt)
+  , cursorPosition :: (CInt, CInt)
   }
 
-data OpDeltaState = Dragging | Resizing | None
+data OpDeltaState = Dragging | Resizing RiverEdge | ResizingTile | None
 
 data WlDisplay
 data WlRegistry
@@ -44,6 +45,7 @@ data RiverShellSurface
 data RiverWMManager
 data RiverXkbBinding
 data RiverXkbBindings
+data RiverXkbConfig
 data RiverLayerShell
 data RiverLayerShellOutput
 data RiverLayerShellSeat
@@ -78,12 +80,26 @@ data KeyConfig = KeyConfig
   , action :: WMState -> IO ()
   }
 
-data LayoutType = LayoutType {layoutName :: String, layoutFun :: CInt -> Rect -> [Window] -> [(Window, Rect)]}
+data LayoutType = LayoutType {layoutName :: String, layoutFun :: Double -> Rect -> [Window] -> [(Window, Rect)]}
 
 type RiverEdge = CUInt
 
-edgeNone, edgeTop, edgeBottom, edgeLeft, edgeRight, edgeAll :: RiverEdge
+edgeNone
+  , edgeTop
+  , edgeBottom
+  , edgeLeft
+  , edgeRight
+  , edgeAll
+  , edgeTopRight
+  , edgeTopLeft
+  , edgeBottomRight
+  , edgeBottomLeft ::
+    RiverEdge
 edgeAll = edgeBottom .|. edgeLeft .|. edgeTop .|. edgeRight
+edgeTopRight = edgeTop .|. edgeRight
+edgeTopLeft = edgeTop .|. edgeLeft
+edgeBottomRight = edgeBottom .|. edgeRight
+edgeBottomLeft = edgeBottom .|. edgeLeft
 edgeNone = 0
 edgeTop = 1
 edgeBottom = 2

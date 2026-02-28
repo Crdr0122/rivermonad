@@ -8,7 +8,7 @@ stackLayout = LayoutType "Stack" applyStack
   applyStack _ _ [] = []
   applyStack _ total [w] = [(w, total)] -- Only one window? It gets the whole screen
   applyStack r total (master : slaves) =
-    let masterWidth = rw total `div` 100 * r
+    let masterWidth = truncate $ fromIntegral (rw total) * r
         masterRect = total{rw = masterWidth}
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveHeight = rh stackRect `div` (fromIntegral $ length slaves)
@@ -32,7 +32,7 @@ twoPaneLayout = LayoutType "TwoPane" applyTwoPane
   applyTwoPane _ _ [] = []
   applyTwoPane _ total [w] = [(w, total)]
   applyTwoPane r total (master : slaves) =
-    let masterWidth = rw total `div` 100 * r
+    let masterWidth = truncate $ fromIntegral (rw total) * r
         masterRect = total{rw = masterWidth}
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveGeos = map (\w -> (w, stackRect)) slaves

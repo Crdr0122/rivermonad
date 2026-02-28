@@ -77,6 +77,27 @@ key7 = 0x0037
 key8 = 0x0038
 key9 = 0x0039
 
+keyKP0 :: CUInt
+keyKP1 :: CUInt
+keyKP2 :: CUInt
+keyKP3 :: CUInt
+keyKP4 :: CUInt
+keyKP5 :: CUInt
+keyKP6 :: CUInt
+keyKP7 :: CUInt
+keyKP8 :: CUInt
+keyKP9 :: CUInt
+keyKP0 = 0xffb0
+keyKP1 = 0xffb1
+keyKP2 = 0xffb2
+keyKP3 = 0xffb3
+keyKP4 = 0xffb4
+keyKP5 = 0xffb5
+keyKP6 = 0xffb6
+keyKP7 = 0xffb7
+keyKP8 = 0xffb8
+keyKP9 = 0xffb9
+
 keyEnter :: CUInt
 keyEnter = 0xFF0D
 

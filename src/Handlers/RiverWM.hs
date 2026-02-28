@@ -6,8 +6,9 @@ import Config
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
-import Handlers.XkbBindings
+import Foreign.C
 import Handlers.PointerBindings
+import Handlers.XkbBindings
 import Layout
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -55,6 +56,8 @@ hsOnNewSeat dataPtr seat = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   writeIORef stateIORef state{focusedSeat = seat}
+  theme <- newCString (fst xCursorTheme)
+  riverSeatSetXcursorTheme seat theme (snd xCursorTheme)
   mapM_ (registerKeybind dataPtr seat) allKeyBindings
   mapM_ (registerPointerbind dataPtr seat) allPointerBindings
 

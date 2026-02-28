@@ -1,6 +1,8 @@
+#include "../generated/river-input-management.h"
 #include "../generated/river-layer-shell.h"
 #include "../generated/river-wm.h"
 #include "../generated/river-xkb-binding.h"
+#include "../generated/river-xkb-config.h"
 #include <stdio.h>
 #include <string.h>
 #include <wayland-client-core.h>
@@ -11,13 +13,14 @@ static struct river_wm *river = NULL;
 static struct river_output *output = NULL;
 static struct river_xkb_bindings *xkb_binding = NULL;
 static struct river_layer_shell *layer_shell = NULL;
+static struct river_xkb_config *xkb_config = NULL;
 
 static void registry_global(void *data, struct wl_registry *registry,
                             uint32_t name, const char *interface,
                             uint32_t version) {
   // printf("Interface: %s\n", interface);
   if (strcmp(interface, wl_compositor_interface.name) == 0) {
-    compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
+    compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 6);
     printf("Bound wl_compositor!\n");
   }
 
@@ -27,14 +30,9 @@ static void registry_global(void *data, struct wl_registry *registry,
     printf("Bound river_wm!\n");
   }
 
-  if (strcmp(interface, river_output_v1_interface.name) == 0) {
-    output = wl_registry_bind(registry, name, &river_output_v1_interface, 1);
-    printf("Bound river_output!\n");
-  }
-
   if (strcmp(interface, river_xkb_bindings_v1_interface.name) == 0) {
     xkb_binding =
-        wl_registry_bind(registry, name, &river_xkb_bindings_v1_interface, 1);
+        wl_registry_bind(registry, name, &river_xkb_bindings_v1_interface, 2);
     printf("Bound river_xkb_binding!\n");
   }
 
@@ -42,6 +40,18 @@ static void registry_global(void *data, struct wl_registry *registry,
     layer_shell =
         wl_registry_bind(registry, name, &river_layer_shell_v1_interface, 1);
     printf("Bound river_layer_shell!\n");
+  }
+
+  // if (strcmp(interface, river_xkb_config_v1_interface.name) == 0) {
+  //   xkb_config =
+  //       wl_registry_bind(registry, name, &river_xkb_config_v1_interface, 1);
+  //   printf("Bound river_input_management!\n");
+  // }
+
+  if (strcmp(interface, river_xkb_config_v1_interface.name) == 0) {
+    xkb_config =
+        wl_registry_bind(registry, name, &river_xkb_config_v1_interface, 1);
+    printf("Bound river_xkb_config!\n");
   }
 }
 static void registry_global_remove(void *data, struct wl_registry *registry,
@@ -56,6 +66,6 @@ const struct wl_registry_listener *get_registry_listener(void) {
 
 struct wl_compositor *get_compositor(void) { return compositor; }
 struct river_wm *get_river(void) { return river; }
-struct river_output *get_output(void) { return output; }
 struct river_xkb_bindings *get_xkb_bindings(void) { return xkb_binding; }
 struct river_layer_shell *get_layer_shell(void) { return layer_shell; }
+struct river_xkb_config *get_xkb_config(void) { return xkb_config; }
