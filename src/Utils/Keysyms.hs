@@ -93,8 +93,12 @@ keyEqual :: CUInt
 keyEqual = 0x003d
 
 -- Pointer
-keyPointerLeft :: CUInt
-keyPointerLeft = 0xfee0
+btnLeft, btnRight, btnMiddle, btnSide, btnExtra :: CUInt
+btnLeft = 0x110
+btnRight = 0x111
+btnMiddle = 0x112
+btnSide = 0x113
+btnExtra = 0x114
 
 -- Modifiers
 modNone :: CUInt

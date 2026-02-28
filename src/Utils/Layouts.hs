@@ -11,7 +11,7 @@ stackLayout = LayoutType "Stack" applyStack
     let masterWidth = rw total `div` 100 * r
         masterRect = total{rw = masterWidth}
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
-        slaveHeight = rh stackRect `div` length slaves
+        slaveHeight = rh stackRect `div` (fromIntegral $ length slaves)
 
         -- Map over slaves to give them each a slice of the stack height
         slaveGeos =

@@ -13,7 +13,7 @@ import Data.Bits ((.|.))
 import Data.IORef
 import Data.Map qualified as M
 import Data.Word (Word32)
-import Foreign.C (CInt, CUInt)
+import Foreign.C (CInt, CString, CUInt)
 import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
@@ -53,7 +53,8 @@ allKeyBindings =
 
 allPointerBindings :: [(CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ())]
 allPointerBindings =
-  [ (272, 8, dragWindow, stopDragging)
+  [ (btnLeft, modSuper, dragWindow, stopDragging)
+  , (btnRight, modSuper, resizeWindow, stopResizing)
   ]
 
 defaultLayouts :: M.Map WorkspaceID LayoutType
@@ -70,7 +71,7 @@ defaultLayouts =
     , (9, monocleLayout)
     ]
 
-defaultRatios :: M.Map WorkspaceID Int
+defaultRatios :: M.Map WorkspaceID CInt
 defaultRatios =
   M.fromList $
     zip [1 .. 9] (repeat 60)
@@ -92,3 +93,6 @@ cycleWindowsOrSlaves stateIORef = do
   case layoutName (workspaceLayouts state M.! (focusedWorkspace state)) of
     "TwoPane" -> cycleWindowSlaves stateIORef
     _ -> cycleWindows stateIORef
+
+-- xCursorTheme :: (CString, CInt)
+-- xCursorTheme = ("Himehina", 24)

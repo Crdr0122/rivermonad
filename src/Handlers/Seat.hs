@@ -35,55 +35,66 @@ hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsWindowInteraction dataPtr _ win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
-  let window = (allWindows state) M.! win
-      node = nodePtr window
-  when (isFloating window) $ do
+  let Window{nodePtr, isFloating} = (allWindows state) M.! win
+  when isFloating $ do
     writeIORef
       stateIORef
       state
         { focusedWindow = Just (win)
-        , manageQueue = manageQueue state >> riverNodePlaceTop node
+        , manageQueue = manageQueue state >> riverNodePlaceTop nodePtr
         }
 
 hsOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 hsOpDelta dataPtr _ dx dy = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  when (isDraggingWindow state) $ do
-    case focusedWindow state of
-      Nothing -> pure ()
-      Just w -> do
-        let
-          window = allWindows state M.! w
-        case floatingGeometry window of
-          Nothing -> pure ()
-          Just Rect{rx, ry} -> do
-            let
-              Output{outX, outY} = allOutputs state M.! focusedOutput state
-              (newX, newY) = (rx + fromIntegral dx, ry + fromIntegral dy)
-              reposition =
-                riverNodeSetPosition (nodePtr window) (fromIntegral $ newX + outX) (fromIntegral $ newY + outY)
-            writeIORef
-              stateIORef
-              state
-                { renderQueue = renderQueue state >> reposition
-                , currentOpDelta = (fromIntegral dx, fromIntegral dy)
-                }
+  state@WMState
+    { allOutputs
+    , focusedOutput
+    , focusedWindow
+    , allWindows
+    } <-
+    readIORef stateIORef
+  case opDeltaState state of
+    None -> pure ()
+    Dragging -> do
+      case focusedWindow of
+        Nothing -> pure ()
+        Just w -> do
+          let
+            Window{floatingGeometry, nodePtr} = allWindows M.! w
+          case floatingGeometry of
+            Nothing -> pure ()
+            Just Rect{rx, ry} -> do
+              let
+                Output{outX, outY} = allOutputs M.! focusedOutput
+                (newX, newY) = (rx + dx, ry + dy)
+                reposition =
+                  riverNodeSetPosition nodePtr (newX + outX) (newY + outY)
+              writeIORef
+                stateIORef
+                state
+                  { renderQueue = renderQueue state >> reposition
+                  , currentOpDelta = (dx, dy)
+                  }
+    Resizing -> do
+      case focusedWindow of
+        Nothing -> pure ()
+        Just w -> do
+          let
+            Window{floatingGeometry} = allWindows M.! w
+          case floatingGeometry of
+            Nothing -> pure ()
+            Just Rect{rw, rh} -> do
+              let
+                (newW, newH) = (max (rw + dx) 15, max (rh + dy) 15)
+                resize =
+                  riverWindowProposeDimensions w newW newH
+              writeIORef
+                stateIORef
+                state
+                  { manageQueue = manageQueue state >> resize
+                  , currentOpDelta = (dx, dy)
+                  }
 
 hsOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
-hsOpRelease dataPtr _ = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  case focusedWindow state of
-    Nothing -> pure ()
-    Just w -> do
-      let
-        window = allWindows state M.! w
-      case floatingGeometry window of
-        Nothing -> pure ()
-        Just Rect{rx, ry, rw, rh} -> do
-          let
-            (dx, dy) = currentOpDelta state
-            (newX, newY) = (rx + dx, ry + dy)
-            newWindows = M.insert w window{floatingGeometry = Just Rect{rx = newX, ry = newY, rw, rh}} (allWindows state)
-          writeIORef stateIORef state{allWindows = newWindows}
+hsOpRelease _ _ = pure ()

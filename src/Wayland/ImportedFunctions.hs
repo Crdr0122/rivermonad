@@ -76,7 +76,7 @@ foreign import capi "river-wm.h river_window_v1_set_content_clip_box"
 foreign import capi "river-wm.h river_node_v1_destroy"
   riverNodeDestroy :: Ptr RiverNode -> IO ()
 foreign import capi "river-wm.h river_node_v1_set_position"
-  riverNodeSetPosition :: Ptr RiverNode -> CUInt -> CUInt -> IO ()
+  riverNodeSetPosition :: Ptr RiverNode -> CInt -> CInt -> IO ()
 foreign import capi "river-wm.h river_node_v1_place_top"
   riverNodePlaceTop :: Ptr RiverNode -> IO ()
 foreign import capi "river-wm.h river_node_v1_place_bottom"

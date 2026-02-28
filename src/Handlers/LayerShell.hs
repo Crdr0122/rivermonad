@@ -3,12 +3,13 @@ module Handlers.LayerShell where
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
+import Foreign.C
 import Types
 
 foreign export ccall "hs_layer_shell_output_non_exclusive_area"
-  hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> Int -> Int -> Int -> Int -> IO ()
+  hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
 
-hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> Int -> Int -> Int -> Int -> IO ()
+hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do

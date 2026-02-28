@@ -8,15 +8,15 @@ import Types
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_output_position"
-  hsOutputPosition :: Ptr () -> Ptr RiverOutput -> Int -> Int -> IO ()
+  hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 foreign export ccall "hs_output_dimensions"
-  hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> Int -> Int -> IO ()
+  hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 foreign export ccall "hs_output_removed"
   hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 foreign export ccall "hs_output_wl_output"
   hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 
-hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> Int -> Int -> IO ()
+hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputDimensions dataPtr output width height = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do
@@ -28,7 +28,7 @@ hsOutputDimensions dataPtr output width height = do
             newOutputs = M.insert output updatedOutput oldOutputs
         state{allOutputs = newOutputs}
 
-hsOutputPosition :: Ptr () -> Ptr RiverOutput -> Int -> Int -> IO ()
+hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputPosition dataPtr output x y = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do

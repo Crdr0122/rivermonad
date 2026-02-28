@@ -6,7 +6,7 @@ import Foreign
 import Foreign.C
 import Utils.BiSeqMap
 
-data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show, Eq)
+data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
 type WorkspaceID = Int
 type WMStateRef = IORef WMState
 data WMState = WMState
@@ -21,15 +21,17 @@ data WMState = WMState
   , lastFocusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
-  , workspaceRatios :: Map WorkspaceID Int
+  , workspaceRatios :: Map WorkspaceID CInt
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell
-  , isDraggingWindow :: Bool
-  , currentOpDelta :: (Int, Int)
+  , opDeltaState :: OpDeltaState
+  , currentOpDelta :: (CInt, CInt)
   }
+
+data OpDeltaState = Dragging | Resizing | None
 
 data WlDisplay
 data WlRegistry
@@ -63,10 +65,10 @@ data Window = Window
 data Output = Output
   { outPtr :: Ptr RiverOutput
   , outLayerShell :: Ptr RiverLayerShellOutput
-  , outWidth :: Int
-  , outHeight :: Int
-  , outX :: Int
-  , outY :: Int
+  , outWidth :: CInt
+  , outHeight :: CInt
+  , outX :: CInt
+  , outY :: CInt
   }
   deriving (Eq)
 
@@ -76,7 +78,7 @@ data KeyConfig = KeyConfig
   , action :: WMState -> IO ()
   }
 
-data LayoutType = LayoutType {layoutName :: String, layoutFun :: Int -> Rect -> [Window] -> [(Window, Rect)]}
+data LayoutType = LayoutType {layoutName :: String, layoutFun :: CInt -> Rect -> [Window] -> [(Window, Rect)]}
 
 type RiverEdge = CUInt
 

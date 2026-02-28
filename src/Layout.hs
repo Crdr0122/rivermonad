@@ -15,28 +15,24 @@ startLayout state = do
   let mOut = M.lookup (focusedOutput state) (allOutputs state)
   case mOut of
     Nothing -> pure (pure ())
-    Just out -> do
+    Just Output{outX, outY, outHeight, outWidth} -> do
       let (tileable, fullscreened, allNeededWindowPtrs) = getTileableWindows state
-          geometry = Rect{rx = outX out, ry = outY out, rh = outHeight out, rw = outWidth out}
+          geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
           ratio = workspaceRatios state M.! focusedWorkspace state
           layout = layoutFun (workspaceLayouts state M.! focusedWorkspace state) ratio geometry (toList tileable)
-          borderedLayout = shrinkWindows (fromIntegral borderPx) layout
+          borderedLayout = shrinkWindows borderPx layout
 
       -- Step A: Send manage requests immediately
       -- River expects propose_dimensions during the manage cycle
       mapM_
-        ( \(w, rect) ->
-            riverWindowProposeDimensions (winPtr w) (fromIntegral $ rw rect) (fromIntegral $ rh rect)
-        )
+        (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh)
         borderedLayout
 
       -- Step B: Return the render actions for the renderQueue
       -- These will be executed when the compositor sends a render event
       let renderNodeActions =
             mapM_
-              ( \(w, rect) ->
-                  riverNodeSetPosition (nodePtr w) (fromIntegral $ rx rect) (fromIntegral $ ry rect)
-              )
+              (\(Window{nodePtr}, Rect{rx, ry}) -> riverNodeSetPosition nodePtr rx ry)
               borderedLayout
 
           renderBorderActions =
@@ -65,7 +61,7 @@ raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
 
-shrinkWindows :: Int -> [(Window, Rect)] -> [(Window, Rect)]
+shrinkWindows :: CInt -> [(Window, Rect)] -> [(Window, Rect)]
 shrinkWindows b =
   map
     ( \(w, r) ->

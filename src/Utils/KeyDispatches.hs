@@ -5,6 +5,7 @@ import Data.IORef
 import Data.List
 import Data.Map qualified as M
 import Data.Sequence qualified as S
+import Foreign.C
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -58,11 +59,11 @@ floatCurrentWindow stateIORef = do
               , rw = w
               , rh = h
               }
-          , riverWindowProposeDimensions win (fromIntegral w) (fromIntegral h)
+          , riverWindowProposeDimensions win w h
           , riverNodeSetPosition
               (nodePtr oldWindow)
-              (fromIntegral (offsetX + outX o))
-              (fromIntegral (offsetY + outY o))
+              (offsetX + outX o)
+              (offsetY + outY o)
           )
          where
           w = outWidth o * 6 `div` 10
@@ -229,7 +230,7 @@ cycleLayout layouts stateIORef = do
       writeIORef stateIORef state{workspaceLayouts = newWorkspaceLayouts}
       riverWindowManagerManageDirty $ currentWmManager state
 
-modifyLayoutRatio :: Int -> IORef WMState -> IO ()
+modifyLayoutRatio :: CInt -> IORef WMState -> IO ()
 modifyLayoutRatio change stateIORef = do
   state <- readIORef stateIORef
   let newWorkspaceRatios =
@@ -246,15 +247,80 @@ exec command _ = spawnCommand command >> pure ()
 dragWindow :: IORef WMState -> IO ()
 dragWindow stateIORef = do
   state <- readIORef stateIORef
-  let needToDrag = case focusedWindow state of
-        Nothing -> False
-        Just w -> isFloating (allWindows state M.! w)
-  when needToDrag $ do
-    riverSeatOpStartPointer (focusedSeat state)
-    writeIORef stateIORef state{isDraggingWindow = needToDrag}
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just w -> when (isFloating (allWindows state M.! w)) $ do
+      riverSeatOpStartPointer (focusedSeat state)
+      writeIORef stateIORef state{opDeltaState = Dragging}
 
 stopDragging :: IORef WMState -> IO ()
 stopDragging stateIORef = do
   state <- readIORef stateIORef
-  let stop = riverSeatOpEnd (focusedSeat state)
-  writeIORef stateIORef state{manageQueue = manageQueue state >> stop, isDraggingWindow = False}
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just w -> do
+      let
+        window = allWindows state M.! w
+        stop = riverSeatOpEnd (focusedSeat state)
+      case floatingGeometry window of
+        Nothing -> pure ()
+        Just r@Rect{rx, ry} -> do
+          let
+            (dx, dy) = currentOpDelta state
+            (newX, newY) = (rx + dx, ry + dy)
+            newWindows =
+              M.insert w window{floatingGeometry = Just r{rx = newX, ry = newY}} (allWindows state)
+          writeIORef
+            stateIORef
+            state
+              { allWindows = newWindows
+              , manageQueue = manageQueue state >> stop
+              , opDeltaState = None
+              , currentOpDelta = (0, 0)
+              }
+
+resizeWindow :: IORef WMState -> IO ()
+resizeWindow stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just w -> when (isFloating (allWindows state M.! w)) $ do
+      let warp = case (floatingGeometry (allWindows state M.! w)) of
+            Nothing -> pure ()
+            Just Rect{rx, ry, rw, rh} -> do
+              let
+                Output{outX, outY} = allOutputs state M.! focusedOutput state
+              riverSeatPointerWarp (focusedSeat state) (outX + rw + rx) (outY + rh + ry)
+      writeIORef
+        stateIORef
+        state
+          { opDeltaState = Resizing
+          , manageQueue = manageQueue state >> riverWindowInformResizeStart w
+          }
+      riverSeatOpStartPointer (focusedSeat state)
+
+stopResizing :: IORef WMState -> IO ()
+stopResizing stateIORef = do
+  state <- readIORef stateIORef
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just w -> do
+      let
+        window = allWindows state M.! w
+        stop = riverSeatOpEnd (focusedSeat state)
+      case floatingGeometry window of
+        Nothing -> pure ()
+        Just r@Rect{rw, rh} -> do
+          let
+            (dx, dy) = currentOpDelta state
+            (newW, newH) = (max (rw + dx) 15, max (rh + dy) 15)
+            newWindows =
+              M.insert w window{floatingGeometry = Just r{rw = newW, rh = newH}} (allWindows state)
+          writeIORef
+            stateIORef
+            state
+              { allWindows = newWindows
+              , manageQueue = manageQueue state >> stop >> riverWindowInformResizeEnd w
+              , opDeltaState = None
+              , currentOpDelta = (0, 0)
+              }

@@ -47,14 +47,17 @@ hsWindowClosed dataPtr win = do
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
 hsWindowDimensions dataPtr winP width height = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  let w = allWindows state M.! winP
-  when (isFloating w) $ do
-    let newGeometry =
-          (fromMaybe (Rect 0 0 0 0) (floatingGeometry w))
-            { rw = fromIntegral width
-            , rh = fromIntegral height
-            }
-        newWindow = w{floatingGeometry = Just newGeometry}
-        newAllWindows = M.insert winP newWindow (allWindows state)
-    writeIORef stateIORef state{allWindows = newAllWindows}
+  state@WMState{opDeltaState} <- readIORef stateIORef
+  case opDeltaState of
+    Resizing -> pure ()
+    _ -> do
+      let w@Window{isFloating, floatingGeometry} = allWindows state M.! winP
+      when isFloating $ do
+        let newGeometry =
+              (fromMaybe (Rect 0 0 0 0) floatingGeometry)
+                { rw = width
+                , rh = height
+                }
+            newWindow = w{floatingGeometry = Just newGeometry}
+            newAllWindows = M.insert winP newWindow (allWindows state)
+        writeIORef stateIORef state{allWindows = newAllWindows}

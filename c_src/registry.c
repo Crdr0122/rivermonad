@@ -23,7 +23,7 @@ static void registry_global(void *data, struct wl_registry *registry,
 
   if (strcmp(interface, river_window_manager_v1_interface.name) == 0) {
     river =
-        wl_registry_bind(registry, name, &river_window_manager_v1_interface, 1);
+        wl_registry_bind(registry, name, &river_window_manager_v1_interface, 3);
     printf("Bound river_wm!\n");
   }
 
