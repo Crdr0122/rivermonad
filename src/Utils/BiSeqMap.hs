@@ -1,4 +1,4 @@
-module Utils.BiSeqMap (BiSeqMap, empty, insert, lookupA, lookupBs, delete, move, insertSeq) where
+module Utils.BiSeqMap (BiSeqMap, empty, insert, lookupA, lookupBs, delete, move, insertSeq, insertList) where
 
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S
@@ -23,6 +23,12 @@ insertSeq :: (Ord a, Ord b) => a -> S.Seq b -> BiSeqMap a b -> BiSeqMap a b
 insertSeq a bs (BiSeqMap ab ba) = BiSeqMap ab' ba
  where
   ab' = M.insert a bs ab
+
+insertList :: (Ord a, Ord b) => a -> [b] -> BiSeqMap a b -> BiSeqMap a b
+insertList _ [] x = x
+insertList a bs (BiSeqMap ab ba) = BiSeqMap ab' ba
+ where
+  ab' = M.insertWith (S.><) a (S.fromList bs) ab
 
 -- \| M.member b ba = bimap
 -- \| otherwise =

@@ -98,6 +98,29 @@ keyKP7 = 0xffb7
 keyKP8 = 0xffb8
 keyKP9 = 0xffb9
 
+keyHome :: CUInt
+keyLeft :: CUInt
+keyUp :: CUInt
+keyRight :: CUInt
+keyDown :: CUInt
+keyPrior :: CUInt
+keyPageUp :: CUInt
+keyNext :: CUInt
+keyPageDown :: CUInt
+keyEnd :: CUInt
+keyBegin :: CUInt
+keyHome = 0xff50
+keyLeft = 0xff51
+keyUp = 0xff52
+keyRight = 0xff53
+keyDown = 0xff54
+keyPrior = 0xff55
+keyPageUp = 0xff55
+keyNext = 0xff56
+keyPageDown = 0xff56
+keyEnd = 0xff57
+keyBegin = 0xff58
+
 keyEnter :: CUInt
 keyEnter = 0xFF0D
 

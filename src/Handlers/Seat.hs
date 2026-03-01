@@ -79,11 +79,12 @@ hsOpDelta dataPtr _ dx dy = do
                   , currentOpDelta = (newX, newY, 0, 0)
                   }
         Resizing edge -> do
-          let Window{floatingGeometry, nodePtr} = allWindows M.! win
+          let Window{floatingGeometry, nodePtr, dimensionsHint} = allWindows M.! win
           case floatingGeometry of
             Nothing -> pure ()
             Just Rect{rx, ry, rw, rh} -> do
-              let (w, h, x, y)
+              let (minW, minH, _, _) = dimensionsHint
+                  (w, h, x, y)
                     | edge == edgeTop = (rw, newHeightMinus, rx, newY)
                     | edge == edgeBottom = (rw, newHeightPlus, rx, ry)
                     | edge == edgeRight = (newWidthPlus, rh, rx, ry)
@@ -94,12 +95,14 @@ hsOpDelta dataPtr _ dx dy = do
                     | edge == edgeBottomRight = (newWidthPlus, newHeightPlus, rx, ry)
                     | otherwise = (rw, rh, rx, ry)
                    where
-                    newX = min (rx + dx) (rw + rx - 15)
-                    newY = min (ry + dy) (ry + rh - 15)
-                    newWidthMinus = max (rw - dx) 15
-                    newWidthPlus = max (rw + dx) 15
-                    newHeightMinus = max (rh - dy) 15
-                    newHeightPlus = max (rh + dy) 15
+                    minminW = max minW 15
+                    minminH = max minH 15
+                    newX = min (rx + dx) (rw + rx - minminW)
+                    newY = min (ry + dy) (ry + rh - minminH)
+                    newWidthMinus = max (rw - dx) minminW
+                    newWidthPlus = max (rw + dx) minminW
+                    newHeightMinus = max (rh - dy) minminH
+                    newHeightPlus = max (rh + dy) minminH
               writeIORef
                 stateIORef
                 state

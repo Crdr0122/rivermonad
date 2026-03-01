@@ -24,6 +24,10 @@ data WMState = WMState
   , workspaceRatios :: Map WorkspaceID Double
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
+  , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
+  , tilingQueue :: [Ptr RiverWindow]
+  , floatingQueue :: [Ptr RiverWindow]
+  , fullscreenQueue :: [Ptr RiverWindow]
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentLayerShell :: Ptr RiverLayerShell
@@ -61,6 +65,9 @@ data Window = Window
   , isFloating :: Bool
   , isFullscreen :: Bool
   , floatingGeometry :: Maybe Rect
+  , tilingGeometry :: Maybe Rect
+  , dimensionsHint :: (CInt, CInt, CInt, CInt)
+  , parentWindow :: Maybe (Ptr RiverWindow)
   }
   deriving (Eq)
 

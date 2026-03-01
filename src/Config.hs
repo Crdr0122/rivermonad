@@ -47,10 +47,10 @@ defaultRatios =
 
 execOnStart :: [String]
 execOnStart =
-  [ "foot"
-  , "thunar"
-  , "foot -e yazi"
-  , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
+  [ "thunar"
+  -- , "thunar"
+  -- , "foot -e yazi"
+  -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
   , "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
   ]
 
@@ -124,6 +124,14 @@ allKeyBindings =
   , (keyKP6, modSuperShift, moveWindowToWorkspace 6 True)
   , (keyKP7, modSuperShift, moveWindowToWorkspace 7 True)
   , (keyKP8, modSuperShift, moveWindowToWorkspace 8 True)
+  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyLeft, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyRight, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyUp, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyDown, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
   , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
   , (keyEqual, modSuper, modifyLayoutRatio 0.04)
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))

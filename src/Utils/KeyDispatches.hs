@@ -24,6 +24,7 @@ import Data.Sequence qualified as S
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.Helpers
 import Wayland.ImportedFunctions
 
 closeCurrentWindow :: IORef WMState -> IO ()
@@ -35,61 +36,86 @@ closeCurrentWindow stateIORef = do
 
 toggleFullscreenCurrentWindow :: IORef WMState -> IO ()
 toggleFullscreenCurrentWindow stateIORef = do
-  state <- readIORef stateIORef
-  case focusedWindow state of
+  state@WMState
+    { focusedWindow
+    , allWindows
+    , allWorkspacesFloating
+    , allWorkspacesFullscreen
+    , allWorkspacesTiled
+    , fullscreenQueue
+    , floatingQueue
+    , focusedWorkspace
+    , focusedOutput
+    , currentWmManager
+    } <-
+    readIORef stateIORef
+  case focusedWindow of
     Nothing -> pure ()
     Just win -> do
-      let toggle x = x{isFullscreen = not (isFullscreen x)}
-          newWindows = M.adjust toggle win (allWindows state)
-          w = allWindows state M.! win
-          action =
-            if isFullscreen w
-              then
-                riverWindowExitFullscreen win
-              else
-                riverWindowFullscreen win (focusedOutput state)
-      riverWindowManagerManageDirty (currentWmManager state)
-      writeIORef stateIORef state{allWindows = newWindows, manageQueue = manageQueue state >> action}
+      let window@Window{isFloating, isFullscreen} = allWindows M.! win
+          newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
+      let newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
+      writeIORef stateIORef newState{allWindows = newWindows}
+      riverWindowManagerManageDirty currentWmManager
+     where
+      fullscreenWindow f = do
+        let fA = riverWindowFullscreen win focusedOutput
+        if f
+          then
+            state
+              { allWorkspacesFloating = BS.delete win allWorkspacesFloating
+              , fullscreenQueue = win : fullscreenQueue
+              , manageQueue = manageQueue state >> fA
+              }
+          else
+            state
+              { allWorkspacesTiled = BS.delete win allWorkspacesTiled
+              , fullscreenQueue = win : fullscreenQueue
+              , manageQueue = manageQueue state >> fA
+              }
+
+      exitFullscreenWindow f = do
+        let fA = riverWindowExitFullscreen win
+        if f
+          then
+            state
+              { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+              , floatingQueue = win : floatingQueue
+              , manageQueue = manageQueue state >> fA
+              }
+          else
+            state
+              { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+              , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
+              , manageQueue = manageQueue state >> fA
+              }
 
 toggleFloatingCurrentWindow :: IORef WMState -> IO ()
 toggleFloatingCurrentWindow stateIORef = do
   state <- readIORef stateIORef
   case focusedWindow state of
     Nothing -> pure ()
-    Just win -> if isFloating (allWindows state M.! win) then tileCurrentWindow stateIORef else floatCurrentWindow stateIORef
+    Just win -> do
+      unless (isFullscreen (allWindows state M.! win)) $
+        if isFloating (allWindows state M.! win) then tileCurrentWindow stateIORef else floatCurrentWindow stateIORef
 
 floatCurrentWindow :: IORef WMState -> IO ()
 floatCurrentWindow stateIORef = do
   state <- readIORef stateIORef
   case focusedWindow state of
     Nothing -> pure ()
-    Just win -> do
+    Just winP -> do
       let
-        Output{outX, outY, outWidth, outHeight} = allOutputs state M.! focusedOutput state
-        Window{floatingGeometry, nodePtr} = (allWindows state M.! win)
-        (calcPos, mAction, rAction) = case floatingGeometry of
-          Nothing ->
-            ( Rect{rx = offsetX, ry = offsetY, rw = w, rh = h}
-            , riverWindowProposeDimensions win w h
-            , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
-            )
-          Just g@Rect{rx, ry, rw, rh} ->
-            ( g
-            , riverWindowProposeDimensions win rw rh
-            , riverNodeSetPosition nodePtr (outX + rx) (outY + ry)
-            )
-         where
-          w = outWidth * 6 `div` 10
-          h = outHeight * 6 `div` 10
-          offsetX = (outWidth - w) `div` 2
-          offsetY = (outHeight - h) `div` 2
+        o = allOutputs state M.! focusedOutput state
+        window = (allWindows state M.! winP)
+        (calcPos, mAction, rAction) = calculateFloatingPosition winP window o
         newWindows =
           M.adjust
             (\w -> w{isFloating = True, floatingGeometry = Just calcPos})
-            win
+            winP
             (allWindows state)
-        newTiled = BS.delete win (allWorkspacesTiled state)
-        newFloating = BS.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+        newTiled = BS.delete winP (allWorkspacesTiled state)
+        newFloating = BS.insert (focusedWorkspace state) winP (allWorkspacesFloating state)
 
       writeIORef
         stateIORef

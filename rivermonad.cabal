@@ -63,6 +63,7 @@ executable rivermonad
     Utils.KeyDispatches
     Utils.Keysyms
     Utils.Layouts
+    Utils.Helpers
     Wayland.Client
     Wayland.ImportedFunctions
 

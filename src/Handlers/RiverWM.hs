@@ -36,6 +36,9 @@ hsOnNewWindow dataPtr win = do
           , isFloating = False
           , isFullscreen = False
           , floatingGeometry = Nothing
+          , tilingGeometry = Nothing
+          , dimensionsHint = (0, 0, 0, 0)
+          , parentWindow = Nothing
           }
   _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
@@ -85,14 +88,8 @@ hsManageStart dataPtr wmManager = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   manageQueue state
-  renderActions <- startLayout state
+  startLayout stateIORef
   riverWindowManagerManageFinish wmManager
-  writeIORef
-    stateIORef
-    state
-      { manageQueue = return ()
-      , renderQueue = renderQueue state >> renderActions
-      }
 
 hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsRenderStart dataPtr wmManager = do
