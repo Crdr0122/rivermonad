@@ -36,7 +36,8 @@ startLayout stateIORef = do
           geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
           ratio = workspaceRatios M.! focusedWorkspace
           layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry (toList tileable)
-          borderedLayout = shrinkWindows borderPx layout
+          gappedLayout = shrinkWindows gapPx layout
+          borderedLayout = shrinkWindows borderPx gappedLayout
 
           (floatingPositions, floatMAction, floatRAction) =
             calculateFloatingPositions o floatingWindowsQueue

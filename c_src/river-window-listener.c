@@ -14,8 +14,8 @@ extern void hs_window_dimensions_hint(void *data,
 extern void hs_window_title(void *data, struct river_window_v1 *window,
                             const char *title);
 
-static void handle_app_id(void *data, struct river_window_v1 *window,
-                          const char *app_id) {}
+extern void hs_window_app_id(void *data, struct river_window_v1 *window,
+                             const char *app_id);
 
 static void handle_decoration_hint(void *data, struct river_window_v1 *window,
                                    uint32_t hint) {}
@@ -57,7 +57,7 @@ static const struct river_window_v1_listener window_listener = {
     .dimensions_hint = hs_window_dimensions_hint,
     .dimensions = hs_window_dimensions,
     .title = hs_window_title,
-    .app_id = handle_app_id,
+    .app_id = hs_window_app_id,
     .parent = hs_window_parent,
     .decoration_hint = handle_decoration_hint,
     .pointer_move_requested = handle_pointer_move_requested,

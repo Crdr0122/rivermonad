@@ -21,6 +21,8 @@ foreign export ccall "hs_window_dimensions_hint"
   hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 foreign export ccall "hs_window_title"
   hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+foreign export ccall "hs_window_app_id"
+  hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
@@ -97,6 +99,13 @@ hsWindowTitle dataPtr win title = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   t <- peekCString title
-  print t
   let newWindows = M.adjust (\w -> w{winTitle = t}) win (allWindows state)
+  writeIORef stateIORef state{allWindows = newWindows}
+
+hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+hsWindowAppID dataPtr win appID = do
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state <- readIORef stateIORef
+  a <- peekCString appID
+  let newWindows = M.adjust (\w -> w{winAppID = a}) win (allWindows state)
   writeIORef stateIORef state{allWindows = newWindows}

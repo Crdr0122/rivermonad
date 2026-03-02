@@ -33,6 +33,7 @@ main = do
     river = getRiver
     xkbBindings = getXkbBindings
     layerShell = getLayerShell
+    xkbConfig = getXkbConfig
 
   if comp == nullPtr
     then putStrLn "Compositor NOT bound"
@@ -70,6 +71,7 @@ main = do
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell
+        , currentXkbConfig = xkbConfig
         , opDeltaState = None
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)

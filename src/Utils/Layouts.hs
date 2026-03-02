@@ -37,3 +37,39 @@ twoPaneLayout = LayoutType "TwoPane" applyTwoPane
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveGeos = map (\w -> (w, stackRect)) slaves
      in (master, masterRect) : slaveGeos
+
+circleLayout :: LayoutType
+circleLayout = LayoutType "Circle" applyCircle
+ where
+  applyCircle _ _ [] = []
+  applyCircle _ total [w] = [(w, total)]
+  applyCircle _ total@Rect{rx, ry, rw, rh} xs@(master : slaves) =
+    let masterWidth = truncate $ fromIntegral rw * 0.6
+        masterHeight = truncate $ fromIntegral rh * 0.6
+        masterRect = total{rw = masterWidth, rh = masterHeight}
+        centerX = rx + (rw `div` 2)
+        centerY = ry + (rh `div` 2)
+        radiusX = (rw `div` 2) - 100
+        radiusY = (rh `div` 2) - 100
+        winW = 200
+        winH = 150
+        createRect i =
+          let angle = (2 * pi * fromIntegral i) / fromIntegral (length xs)
+              -- Calculate center of window on the ellipse
+              x = centerX + round (fromIntegral radiusX * cos angle)
+              y = centerY + round (fromIntegral radiusY * sin angle)
+           in Rect (x - winW `div` 2) (y - winH `div` 2) winW winH
+        slaveGeos =
+          zipWith
+            (\w i -> (w, createRect i))
+            slaves
+            [0 ..]
+     in slaveGeos
+
+layoutIfMax :: Int -> LayoutType -> LayoutType -> LayoutType
+layoutIfMax threshold l1 l2 = LayoutType title applyLayout
+ where
+  title = "Either " ++ layoutName l1 ++ " or " ++ layoutName l2
+  applyLayout r total xs
+    | length xs <= threshold = layoutFun l1 r total xs
+    | otherwise = layoutFun l2 r total xs

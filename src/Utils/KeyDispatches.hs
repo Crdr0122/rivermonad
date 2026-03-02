@@ -388,9 +388,8 @@ stopResizing stateIORef = do
       let
         window = allWindows state M.! win
         stop = riverSeatOpEnd (focusedSeat state)
-      case floatingGeometry window of
-        Nothing -> pure ()
-        Just r -> do
+      case (opDeltaState state, floatingGeometry window) of
+        (Resizing _, Just r) -> do
           let (x, y, w, h) = currentOpDelta state
               newWindows =
                 M.insert
@@ -398,9 +397,9 @@ stopResizing stateIORef = do
                   window{floatingGeometry = Just r{rw = w, rh = h, rx = x, ry = y}}
                   (allWindows state)
           writeIORef stateIORef state{allWindows = newWindows}
-      writeIORef
-        stateIORef
-        state
+        _ -> pure ()
+      modifyIORef stateIORef $ \s ->
+        s
           { manageQueue = manageQueue state >> stop >> riverWindowInformResizeEnd win
           , opDeltaState = None
           , currentOpDelta = (0, 0, 0, 0)

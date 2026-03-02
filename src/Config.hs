@@ -6,6 +6,7 @@ module Config (
   borderPx,
   focusedBorderColor,
   execOnStart,
+  gapPx,
   allPointerBindings,
   xCursorTheme,
 ) where
@@ -32,7 +33,7 @@ defaultLayouts =
     [ (1, twoPaneLayout)
     , (2, stackLayout)
     , (3, monocleLayout)
-    , (4, monocleLayout)
+    , (4, circleLayout)
     , (5, monocleLayout)
     , (6, monocleLayout)
     , (7, monocleLayout)
@@ -47,11 +48,11 @@ defaultRatios =
 
 execOnStart :: [String]
 execOnStart =
-  [ "thunar"
-  -- , "thunar"
-  -- , "foot -e yazi"
-  -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
-  , "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
+  [ "foot"
+  , -- , "thunar"
+    -- , "foot -e yazi"
+    -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
+    "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
   ]
 
 borderPx :: CInt
@@ -59,6 +60,9 @@ borderPx = 2
 borderColor, focusedBorderColor :: Word32
 borderColor = 0x444444ff
 focusedBorderColor = 0x7fc8ffff
+
+gapPx :: CInt
+gapPx = 0
 
 cycleWindowsOrSlaves :: Bool -> IORef WMState -> IO ()
 cycleWindowsOrSlaves forward stateIORef = do

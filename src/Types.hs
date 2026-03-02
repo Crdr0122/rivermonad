@@ -30,6 +30,7 @@ data WMState = WMState
   , fullscreenQueue :: [Ptr RiverWindow]
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
+  , currentXkbConfig :: Ptr RiverXkbConfig
   , currentLayerShell :: Ptr RiverLayerShell
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
@@ -89,7 +90,10 @@ data KeyConfig = KeyConfig
   , action :: WMState -> IO ()
   }
 
-data LayoutType = LayoutType {layoutName :: String, layoutFun :: Double -> Rect -> [Window] -> [(Window, Rect)]}
+data LayoutType = LayoutType
+  { layoutName :: String
+  , layoutFun :: Double -> Rect -> [Window] -> [(Window, Rect)]
+  }
 
 type RiverEdge = CUInt
 

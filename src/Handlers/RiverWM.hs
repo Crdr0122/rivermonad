@@ -93,7 +93,6 @@ hsManageStart dataPtr wmManager = do
   manageQueue state
   startLayout stateIORef
   riverWindowManagerManageFinish wmManager
-  print "Manage end"
 
 hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsRenderStart dataPtr wmManager = do
