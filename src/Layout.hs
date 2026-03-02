@@ -22,32 +22,46 @@ startLayout stateIORef = do
     , focusedWorkspace
     , workspaceLayouts
     , allWorkspacesFloating
+    , allWorkspacesTiled
     , allWorkspacesFullscreen
+    , allWindows
+    , fullscreenQueue
     } <-
     readIORef stateIORef
   let mOut = M.lookup focusedOutput allOutputs
   case mOut of
     Nothing -> pure ()
     Just o@Output{outX, outY, outHeight, outWidth} -> do
-      let (tileable, fullscreenedWindowsQueue, floatingWindowsQueue, nonFullscreenPtrs) = getWindows state
+      let (tileable, floatingWindowsQueue, fullscreenedWindowsQueue, nonFullscreenPtrs) = getWindows
           geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
           ratio = workspaceRatios M.! focusedWorkspace
           layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry (toList tileable)
           borderedLayout = shrinkWindows borderPx layout
 
-      -- Step A: Send manage requests immediately
-      -- River expects propose_dimensions during the manage cycle
+          (floatingPositions, floatMAction, floatRAction) =
+            calculateFloatingPositions o floatingWindowsQueue
+
+          newFloatingWindows = BS.insertList focusedWorkspace floatingQueue allWorkspacesFloating
+          newFullscreenedWindows = BS.insertList focusedWorkspace fullscreenQueue allWorkspacesFullscreen
+          newAllWindows =
+            M.unions
+              [ (M.fromList $ map (\w -> (winPtr w, w{isFullscreen = True})) fullscreenedWindowsQueue)
+              , (M.fromList $ map (\(rect, w) -> (winPtr w, w{isFloating = True, floatingGeometry = Just rect})) (zip floatingPositions floatingWindowsQueue))
+              , allWindows
+              ]
+
+      -- All manage actions -> executed directly here
+      -- 1. Resize tiling windows
       mapM_
         (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh)
         borderedLayout
 
-      let (floatingPositions, floatMAction, floatRAction) =
-            calculateFloatingPositions o floatingWindowsQueue
-          newFloatingWindows = BS.insertList focusedWorkspace floatingQueue allWorkspacesFloating
-          newFullscreenedWindows = BS.insertList focusedWorkspace floatingQueue allWorkspacesFullscreen
+      -- 2. Resize new floating windows
+      floatMAction
 
-      -- Step B: Return the render actions for the renderQueue
-      -- These will be executed when the compositor sends a render event
+      -- 3. Fullscreen windows are already fullscreened
+
+      -- All render actions
       let renderTileNodeActions =
             mapM_
               (\(Window{nodePtr}, Rect{rx, ry}) -> riverNodeSetPosition nodePtr rx ry)
@@ -60,6 +74,7 @@ startLayout stateIORef = do
             renderTileNodeActions
               >> lowerAllWindows tileable
               >> raiseAllWindows fullscreenedWindowsQueue
+              >> floatRAction
               >> renderBorderActions
 
       writeIORef
@@ -69,33 +84,27 @@ startLayout stateIORef = do
           , manageQueue = pure ()
           , floatingQueue = []
           , fullscreenQueue = []
+          , allWindows = newAllWindows
           , allWorkspacesFloating = newFloatingWindows
           , allWorkspacesFullscreen = newFullscreenedWindows
           }
-
-getWindows :: WMState -> (S.Seq Window, [Window], [Window], S.Seq (Ptr RiverWindow))
-getWindows state =
-  let
-    tilingWindowPtrs = (BS.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
-    floatingWindowPtrs = (BS.lookupBs (focusedWorkspace state) (allWorkspacesFloating state))
-    fullscreenWindowPtrs = (BS.lookupBs (focusedWorkspace state) (allWorkspacesFullscreen state))
-    allW = allWindows state
-    queueFloatingWindows = fmap (allW M.!) (floatingQueue state)
-    queueFullscreenWindows = fmap (allW M.!) (fullscreenQueue state)
-    tilingWindows = fmap (allW M.!) tilingWindowPtrs
-    floatingWindows = fmap (allW M.!) floatingWindowPtrs
-    fullscreenWindows = fmap (allW M.!) fullscreenWindowPtrs
-   in
-    (tilingWindows, queueFloatingWindows, queueFullscreenWindows, tilingWindowPtrs S.>< floatingWindowPtrs)
+     where
+      getWindows =
+        let
+          tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
+          floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
+          allW = allWindows
+          queueFloatingWindows = fmap (allW M.!) floatingQueue
+          queueFullscreenWindows = fmap (allW M.!) fullscreenQueue
+          tilingWindows = fmap (allW M.!) tilingWindowPtrs
+         in
+          (tilingWindows, queueFloatingWindows, queueFullscreenWindows, tilingWindowPtrs S.>< floatingWindowPtrs S.>< (S.fromList floatingQueue))
 
 raiseAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 
 lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
-
-fullscreenAllWindows :: (Functor f, Foldable f) => Ptr RiverOutput -> f Window -> IO ()
-fullscreenAllWindows o = mapM_ ((\w -> riverWindowFullscreen w o) . winPtr)
 
 shrinkWindows :: CInt -> [(Window, Rect)] -> [(Window, Rect)]
 shrinkWindows b =

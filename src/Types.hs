@@ -62,6 +62,8 @@ data WlSurface
 data Window = Window
   { winPtr :: Ptr RiverWindow
   , nodePtr :: Ptr RiverNode
+  , winTitle :: String
+  , winAppID :: String
   , isFloating :: Bool
   , isFullscreen :: Bool
   , floatingGeometry :: Maybe Rect

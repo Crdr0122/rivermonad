@@ -8,23 +8,23 @@ import Foreign.C
 import Types
 import Wayland.ImportedFunctions
 
-foreign export ccall "hs_pointer_enter"
-  hsPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+foreign export ccall "hs_seat_pointer_enter"
+  hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 
-foreign export ccall "hs_window_interaction"
-  hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+foreign export ccall "hs_seat_window_interaction"
+  hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 
-foreign export ccall "hs_op_delta"
-  hsOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
+foreign export ccall "hs_seat_op_delta"
+  hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 
-foreign export ccall "hs_op_release"
-  hsOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
+foreign export ccall "hs_seat_op_release"
+  hsSeatOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
 
-foreign export ccall "hs_pointer_position"
-  hsPointerPosition :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
+foreign export ccall "hs_seat_pointer_position"
+  hsSeatPointerPosition :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 
-hsPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsPointerEnter dataPtr seat win = do
+hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+hsSeatPointerEnter dataPtr seat win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   writeIORef
@@ -34,8 +34,8 @@ hsPointerEnter dataPtr seat win = do
       , manageQueue = manageQueue state >> riverSeatFocusWindow seat win
       }
 
-hsWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsWindowInteraction dataPtr _ win = do
+hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+hsSeatWindowInteraction dataPtr _ win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   let Window{nodePtr, isFloating} = (allWindows state) M.! win
@@ -47,8 +47,8 @@ hsWindowInteraction dataPtr _ win = do
         , manageQueue = manageQueue state >> riverNodePlaceTop nodePtr
         }
 
-hsOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
-hsOpDelta dataPtr _ dx dy = do
+hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
+hsSeatOpDelta dataPtr _ dx dy = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state@WMState
     { allOutputs
@@ -127,11 +127,11 @@ hsOpDelta dataPtr _ dx dy = do
               , currentOpDelta = (dx, 0, 0, 0)
               }
 
-hsOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
-hsOpRelease _ _ = pure ()
+hsSeatOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
+hsSeatOpRelease _ _ = pure ()
 
-hsPointerPosition :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
-hsPointerPosition dataPtr _ x y = do
+hsSeatPointerPosition :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
+hsSeatPointerPosition dataPtr _ x y = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state ->
     state{cursorPosition = (x, y)}

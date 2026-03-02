@@ -25,16 +25,9 @@ insertSeq a bs (BiSeqMap ab ba) = BiSeqMap ab' ba
   ab' = M.insert a bs ab
 
 insertList :: (Ord a, Ord b) => a -> [b] -> BiSeqMap a b -> BiSeqMap a b
-insertList _ [] x = x
-insertList a bs (BiSeqMap ab ba) = BiSeqMap ab' ba
+insertList a bs bm = res
  where
-  ab' = M.insertWith (S.><) a (S.fromList bs) ab
-
--- \| M.member b ba = bimap
--- \| otherwise =
---     let ab' = M.insertWith (S.><) a (S.singleton b) ab
---         ba' = M.insert b a ba
---      in BiSeqMap ab' ba'
+  res = foldl' (\oldMap newW -> insert a newW oldMap) bm bs
 
 lookupA :: (Ord b) => b -> BiSeqMap a b -> Maybe a
 lookupA b = M.lookup b . bToA

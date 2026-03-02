@@ -16,18 +16,19 @@ import Wayland.Client
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_on_new_window"
-  hsOnNewWindow :: Ptr () -> Ptr RiverWindow -> IO ()
+  hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 foreign export ccall "hs_on_new_output"
-  hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
+  hsOnNewOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
 foreign export ccall "hs_on_new_seat"
-  hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()
-foreign export ccall "hs_manage_start"
+  hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
+foreign export ccall "hs_wm_manage_start"
   hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
-foreign export ccall "hs_render_start"
+foreign export ccall "hs_wm_render_start"
   hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 
-hsOnNewWindow :: Ptr () -> Ptr RiverWindow -> IO ()
-hsOnNewWindow dataPtr win = do
+hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
+hsOnNewWindow dataPtr _ win = do
+  print "New Window"
   node <- riverWindowGetNode win
   let w =
         Window
@@ -35,6 +36,8 @@ hsOnNewWindow dataPtr win = do
           , nodePtr = node
           , isFloating = False
           , isFullscreen = False
+          , winTitle = ""
+          , winAppID = ""
           , floatingGeometry = Nothing
           , tilingGeometry = Nothing
           , dimensionsHint = (0, 0, 0, 0)
@@ -53,8 +56,8 @@ hsOnNewWindow dataPtr win = do
       , allWorkspacesTiled = newWorkspacesTiled
       }
 
-hsOnNewSeat :: Ptr () -> Ptr RiverSeat -> IO ()
-hsOnNewSeat dataPtr seat = do
+hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
+hsOnNewSeat dataPtr _ seat = do
   _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
@@ -64,8 +67,8 @@ hsOnNewSeat dataPtr seat = do
   mapM_ (registerKeybind dataPtr seat) allKeyBindings
   mapM_ (registerPointerbind dataPtr seat) allPointerBindings
 
-hsOnNewOutput :: Ptr () -> Ptr RiverOutput -> IO ()
-hsOnNewOutput dataPtr output = do
+hsOnNewOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
+hsOnNewOutput dataPtr _ output = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
@@ -90,6 +93,7 @@ hsManageStart dataPtr wmManager = do
   manageQueue state
   startLayout stateIORef
   riverWindowManagerManageFinish wmManager
+  print "Manage end"
 
 hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsRenderStart dataPtr wmManager = do

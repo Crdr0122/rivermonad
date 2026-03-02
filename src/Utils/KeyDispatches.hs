@@ -24,7 +24,6 @@ import Data.Sequence qualified as S
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
-import Utils.Helpers
 import Wayland.ImportedFunctions
 
 closeCurrentWindow :: IORef WMState -> IO ()
@@ -54,7 +53,7 @@ toggleFullscreenCurrentWindow stateIORef = do
     Just win -> do
       let window@Window{isFloating, isFullscreen} = allWindows M.! win
           newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
-      let newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
+          newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
       writeIORef stateIORef newState{allWindows = newWindows}
       riverWindowManagerManageDirty currentWmManager
      where
@@ -74,21 +73,21 @@ toggleFullscreenCurrentWindow stateIORef = do
               , manageQueue = manageQueue state >> fA
               }
 
-      exitFullscreenWindow f = do
-        let fA = riverWindowExitFullscreen win
-        if f
-          then
+      exitFullscreenWindow f
+        | f =
             state
               { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
               , floatingQueue = win : floatingQueue
               , manageQueue = manageQueue state >> fA
               }
-          else
+        | otherwise =
             state
               { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
               , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
               , manageQueue = manageQueue state >> fA
               }
+       where
+        fA = riverWindowExitFullscreen win
 
 toggleFloatingCurrentWindow :: IORef WMState -> IO ()
 toggleFloatingCurrentWindow stateIORef = do
@@ -96,37 +95,19 @@ toggleFloatingCurrentWindow stateIORef = do
   case focusedWindow state of
     Nothing -> pure ()
     Just win -> do
-      unless (isFullscreen (allWindows state M.! win)) $
-        if isFloating (allWindows state M.! win) then tileCurrentWindow stateIORef else floatCurrentWindow stateIORef
+      let w = allWindows state M.! win
+      unless (isFullscreen w) $
+        if isFloating w then tileCurrentWindow stateIORef else floatCurrentWindow stateIORef
 
 floatCurrentWindow :: IORef WMState -> IO ()
 floatCurrentWindow stateIORef = do
   state <- readIORef stateIORef
   case focusedWindow state of
     Nothing -> pure ()
-    Just winP -> do
-      let
-        o = allOutputs state M.! focusedOutput state
-        window = (allWindows state M.! winP)
-        (calcPos, mAction, rAction) = calculateFloatingPosition winP window o
-        newWindows =
-          M.adjust
-            (\w -> w{isFloating = True, floatingGeometry = Just calcPos})
-            winP
-            (allWindows state)
-        newTiled = BS.delete winP (allWorkspacesTiled state)
-        newFloating = BS.insert (focusedWorkspace state) winP (allWorkspacesFloating state)
-
-      writeIORef
-        stateIORef
-        state
-          { allWindows = newWindows
-          , allWorkspacesFloating = newFloating
-          , allWorkspacesTiled = newTiled
-          , manageQueue = manageQueue state >> mAction
-          , renderQueue = renderQueue state >> rAction
-          }
-      riverWindowManagerManageDirty (currentWmManager state)
+    Just win -> do
+      let newTiled = BS.delete win (allWorkspacesTiled state)
+      -- print (BS.lookupBs (focusedWorkspace state) (allWorkspacesTiled state))
+      writeIORef stateIORef state{allWorkspacesTiled = newTiled, floatingQueue = win : floatingQueue state}
 
 tileCurrentWindow :: IORef WMState -> IO ()
 tileCurrentWindow stateIORef = do
@@ -134,13 +115,11 @@ tileCurrentWindow stateIORef = do
   case focusedWindow state of
     Nothing -> pure ()
     Just win -> do
-      let tile x = x{isFloating = False}
-          newWindows = M.adjust tile win (allWindows state)
-          newFloating = BS.delete win (allWorkspacesFloating state)
-          newTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
-
-      riverWindowManagerManageDirty (currentWmManager state)
-      writeIORef stateIORef state{allWindows = newWindows, allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled}
+      let
+        newFloating = BS.delete win (allWorkspacesFloating state)
+        newTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+        newAllWindows = M.adjust (\w -> w{isFloating = False}) win (allWindows state)
+      writeIORef stateIORef state{allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled, allWindows = newAllWindows}
 
 cycleWindows :: Bool -> IORef WMState -> IO ()
 cycleWindows forward stateIORef = do
@@ -316,9 +295,11 @@ dragWindow stateIORef = do
   state <- readIORef stateIORef
   case focusedWindow state of
     Nothing -> pure ()
-    Just w -> when (isFloating (allWindows state M.! w)) $ do
-      riverSeatOpStartPointer (focusedSeat state)
-      writeIORef stateIORef state{opDeltaState = Dragging}
+    Just w -> do
+      let win = allWindows state M.! w
+      when (isFloating win && not (isFullscreen win)) $ do
+        riverSeatOpStartPointer (focusedSeat state)
+        writeIORef stateIORef state{opDeltaState = Dragging}
 
 stopDragging :: IORef WMState -> IO ()
 stopDragging stateIORef = do
@@ -352,8 +333,8 @@ resizeWindow stateIORef = do
     Nothing -> pure ()
     Just w -> do
       let
-        win = (allWindows state M.! w)
-      if isFloating win
+        win@Window{isFullscreen, isFloating} = (allWindows state M.! w)
+      if isFloating
         then do
           case floatingGeometry win of
             Nothing -> pure ()
@@ -389,7 +370,7 @@ resizeWindow stateIORef = do
                   , manageQueue = manageQueue state >> riverWindowInformResizeStart w
                   }
               riverSeatOpStartPointer (focusedSeat state)
-        else do
+        else unless isFullscreen $ do
           writeIORef
             stateIORef
             state

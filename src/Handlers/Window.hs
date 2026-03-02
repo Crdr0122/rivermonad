@@ -9,7 +9,6 @@ import Foreign
 import Foreign.C
 import Types
 import Utils.BiSeqMap qualified as BS
-import Utils.Helpers
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_window_closed"
@@ -20,30 +19,28 @@ foreign export ccall "hs_window_parent"
   hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 foreign export ccall "hs_window_dimensions_hint"
   hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
+foreign export ccall "hs_window_title"
+  hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   let newWindows = M.delete win (allWindows state)
-      newWorkspaces = BS.delete win (allWorkspacesTiled state)
+      newWorkspacesTiled = BS.delete win (allWorkspacesTiled state)
       newWorkspacesFloating = BS.delete win (allWorkspacesFloating state)
-      remTiled = BS.lookupBs (focusedWorkspace state) newWorkspaces
-      remFloating = BS.lookupBs (focusedWorkspace state) newWorkspacesFloating
+      newWorkspacesFullscreen = BS.delete win (allWorkspacesFullscreen state)
       f = focusedWindow state
       newFocusedWin
         | isNothing f = Nothing
         | fromJust f /= win = f
-        | otherwise = case remTiled of
-            w S.:<| _ -> Just w
-            S.Empty -> case remFloating of
-              w S.:<| _ -> Just w
-              S.Empty -> Nothing
+        | otherwise = Nothing
   writeIORef
     stateIORef
     state
       { allWindows = newWindows
-      , allWorkspacesTiled = newWorkspaces
+      , allWorkspacesTiled = newWorkspacesTiled
+      , allWorkspacesFullscreen = newWorkspacesFullscreen
       , allWorkspacesFloating = newWorkspacesFloating
       , focusedWindow = newFocusedWin
       }
@@ -71,26 +68,19 @@ hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
+  print "Parent"
   let
-    o = allOutputs state M.! focusedOutput state
-    window = (allWindows state M.! win)
-    (calcPos, mAction, rAction) = calculateFloatingPosition win window{parentWindow = Just parent} o
-    newWindows =
-      M.adjust
-        (\w -> w{isFloating = True, floatingGeometry = Just calcPos, parentWindow = Just parent})
-        win
-        (allWindows state)
+    newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
     newTiled = BS.delete win (allWorkspacesTiled state)
-    newFloating = BS.insert (focusedWorkspace state) win (allWorkspacesFloating state)
+    newFullscreen = BS.delete win (allWorkspacesFullscreen state)
 
   writeIORef
     stateIORef
     state
       { allWindows = newWindows
-      , allWorkspacesFloating = newFloating
+      , floatingQueue = win : floatingQueue state
       , allWorkspacesTiled = newTiled
-      , manageQueue = manageQueue state >> mAction
-      , renderQueue = renderQueue state >> rAction
+      , allWorkspacesFullscreen = newFullscreen
       }
   riverWindowManagerManageDirty (currentWmManager state)
 
@@ -99,4 +89,14 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state@WMState{allWindows} <- readIORef stateIORef
   let newWindows = M.adjust (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)}) win allWindows
+  writeIORef stateIORef state{allWindows = newWindows}
+
+hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+hsWindowTitle dataPtr win title = do
+  print "Title"
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state <- readIORef stateIORef
+  t <- peekCString title
+  print t
+  let newWindows = M.adjust (\w -> w{winTitle = t}) win (allWindows state)
   writeIORef stateIORef state{allWindows = newWindows}
