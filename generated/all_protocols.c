@@ -1,6 +1,0 @@
-#include "river-input-management.c"
-#include "river-libinput-config.c"
-#include "river-window-management.c"
-#include "river-xkb-bindings.c"
-#include "river-layer-shell.c"
-#include "river-xkb-config.c"
