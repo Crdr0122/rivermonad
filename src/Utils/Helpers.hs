@@ -1,11 +1,14 @@
 module Utils.Helpers (
   calculateFloatingPosition,
   calculateFloatingPositions,
+  allWorkspaceWindows,
 ) where
 
 import Data.Maybe
+import Data.Sequence as S
 import Foreign
 import Types
+import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
 calculateFloatingPositions :: (Functor f, Foldable f) => Output -> f Window -> ([Rect], IO (), IO ())
@@ -52,3 +55,8 @@ calculateFloatingPosition
     h = outHeight * 6 `div` 10
     offsetX = (outWidth - w) `div` 2
     offsetY = (outHeight - h) `div` 2
+
+allWorkspaceWindows :: WorkspaceID -> WMState -> Seq (Ptr RiverWindow)
+allWorkspaceWindows w WMState{allWorkspacesFloating, allWorkspacesFullscreen, allWorkspacesTiled} =
+  let look a = BS.lookupBs w a
+   in look allWorkspacesFullscreen S.>< look allWorkspacesTiled >< look allWorkspacesFloating

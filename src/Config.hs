@@ -11,9 +11,10 @@ module Config (
   xCursorTheme,
 ) where
 
+import Data.Bimap qualified as B
 import Data.Bits ((.|.))
 import Data.IORef
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
 import Data.Word (Word32)
 import Foreign.C (CInt, CUInt)
 import Types
@@ -32,7 +33,7 @@ defaultLayouts =
   M.fromList
     [ (1, twoPaneLayout)
     , (2, stackLayout)
-    , (3, monocleLayout)
+    , (3, circleLayout)
     , (4, monocleLayout)
     , (5, monocleLayout)
     , (6, monocleLayout)
@@ -67,7 +68,7 @@ gapPx = 0
 cycleWindowsOrSlaves :: Bool -> IORef WMState -> IO ()
 cycleWindowsOrSlaves forward stateIORef = do
   state <- readIORef stateIORef
-  case layoutName (workspaceLayouts state M.! (focusedWorkspace state)) of
+  case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
     "TwoPane" -> cycleWindowSlaves forward stateIORef
     _ -> cycleWindows forward stateIORef
 

@@ -1,10 +1,10 @@
 module Handlers.Window where
 
 import Control.Monad (when)
+import Data.Bimap qualified as B
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Data.Maybe
-import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Types
@@ -114,25 +114,48 @@ hsWindowFullscreenRequested dataPtr win output = do
   state@WMState
     { allWindows
     , allWorkspacesFloating
-    , fullscreenQueue
     , allWorkspacesTiled
+    , allWorkspacesFullscreen
     } <-
     readIORef stateIORef
-  let window@Window{isFloating, isFullscreen} = allWindows M.! win
-      newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
-      newState = do
-        let fA = riverWindowFullscreen win output
-        if isFloating
-          then
-            state
-              { allWorkspacesFloating = BS.delete win allWorkspacesFloating
-              , fullscreenQueue = win : fullscreenQueue
-              , manageQueue = manageQueue state >> fA
-              }
-          else
-            state
-              { allWorkspacesTiled = BS.delete win allWorkspacesTiled
-              , fullscreenQueue = win : fullscreenQueue
-              , manageQueue = manageQueue state >> fA
-              }
-  writeIORef stateIORef newState{allWindows = newWindows}
+  let window@Window{isFloating, nodePtr} = allWindows M.! win
+      newWindows = M.insert win window{isFullscreen = True} allWindows
+      newState
+        | isFloating = state{allWorkspacesFloating = BS.delete win allWorkspacesFloating}
+        | otherwise = state{allWorkspacesTiled = BS.delete win allWorkspacesTiled}
+      targetWorkspace = allOutputWorkspaces state B.! output
+
+  writeIORef
+    stateIORef
+    newState
+      { allWindows = newWindows
+      , manageQueue = manageQueue state >> riverWindowFullscreen win output
+      , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
+      , allWorkspacesFullscreen = BS.insert targetWorkspace win allWorkspacesFullscreen
+      }
+
+hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
+hsWindowExitFullscreenRequested dataPtr win = do
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state@WMState
+    { allWindows
+    , allWorkspacesFloating
+    , allWorkspacesTiled
+    , allWorkspacesFullscreen
+    , focusedOutput
+    , allOutputWorkspaces
+    } <-
+    readIORef stateIORef
+  let window@Window{isFloating} = allWindows M.! win
+      newWindows = M.insert win window{isFullscreen = False} allWindows
+      workspace = fromMaybe (allOutputWorkspaces B.! focusedOutput) (BS.lookupA win allWorkspacesFullscreen)
+      newState
+        | isFloating = state{allWorkspacesFloating = BS.insert workspace win allWorkspacesFloating}
+        | otherwise = state{allWorkspacesTiled = BS.insert workspace win allWorkspacesTiled}
+  writeIORef
+    stateIORef
+    newState
+      { allWindows = newWindows
+      , manageQueue = manageQueue state >> riverWindowExitFullscreen win
+      , allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+      }

@@ -1,4 +1,11 @@
-module Utils.Layouts where
+module Utils.Layouts (
+  stackLayout,
+  monocleLayout,
+  twoPaneLayout,
+  circleLayout,
+  layoutIfMax,
+  roledexLayout,
+) where
 
 import Types
 
@@ -42,29 +49,37 @@ circleLayout :: LayoutType
 circleLayout = LayoutType "Circle" applyCircle
  where
   applyCircle _ _ [] = []
-  applyCircle _ total [w] = [(w, total)]
-  applyCircle _ total@Rect{rx, ry, rw, rh} xs@(master : slaves) =
-    let masterWidth = truncate $ fromIntegral rw * 0.6
-        masterHeight = truncate $ fromIntegral rh * 0.6
-        masterRect = total{rw = masterWidth, rh = masterHeight}
+  applyCircle _ Rect{rx, ry, rw, rh} (master : slaves) =
+    let mW = rw * 4 `div` 5
+        mH = rh * 4 `div` 5
         centerX = rx + (rw `div` 2)
         centerY = ry + (rh `div` 2)
-        radiusX = (rw `div` 2) - 100
-        radiusY = (rh `div` 2) - 100
-        winW = 200
-        winH = 150
+        mX = centerX - (mW `div` 2)
+        mY = centerY - (mH `div` 2)
+        masterRect = Rect{rw = mW, rh = mH, rx = mX, ry = mY}
+
+        w = rw * 3 `div` 5
+        h = rh * 3 `div` 5
+        radiusX = (rw `div` 2) - (w `div` 2)
+        radiusY = (rh `div` 2) - (h `div` 2)
+        createRect :: Int -> Rect
         createRect i =
-          let angle = (2 * pi * fromIntegral i) / fromIntegral (length xs)
+          let angle :: Double = (2 * pi * fromIntegral i) / 4.5
               -- Calculate center of window on the ellipse
               x = centerX + round (fromIntegral radiusX * cos angle)
               y = centerY + round (fromIntegral radiusY * sin angle)
-           in Rect (x - winW `div` 2) (y - winH `div` 2) winW winH
+           in Rect{rx = (x - w `div` 2), ry = (y - h `div` 2), rw = w, rh = h}
         slaveGeos =
           zipWith
-            (\w i -> (w, createRect i))
+            (\win i -> (win, createRect i))
             slaves
             [0 ..]
-     in slaveGeos
+     in (master, masterRect) : slaveGeos
+
+roledexLayout :: LayoutType
+roledexLayout = LayoutType "Roledex" applyRoledex
+ where
+  applyRoledex _ _ [] = []
 
 layoutIfMax :: Int -> LayoutType -> LayoutType -> LayoutType
 layoutIfMax threshold l1 l2 = LayoutType title applyLayout

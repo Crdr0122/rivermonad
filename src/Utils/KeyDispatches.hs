@@ -17,6 +17,7 @@ module Utils.KeyDispatches (
 ) where
 
 import Control.Monad (unless, when)
+import Data.Bimap qualified as B
 import Data.IORef
 import Data.List
 import Data.Map qualified as M
@@ -24,6 +25,7 @@ import Data.Sequence qualified as S
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.Helpers
 import Wayland.ImportedFunctions
 
 closeCurrentWindow :: IORef WMState -> IO ()
@@ -41,9 +43,8 @@ toggleFullscreenCurrentWindow stateIORef = do
     , allWorkspacesFloating
     , allWorkspacesFullscreen
     , allWorkspacesTiled
-    , fullscreenQueue
     , floatingQueue
-    , focusedWorkspace
+    , allOutputWorkspaces
     , focusedOutput
     , currentWmManager
     } <-
@@ -51,43 +52,48 @@ toggleFullscreenCurrentWindow stateIORef = do
   case focusedWindow of
     Nothing -> pure ()
     Just win -> do
-      let window@Window{isFloating, isFullscreen} = allWindows M.! win
-          newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
+      let window@Window{isFloating, isFullscreen, nodePtr} = allWindows M.! win
+          focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+
+          fullscreenWindow f
+            | f =
+                state
+                  { allWorkspacesFloating = BS.delete win allWorkspacesFloating
+                  , allWorkspacesFullscreen = BS.insert focusedWorkspace win allWorkspacesFullscreen
+                  , manageQueue = manageQueue state >> fA
+                  , renderQueue = renderQueue state >> rA
+                  }
+            | otherwise =
+                state
+                  { allWorkspacesTiled = BS.delete win allWorkspacesTiled
+                  , manageQueue = manageQueue state >> fA
+                  , renderQueue = renderQueue state >> rA
+                  }
+           where
+            fA = riverWindowFullscreen win focusedOutput
+            rA = riverNodePlaceTop nodePtr
+
+          exitFullscreenWindow f
+            | f =
+                state
+                  { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+                  , floatingQueue = win : floatingQueue
+                  , manageQueue = manageQueue state >> fA
+                  }
+            | otherwise =
+                state
+                  { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+                  , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
+                  , manageQueue = manageQueue state >> fA
+                  }
+           where
+            fA = riverWindowExitFullscreen win
+
           newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
+          newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
+
       writeIORef stateIORef newState{allWindows = newWindows}
       riverWindowManagerManageDirty currentWmManager
-     where
-      fullscreenWindow f = do
-        let fA = riverWindowFullscreen win focusedOutput
-        if f
-          then
-            state
-              { allWorkspacesFloating = BS.delete win allWorkspacesFloating
-              , fullscreenQueue = win : fullscreenQueue
-              , manageQueue = manageQueue state >> fA
-              }
-          else
-            state
-              { allWorkspacesTiled = BS.delete win allWorkspacesTiled
-              , fullscreenQueue = win : fullscreenQueue
-              , manageQueue = manageQueue state >> fA
-              }
-
-      exitFullscreenWindow f
-        | f =
-            state
-              { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-              , floatingQueue = win : floatingQueue
-              , manageQueue = manageQueue state >> fA
-              }
-        | otherwise =
-            state
-              { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-              , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
-              , manageQueue = manageQueue state >> fA
-              }
-       where
-        fA = riverWindowExitFullscreen win
 
 toggleFloatingCurrentWindow :: IORef WMState -> IO ()
 toggleFloatingCurrentWindow stateIORef = do
@@ -117,7 +123,7 @@ tileCurrentWindow stateIORef = do
     Just win -> do
       let
         newFloating = BS.delete win (allWorkspacesFloating state)
-        newTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+        newTiled = BS.insert (allOutputWorkspaces state B.! focusedOutput state) win (allWorkspacesTiled state)
         newAllWindows = M.adjust (\w -> w{isFloating = False}) win (allWindows state)
       writeIORef stateIORef state{allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled, allWindows = newAllWindows}
 
@@ -125,7 +131,7 @@ cycleWindows :: Bool -> IORef WMState -> IO ()
 cycleWindows forward stateIORef = do
   state <- readIORef stateIORef
   let
-    work = focusedWorkspace state
+    work = allOutputWorkspaces state B.! focusedOutput state
     oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
     cycleW _ S.Empty = S.empty
     cycleW True (h S.:<| hs) = hs S.|> h
@@ -143,7 +149,7 @@ cycleWindowSlaves :: Bool -> IORef WMState -> IO ()
 cycleWindowSlaves forward stateIORef = do
   state <- readIORef stateIORef
   let
-    work = focusedWorkspace state
+    work = allOutputWorkspaces state B.! focusedOutput state
     oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
     cycleW _ S.Empty = S.empty
     cycleW True (hs S.:|> h) = h S.<| hs
@@ -167,7 +173,7 @@ zoomWindow stateIORef = do
     Just currentWin -> do
       unless (isFloating (allWindows state M.! currentWin)) $ do
         let
-          workspace = focusedWorkspace state
+          workspace = allOutputWorkspaces state B.! focusedOutput state
           bimap = allWorkspacesTiled state
           currentSeq = BS.lookupBs workspace bimap
           newSeq = case currentSeq of
@@ -188,45 +194,58 @@ zoomWindow stateIORef = do
         riverWindowManagerManageDirty (currentWmManager state)
 
 switchWorkspace :: WorkspaceID -> IORef WMState -> IO ()
-switchWorkspace workspaceID stateIORef = do
-  state <- readIORef stateIORef
+switchWorkspace targetID stateIORef = do
+  state@WMState
+    { allOutputWorkspaces
+    , focusedOutput
+    , lastFocusedWorkspace
+    } <-
+    readIORef stateIORef
   let
-    currentFocusedWorkspace = focusedWorkspace state
-    (prevWork, nextWork) =
-      if (workspaceID == currentFocusedWorkspace)
-        then (currentFocusedWorkspace, lastFocusedWorkspace state)
-        else (currentFocusedWorkspace, workspaceID)
-    currentWindowsTiled = BS.lookupBs prevWork (allWorkspacesTiled state)
-    currentWindowsFloating = BS.lookupBs prevWork (allWorkspacesFloating state)
-    newWindowsTiled = BS.lookupBs nextWork (allWorkspacesTiled state)
-    newWindowsFloating = BS.lookupBs nextWork (allWorkspacesFloating state)
+    currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
+  if currentFocusedWorkspace == targetID
+    then switchWorkspace lastFocusedWorkspace stateIORef
+    else do
+      let
+        alreadyShowing = B.lookupR targetID allOutputWorkspaces
+        currentWindows = allWorkspaceWindows currentFocusedWorkspace state
+        newWindows = allWorkspaceWindows targetID state
+        newOutput = B.insert focusedOutput targetID allOutputWorkspaces
 
-    hidingActions = mapM_ riverWindowHide currentWindowsTiled >> mapM_ riverWindowHide currentWindowsFloating
-    showingActions = mapM_ riverWindowShow newWindowsTiled >> mapM_ riverWindowShow newWindowsFloating
+        (newOutputWorkspaces, hidingActions, showingActions) = case alreadyShowing of
+          Nothing ->
+            ( newOutput
+            , mapM_ riverWindowHide currentWindows
+            , mapM_ riverWindowShow newWindows
+            )
+          Just o2 ->
+            ( B.insert o2 currentFocusedWorkspace newOutput
+            , pure ()
+            , pure ()
+            )
 
-    newFocusedWindow = case newWindowsFloating of
-      w S.:<| _ -> Just w
-      S.Empty -> case newWindowsTiled of
-        w S.:<| _ -> Just w
-        S.Empty -> Nothing
+        newFocusedWindow = case newWindows of
+          w S.:<| _ -> Just w
+          S.Empty -> Nothing
 
-  writeIORef
-    stateIORef
-    state
-      { renderQueue = renderQueue state >> hidingActions >> showingActions
-      , focusedWorkspace = nextWork
-      , lastFocusedWorkspace = prevWork
-      , focusedWindow = newFocusedWindow
-      }
-  riverWindowManagerManageDirty (currentWmManager state)
+      writeIORef
+        stateIORef
+        state
+          { renderQueue = renderQueue state >> hidingActions >> showingActions
+          , allOutputWorkspaces = newOutputWorkspaces
+          , lastFocusedWorkspace = currentFocusedWorkspace
+          , focusedWindow = newFocusedWindow
+          }
+      riverWindowManagerManageDirty (currentWmManager state)
 
 moveWindowToWorkspace :: WorkspaceID -> Bool -> IORef WMState -> IO ()
 moveWindowToWorkspace targetID silent stateIORef = do
   state@WMState
     { allWorkspacesFloating
     , allWorkspacesTiled
-    , focusedWorkspace
     , allWindows
+    , focusedOutput
+    , allOutputWorkspaces
     , currentWmManager
     , renderQueue
     } <-
@@ -236,7 +255,7 @@ moveWindowToWorkspace targetID silent stateIORef = do
     Just w -> do
       let
         Window{isFloating} = allWindows M.! w
-      unless (focusedWorkspace == targetID) $ do
+      unless (allOutputWorkspaces B.! focusedOutput == targetID) $ do
         let
           (newAllTile, newAllFloat) =
             if isFloating
@@ -264,7 +283,7 @@ cycleLayout [] _ = pure ()
 cycleLayout layouts stateIORef = do
   state <- readIORef stateIORef
   let oldWorkspaceLayouts = workspaceLayouts state
-      curr = focusedWorkspace state
+      curr = allOutputWorkspaces state B.! focusedOutput state
       currentLayout = layoutName $ oldWorkspaceLayouts M.! curr
   case elemIndex currentLayout (map layoutName layouts) of
     Nothing -> pure ()
@@ -282,7 +301,7 @@ modifyLayoutRatio change stateIORef = do
     newWorkspaceRatios =
       M.insertWith
         (\n o -> let m = n + o in if m > 0.20 && m < 0.80 then m else o)
-        (focusedWorkspace state)
+        (allOutputWorkspaces state B.! focusedOutput state)
         change
         (workspaceRatios state)
   writeIORef stateIORef state{workspaceRatios = newWorkspaceRatios}

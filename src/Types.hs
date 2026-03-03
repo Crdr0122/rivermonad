@@ -1,11 +1,11 @@
 module Types where
 
+import Data.Bimap
 import Data.IORef
 import Data.Map.Strict
 import Foreign
 import Foreign.C
 import Utils.BiSeqMap
-import Data.Bimap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
 type WorkspaceID = Int
@@ -18,7 +18,7 @@ data WMState = WMState
   , allLayerShellOutputs :: Map (Ptr RiverLayerShellOutput) (Ptr RiverOutput)
   , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
-  , focusedWorkspace :: WorkspaceID
+  , allOutputWorkspaces :: Bimap (Ptr RiverOutput) WorkspaceID
   , lastFocusedWorkspace :: WorkspaceID
   , focusedSeat :: Ptr RiverSeat
   , workspaceLayouts :: Map WorkspaceID LayoutType
@@ -26,9 +26,7 @@ data WMState = WMState
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
-  , tilingQueue :: [Ptr RiverWindow]
   , floatingQueue :: [Ptr RiverWindow]
-  , fullscreenQueue :: [Ptr RiverWindow]
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentXkbConfig :: Ptr RiverXkbConfig
@@ -60,7 +58,6 @@ type PointerCallback = Ptr () -> Ptr RiverPointerBinding -> IO ()
 data RiverXkbConfig
 data RiverXkbKeyboard
 data RiverXkbKeymap
-
 
 data WlSurface
 

@@ -3,8 +3,12 @@ module Handlers.RiverWM where
 import Config
 
 -- import Data.Bits ((.|.))
+
+import Data.Bimap qualified as B
 import Data.IORef
+import Data.List qualified as L
 import Data.Map.Strict qualified as M
+import Data.Maybe
 import Foreign
 import Foreign.C
 import Handlers.PointerBindings
@@ -45,11 +49,11 @@ hsOnNewWindow dataPtr _ win = do
   _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do
-    let newWindowsList = M.insert win w (allWindows state)
+    let newWindows= M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-        newWorkspacesTiled = BS.insert (focusedWorkspace state) win (allWorkspacesTiled state)
+        newWorkspacesTiled = BS.insert (allOutputWorkspaces state B.! focusedOutput state) win (allWorkspacesTiled state)
     state
-      { allWindows = newWindowsList
+      { allWindows = newWindows
       , manageQueue = newManageQueue
       , focusedWindow = Just (win)
       , allWorkspacesTiled = newWorkspacesTiled
@@ -74,6 +78,8 @@ hsOnNewOutput dataPtr _ output = do
   let o = Output output newLayerShellOutputPtr 0 0 0 0
       newOutputsList = M.insert output o (allOutputs state)
       newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
+      remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ allOutputWorkspaces state) [1 ..]
+      newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
   _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
   _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
   riverLayerShellOutputSetDefault newLayerShellOutputPtr
@@ -83,6 +89,7 @@ hsOnNewOutput dataPtr _ output = do
       { allOutputs = newOutputsList
       , focusedOutput = output
       , allLayerShellOutputs = newLayerShellOutputs
+      , allOutputWorkspaces = newOutputsWorkspaces
       }
 
 hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()

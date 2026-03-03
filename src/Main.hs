@@ -2,6 +2,7 @@ module Main where
 
 import Config
 import Control.Monad (forever)
+import Data.Bimap qualified as B
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign.Ptr
@@ -60,11 +61,9 @@ main = do
         , allWorkspacesTiled = BS.empty
         , allWorkspacesFloating = BS.empty
         , allWorkspacesFullscreen = BS.empty
-        , tilingQueue = []
         , floatingQueue = []
-        , fullscreenQueue = []
         , focusedSeat = nullPtr
-        , focusedWorkspace = 1
+        , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts
         , workspaceRatios = defaultRatios

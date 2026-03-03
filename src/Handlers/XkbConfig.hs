@@ -1,6 +1,5 @@
 module Handlers.XkbConfig where
 
-import Data.IORef
 import Foreign
 import Types
 import Wayland.Client

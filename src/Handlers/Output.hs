@@ -1,5 +1,6 @@
 module Handlers.Output where
 
+import Data.Bimap qualified as B
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
@@ -53,6 +54,7 @@ hsOutputRemoved dataPtr output = do
   riverLayerShellOutputDestroy lsPtr
   let newOutputs = M.delete output (allOutputs state)
       newLayerShells = M.delete lsPtr (allLayerShellOutputs state)
+      newOutputWorkspaces = B.delete output (allOutputWorkspaces state)
       newFocusedOutput
         | focusedOutput state == output = nullPtr
         | otherwise = focusedOutput state
@@ -62,4 +64,5 @@ hsOutputRemoved dataPtr output = do
       { allOutputs = newOutputs
       , focusedOutput = newFocusedOutput
       , allLayerShellOutputs = newLayerShells
+      , allOutputWorkspaces = newOutputWorkspaces
       }

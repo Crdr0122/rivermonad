@@ -1,6 +1,7 @@
 module Handlers.Seat where
 
 import Control.Monad (when)
+import Data.Bimap qualified as B
 import Data.IORef
 import Data.Map.Strict qualified as M
 import Foreign
@@ -55,6 +56,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
     , focusedOutput
     , focusedWindow
     , allWindows
+    , allOutputWorkspaces
     } <-
     readIORef stateIORef
   case focusedWindow of
@@ -117,7 +119,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
             newWorkspaceRatios =
               M.insertWith
                 (\n o -> let m = o + n in if m > 0.20 && m < 0.80 then m else o)
-                (focusedWorkspace state)
+                (allOutputWorkspaces B.! focusedOutput)
                 (fromIntegral (dx - oldDx) / fromIntegral outWidth)
                 (workspaceRatios state)
           writeIORef
