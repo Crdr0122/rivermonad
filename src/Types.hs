@@ -5,6 +5,7 @@ import Data.Map.Strict
 import Foreign
 import Foreign.C
 import Utils.BiSeqMap
+import Data.Bimap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
 type WorkspaceID = Int
@@ -48,15 +49,18 @@ data RiverOutput
 data RiverSeat
 data RiverShellSurface
 data RiverWMManager
-data RiverXkbBinding
 data RiverXkbBindings
-data RiverXkbConfig
+data RiverXkbBinding
+type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
 data RiverLayerShell
 data RiverLayerShellOutput
 data RiverLayerShellSeat
 data RiverPointerBinding
-type XkbCallback = Ptr () -> Ptr RiverXkbBinding -> IO ()
 type PointerCallback = Ptr () -> Ptr RiverPointerBinding -> IO ()
+data RiverXkbConfig
+data RiverXkbKeyboard
+data RiverXkbKeymap
+
 
 data WlSurface
 

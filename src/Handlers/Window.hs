@@ -70,7 +70,6 @@ hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
-  print "Parent"
   let
     newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
     newTiled = BS.delete win (allWorkspacesTiled state)
@@ -95,7 +94,6 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
 
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowTitle dataPtr win title = do
-  print "Title"
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
   t <- peekCString title
@@ -109,3 +107,32 @@ hsWindowAppID dataPtr win appID = do
   a <- peekCString appID
   let newWindows = M.adjust (\w -> w{winAppID = a}) win (allWindows state)
   writeIORef stateIORef state{allWindows = newWindows}
+
+hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
+hsWindowFullscreenRequested dataPtr win output = do
+  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state@WMState
+    { allWindows
+    , allWorkspacesFloating
+    , fullscreenQueue
+    , allWorkspacesTiled
+    } <-
+    readIORef stateIORef
+  let window@Window{isFloating, isFullscreen} = allWindows M.! win
+      newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
+      newState = do
+        let fA = riverWindowFullscreen win output
+        if isFloating
+          then
+            state
+              { allWorkspacesFloating = BS.delete win allWorkspacesFloating
+              , fullscreenQueue = win : fullscreenQueue
+              , manageQueue = manageQueue state >> fA
+              }
+          else
+            state
+              { allWorkspacesTiled = BS.delete win allWorkspacesTiled
+              , fullscreenQueue = win : fullscreenQueue
+              , manageQueue = manageQueue state >> fA
+              }
+  writeIORef stateIORef newState{allWindows = newWindows}

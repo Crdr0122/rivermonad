@@ -33,7 +33,7 @@ defaultLayouts =
     [ (1, twoPaneLayout)
     , (2, stackLayout)
     , (3, monocleLayout)
-    , (4, circleLayout)
+    , (4, monocleLayout)
     , (5, monocleLayout)
     , (6, monocleLayout)
     , (7, monocleLayout)
@@ -73,6 +73,9 @@ cycleWindowsOrSlaves forward stateIORef = do
 
 xCursorTheme :: (String, CUInt)
 xCursorTheme = ("Himehina", 24)
+
+modSuperShift :: CUInt
+modSuperShift = modSuper .|. modShift
 
 allKeyBindings :: [(CUInt, CUInt, IORef WMState -> IO ())]
 allKeyBindings =
@@ -140,6 +143,3 @@ allKeyBindings =
   , (keyEqual, modSuper, modifyLayoutRatio 0.04)
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))
   ]
-
-modSuperShift :: CUInt
-modSuperShift = modSuper .|. modShift

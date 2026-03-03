@@ -28,7 +28,6 @@ foreign export ccall "hs_wm_render_start"
 
 hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 hsOnNewWindow dataPtr _ win = do
-  print "New Window"
   node <- riverWindowGetNode win
   let w =
         Window

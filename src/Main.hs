@@ -79,6 +79,7 @@ main = do
   stPtr <- newStablePtr st
 
   _ <- wlProxyAddListener (castPtr river) getRiverWmListener (castStablePtrToPtr stPtr)
+  _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener (castStablePtrToPtr stPtr)
 
   _ <- wlDisplayRoundtrip display
 

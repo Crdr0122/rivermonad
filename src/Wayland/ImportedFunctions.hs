@@ -12,6 +12,8 @@ foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :
 foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()
 foreign import ccall unsafe "get_river_seat_listener" getRiverSeatListener :: Ptr ()
 foreign import ccall unsafe "get_river_layer_shell_output_listener" getRiverLayerShellOutputListener :: Ptr ()
+foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
+foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
 
 foreign import capi "river-wm.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()
@@ -132,3 +134,27 @@ foreign import capi "river-layer-shell.h river_layer_shell_output_v1_destroy"
   riverLayerShellOutputDestroy :: Ptr RiverLayerShellOutput -> IO ()
 foreign import capi "river-layer-shell.h river_layer_shell_output_v1_set_default"
   riverLayerShellOutputSetDefault :: Ptr RiverLayerShellOutput -> IO ()
+
+foreign import capi "river-xkb-config.h river_xkb_config_v1_stop"
+  riverXkbConfigStop :: Ptr RiverXkbConfig -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_config_v1_destroy"
+  riverXkbConfigDestroy :: Ptr RiverXkbConfig -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_config_v1_create_keymap"
+  riverXkbConfigCreateKeymap :: Ptr RiverXkbConfig -> CInt -> CUInt -> IO (Ptr RiverXkbKeymap)
+
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_destroy"
+  riverXkbKeyboardDestroy :: Ptr RiverXkbKeyboard -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_set_keymap"
+  riverXkbKeyboardSetKeymap :: Ptr RiverXkbKeyboard -> Ptr RiverXkbKeymap -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_set_layout_by_index"
+  riverXkbKeyboardSetLayoutByIndex :: Ptr RiverXkbKeyboard -> CInt -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_set_layout_by_name"
+  riverXkbKeyboardSetLayoutByName :: Ptr RiverXkbKeyboard -> CString -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_capslock_enable"
+  riverXkbKeyboardCapslockEnable :: Ptr RiverXkbKeyboard -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_capslock_disable"
+  riverXkbKeyboardCapslockDisable :: Ptr RiverXkbKeyboard -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_numlock_enable"
+  riverXkbKeyboardNumlockEnable :: Ptr RiverXkbKeyboard -> IO ()
+foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_numlock_disable"
+  riverXkbKeyboardNumlockDisable :: Ptr RiverXkbKeyboard -> IO ()
