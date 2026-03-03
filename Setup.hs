@@ -29,7 +29,6 @@ generateWaylandProtocols = do
         headerOut = genDir </> (name ++ ".h")
         codeOut = genDir </> (name ++ ".c")
 
-    putStrLn $ "  Scanning " ++ xmlFile
     callProcess "wayland-scanner" ["client-header", protoPath, headerOut]
     callProcess "wayland-scanner" ["private-code", protoPath, codeOut]
 
@@ -38,5 +37,4 @@ generateWaylandProtocols = do
   let masterCPath = genDir </> "all_protocols.c"
   let masterCContent = unlines $ map (\f -> "#include \"" ++ f ++ "\"") cFiles
 
-  putStrLn $ "Updating " ++ masterCPath
   writeFile masterCPath masterCContent

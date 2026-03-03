@@ -80,6 +80,33 @@ roledexLayout :: LayoutType
 roledexLayout = LayoutType "Roledex" applyRoledex
  where
   applyRoledex _ _ [] = []
+  applyRoledex _ Rect{rx, ry, rw, rh} [w] =
+    let mW = rw * 8 `div` 15
+        mH = rh * 8 `div` 15
+        mX = rx + (rw `div` 2) - (mW `div` 2)
+        mY = ry + (rh `div` 2) - (mH `div` 2)
+        masterRect = Rect{rw = mW, rh = mH, rx = mX, ry = mY}
+     in [(w, masterRect)]
+  applyRoledex _ Rect{rx, ry, rw, rh} wins =
+    let mW = rw * 8 `div` 15
+        mH = rh * 8 `div` 15
+        iW = (rw - mW) `div` (fromIntegral (length wins) - 1)
+        iH = (rh - mH) `div` (fromIntegral (length wins) - 1)
+        gapW = (rw - iW * (fromIntegral (length wins) - 1) - mW) `div` 2
+        gapH = (rh - iH * (fromIntegral (length wins) - 1) - mH) `div` 2
+        createRect i =
+          Rect
+            { rw = mW
+            , rh = mH
+            , rx = rx + rw - mW - gapW - i * iW
+            , ry = ry + rh - mH - gapH - i * iH
+            }
+        res =
+          zipWith
+            (\win i -> (win, createRect i))
+            wins
+            [0 ..]
+     in res
 
 layoutIfMax :: Int -> LayoutType -> LayoutType -> LayoutType
 layoutIfMax threshold l1 l2 = LayoutType title applyLayout

@@ -34,7 +34,7 @@ defaultLayouts =
     [ (1, twoPaneLayout)
     , (2, stackLayout)
     , (3, circleLayout)
-    , (4, monocleLayout)
+    , (4, roledexLayout)
     , (5, monocleLayout)
     , (6, monocleLayout)
     , (7, monocleLayout)
