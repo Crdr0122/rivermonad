@@ -316,9 +316,10 @@ dragWindow stateIORef = do
     Nothing -> pure ()
     Just w -> do
       let win = allWindows state M.! w
-      when (isFloating win && not (isFullscreen win)) $ do
-        riverSeatOpStartPointer (focusedSeat state)
+      unless (isFullscreen win) $ do
         writeIORef stateIORef state{opDeltaState = Dragging}
+        unless (isFloating win) $ floatCurrentWindow stateIORef
+        riverSeatOpStartPointer (focusedSeat state)
 
 stopDragging :: IORef WMState -> IO ()
 stopDragging stateIORef = do

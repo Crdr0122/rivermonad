@@ -9,6 +9,7 @@ module Config (
   gapPx,
   allPointerBindings,
   xCursorTheme,
+  floatingRules,
 ) where
 
 import Data.Bimap qualified as B
@@ -49,8 +50,7 @@ defaultRatios =
 
 execOnStart :: [String]
 execOnStart =
-  [ "foot"
-  , -- , "thunar"
+  [ -- , "thunar"
     -- , "foot -e yazi"
     -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
     "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
@@ -65,18 +65,14 @@ focusedBorderColor = 0x7fc8ffff
 gapPx :: CInt
 gapPx = 0
 
-cycleWindowsOrSlaves :: Bool -> IORef WMState -> IO ()
-cycleWindowsOrSlaves forward stateIORef = do
-  state <- readIORef stateIORef
-  case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
-    "TwoPane" -> cycleWindowSlaves forward stateIORef
-    _ -> cycleWindows forward stateIORef
-
 xCursorTheme :: (String, CUInt)
 xCursorTheme = ("Himehina", 24)
 
 modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
+
+floatingRules :: [(String, String)]
+floatingRules = [("Rename ", "thunar")]
 
 allKeyBindings :: [(CUInt, CUInt, IORef WMState -> IO ())]
 allKeyBindings =
@@ -144,3 +140,10 @@ allKeyBindings =
   , (keyEqual, modSuper, modifyLayoutRatio 0.04)
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))
   ]
+
+cycleWindowsOrSlaves :: Bool -> IORef WMState -> IO ()
+cycleWindowsOrSlaves forward stateIORef = do
+  state <- readIORef stateIORef
+  case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
+    "TwoPane" -> cycleWindowSlaves forward stateIORef
+    _ -> cycleWindows forward stateIORef

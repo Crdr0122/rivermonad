@@ -15,7 +15,6 @@ import Handlers.PointerBindings
 import Handlers.XkbBindings
 import Layout
 import Types
-import Utils.BiSeqMap qualified as BS
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -32,6 +31,7 @@ foreign export ccall "hs_wm_render_start"
 
 hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 hsOnNewWindow dataPtr _ win = do
+  print "New window"
   node <- riverWindowGetNode win
   let w =
         Window
@@ -49,14 +49,14 @@ hsOnNewWindow dataPtr _ win = do
   _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyIORef stateIORef $ \state -> do
-    let newWindows= M.insert win w (allWindows state)
+    let newWindows = M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-        newWorkspacesTiled = BS.insert (allOutputWorkspaces state B.! focusedOutput state) win (allWorkspacesTiled state)
+
     state
       { allWindows = newWindows
       , manageQueue = newManageQueue
+      , newWindowQueue = win : newWindowQueue state
       , focusedWindow = Just (win)
-      , allWorkspacesTiled = newWorkspacesTiled
       }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()

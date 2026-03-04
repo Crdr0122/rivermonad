@@ -62,6 +62,7 @@ main = do
         , allWorkspacesFloating = BS.empty
         , allWorkspacesFullscreen = BS.empty
         , floatingQueue = []
+        , newWindowQueue = []
         , focusedSeat = nullPtr
         , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1

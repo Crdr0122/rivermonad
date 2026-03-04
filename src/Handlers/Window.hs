@@ -68,29 +68,33 @@ hsWindowDimensions dataPtr winP width height = do
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
+  print "Has Parent"
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readIORef stateIORef
-  let
-    newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
-    newTiled = BS.delete win (allWorkspacesTiled state)
-    newFullscreen = BS.delete win (allWorkspacesFullscreen state)
-
+  let newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
   writeIORef
     stateIORef
-    state
-      { allWindows = newWindows
-      , floatingQueue = win : floatingQueue state
-      , allWorkspacesTiled = newTiled
-      , allWorkspacesFullscreen = newFullscreen
-      }
-  riverWindowManagerManageDirty (currentWmManager state)
+    state{allWindows = newWindows}
 
 hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
+  print $ "Dimensions hint" ++ show (minW, minH, maxW, maxH)
   stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state@WMState{allWindows} <- readIORef stateIORef
   let newWindows = M.adjust (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)}) win allWindows
-  writeIORef stateIORef state{allWindows = newWindows}
+      newState = state{allWindows = newWindows}
+  if minW == maxW && minH == maxH && minW /= 0 && minH /= 0
+    then do
+      let newTiled = BS.delete win (allWorkspacesTiled state)
+          newFullscreen = BS.delete win (allWorkspacesFullscreen state)
+      writeIORef
+        stateIORef
+        newState
+          { allWorkspacesTiled = newTiled
+          , allWorkspacesFullscreen = newFullscreen
+          , floatingQueue = win : floatingQueue state
+          }
+    else writeIORef stateIORef newState
 
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowTitle dataPtr win title = do

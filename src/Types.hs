@@ -26,6 +26,7 @@ data WMState = WMState
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
+  , newWindowQueue :: [Ptr RiverWindow]
   , floatingQueue :: [Ptr RiverWindow]
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
