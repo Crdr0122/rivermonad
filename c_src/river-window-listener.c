@@ -1,4 +1,4 @@
-#include "../generated/river-wm.h"
+#include "../generated/river-window-management.h"
 #include <stdio.h>
 
 extern void hs_window_closed(void *data, struct river_window_v1 *window);

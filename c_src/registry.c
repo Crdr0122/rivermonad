@@ -1,7 +1,7 @@
 #include "../generated/river-input-management.h"
 #include "../generated/river-layer-shell.h"
-#include "../generated/river-wm.h"
-#include "../generated/river-xkb-binding.h"
+#include "../generated/river-window-management.h"
+#include "../generated/river-xkb-bindings.h"
 #include "../generated/river-xkb-config.h"
 #include <stdio.h>
 #include <string.h>

@@ -33,13 +33,14 @@ license-file: LICENSE
 -- maintainer:
 -- A copyright notice.
 -- copyright:
-build-type: Custom
+build-type: Hooks
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
 extra-doc-files: CHANGELOG.md
 
 custom-setup
   setup-depends:
     Cabal,
+    Cabal-hooks,
     base >=4.18,
     directory,
     filepath,
@@ -89,16 +90,6 @@ executable rivermonad
   -- Directories containing source files.
   hs-source-dirs:
     src
-
-  c-sources:
-    c_src/registry.c
-    c_src/river-layer-shell-listener.c
-    c_src/river-output-listener.c
-    c_src/river-seat-listener.c
-    c_src/river-window-listener.c
-    c_src/river-wm-listener.c
-    c_src/river-xkb-listener.c
-    generated/all_protocols.c
 
   include-dirs:
     c_src

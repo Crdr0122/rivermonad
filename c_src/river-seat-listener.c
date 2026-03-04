@@ -1,4 +1,4 @@
-#include "../generated/river-wm.h"
+#include "../generated/river-window-management.h"
 #include <stdio.h>
 #include <wayland-client.h>
 

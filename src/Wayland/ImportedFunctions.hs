@@ -15,113 +15,113 @@ foreign import ccall unsafe "get_river_layer_shell_output_listener" getRiverLaye
 foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
 
-foreign import capi "river-wm.h river_window_manager_v1_stop"
+foreign import capi "river-window-management.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()
-foreign import capi "river-wm.h river_window_manager_v1_destroy"
+foreign import capi "river-window-management.h river_window_manager_v1_destroy"
   riverWindowManagerDestroy :: Ptr RiverWMManager -> IO ()
-foreign import capi "river-wm.h river_window_manager_v1_manage_finish"
+foreign import capi "river-window-management.h river_window_manager_v1_manage_finish"
   riverWindowManagerManageFinish :: Ptr RiverWMManager -> IO ()
-foreign import capi "river-wm.h river_window_manager_v1_manage_dirty"
+foreign import capi "river-window-management.h river_window_manager_v1_manage_dirty"
   riverWindowManagerManageDirty :: Ptr RiverWMManager -> IO ()
-foreign import capi "river-wm.h river_window_manager_v1_render_finish"
+foreign import capi "river-window-management.h river_window_manager_v1_render_finish"
   riverWindowManagerRenderFinish :: Ptr RiverWMManager -> IO ()
-foreign import capi "river-wm.h river_window_manager_v1_get_shell_surface"
+foreign import capi "river-window-management.h river_window_manager_v1_get_shell_surface"
   riverWindowManagerGetShellSurface :: Ptr RiverWMManager -> Ptr WlSurface -> IO ()
 
-foreign import capi "river-wm.h river_window_v1_destroy"
+foreign import capi "river-window-management.h river_window_v1_destroy"
   riverWindowDestroy :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_close"
+foreign import capi "river-window-management.h river_window_v1_close"
   riverWindowClose :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_get_node"
+foreign import capi "river-window-management.h river_window_v1_get_node"
   riverWindowGetNode :: Ptr RiverWindow -> IO (Ptr RiverNode)
-foreign import capi "river-wm.h river_window_v1_propose_dimensions"
+foreign import capi "river-window-management.h river_window_v1_propose_dimensions"
   riverWindowProposeDimensions :: Ptr RiverWindow -> CInt -> CInt -> IO ()
-foreign import capi "river-wm.h river_window_v1_hide"
+foreign import capi "river-window-management.h river_window_v1_hide"
   riverWindowHide :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_show"
+foreign import capi "river-window-management.h river_window_v1_show"
   riverWindowShow :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_use_csd"
+foreign import capi "river-window-management.h river_window_v1_use_csd"
   riverWindowUseCsd :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_use_ssd"
+foreign import capi "river-window-management.h river_window_v1_use_ssd"
   riverWindowUseSsd :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_set_borders"
+foreign import capi "river-window-management.h river_window_v1_set_borders"
   riverWindowSetBorders :: Ptr RiverWindow -> RiverEdge -> CInt -> CUInt -> CUInt -> CUInt -> CUInt -> IO ()
-foreign import capi "river-wm.h river_window_v1_set_tiled"
+foreign import capi "river-window-management.h river_window_v1_set_tiled"
   riverWindowSetTiled :: Ptr RiverWindow -> RiverEdge -> IO ()
-foreign import capi "river-wm.h river_window_v1_get_decoration_above"
+foreign import capi "river-window-management.h river_window_v1_get_decoration_above"
   riverWindowGetDecorationAbove :: Ptr RiverWindow -> Ptr WlSurface -> IO (Ptr ())
-foreign import capi "river-wm.h river_window_v1_get_decoration_below"
+foreign import capi "river-window-management.h river_window_v1_get_decoration_below"
   riverWindowGetDecorationBelow :: Ptr RiverWindow -> Ptr WlSurface -> IO (Ptr ())
-foreign import capi "river-wm.h river_window_v1_inform_resize_start"
+foreign import capi "river-window-management.h river_window_v1_inform_resize_start"
   riverWindowInformResizeStart :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_inform_resize_end"
+foreign import capi "river-window-management.h river_window_v1_inform_resize_end"
   riverWindowInformResizeEnd :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_set_capabilities"
+foreign import capi "river-window-management.h river_window_v1_set_capabilities"
   riverWindowSetCapabilities :: Ptr RiverWindow -> CUInt -> IO ()
-foreign import capi "river-wm.h river_window_v1_inform_maximized"
+foreign import capi "river-window-management.h river_window_v1_inform_maximized"
   riverWindowInformMaximized :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_inform_unmaximized"
+foreign import capi "river-window-management.h river_window_v1_inform_unmaximized"
   riverWindowInformUnmaximized :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_inform_fullscreen"
+foreign import capi "river-window-management.h river_window_v1_inform_fullscreen"
   riverWindowInformFullscreen :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_inform_not_fullscreen"
+foreign import capi "river-window-management.h river_window_v1_inform_not_fullscreen"
   riverWindowInformNotFullscreen :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_fullscreen"
+foreign import capi "river-window-management.h river_window_v1_fullscreen"
   riverWindowFullscreen :: Ptr RiverWindow -> Ptr RiverOutput -> IO ()
-foreign import capi "river-wm.h river_window_v1_exit_fullscreen"
+foreign import capi "river-window-management.h river_window_v1_exit_fullscreen"
   riverWindowExitFullscreen :: Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_window_v1_set_clip_box"
+foreign import capi "river-window-management.h river_window_v1_set_clip_box"
   riverWindowSetClipBox :: Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
-foreign import capi "river-wm.h river_window_v1_set_content_clip_box"
+foreign import capi "river-window-management.h river_window_v1_set_content_clip_box"
   riverWindowSetContentClipBox :: Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 
-foreign import capi "river-wm.h river_node_v1_destroy"
+foreign import capi "river-window-management.h river_node_v1_destroy"
   riverNodeDestroy :: Ptr RiverNode -> IO ()
-foreign import capi "river-wm.h river_node_v1_set_position"
+foreign import capi "river-window-management.h river_node_v1_set_position"
   riverNodeSetPosition :: Ptr RiverNode -> CInt -> CInt -> IO ()
-foreign import capi "river-wm.h river_node_v1_place_top"
+foreign import capi "river-window-management.h river_node_v1_place_top"
   riverNodePlaceTop :: Ptr RiverNode -> IO ()
-foreign import capi "river-wm.h river_node_v1_place_bottom"
+foreign import capi "river-window-management.h river_node_v1_place_bottom"
   riverNodePlaceBottom :: Ptr RiverNode -> IO ()
-foreign import capi "river-wm.h river_node_v1_place_above"
+foreign import capi "river-window-management.h river_node_v1_place_above"
   riverNodePlaceAbove :: Ptr RiverNode -> Ptr RiverNode -> IO ()
-foreign import capi "river-wm.h river_node_v1_place_below"
+foreign import capi "river-window-management.h river_node_v1_place_below"
   riverNodePlaceBelow :: Ptr RiverNode -> Ptr RiverNode -> IO ()
 
-foreign import capi "river-wm.h river_output_v1_destroy"
+foreign import capi "river-window-management.h river_output_v1_destroy"
   riverOutputDestroy :: Ptr RiverOutput -> IO ()
 
-foreign import capi "river-wm.h river_seat_v1_destroy"
+foreign import capi "river-window-management.h river_seat_v1_destroy"
   riverSeatDestroy :: Ptr RiverSeat -> IO ()
-foreign import capi "river-wm.h river_seat_v1_focus_window"
+foreign import capi "river-window-management.h river_seat_v1_focus_window"
   riverSeatFocusWindow :: Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-foreign import capi "river-wm.h river_seat_v1_focus_shell_surface"
+foreign import capi "river-window-management.h river_seat_v1_focus_shell_surface"
   riverSeatFocusShellSurface :: Ptr RiverSeat -> Ptr RiverShellSurface -> IO ()
-foreign import capi "river-wm.h river_seat_v1_clear_focus"
+foreign import capi "river-window-management.h river_seat_v1_clear_focus"
   riverSeatClearFocus :: Ptr RiverSeat -> IO ()
-foreign import capi "river-wm.h river_seat_v1_op_start_pointer"
+foreign import capi "river-window-management.h river_seat_v1_op_start_pointer"
   riverSeatOpStartPointer :: Ptr RiverSeat -> IO ()
-foreign import capi "river-wm.h river_seat_v1_op_end"
+foreign import capi "river-window-management.h river_seat_v1_op_end"
   riverSeatOpEnd :: Ptr RiverSeat -> IO ()
-foreign import capi "river-wm.h river_seat_v1_get_pointer_binding"
+foreign import capi "river-window-management.h river_seat_v1_get_pointer_binding"
   riverSeatGetPointerBinding :: Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverPointerBinding)
-foreign import capi "river-wm.h river_seat_v1_set_xcursor_theme"
+foreign import capi "river-window-management.h river_seat_v1_set_xcursor_theme"
   riverSeatSetXcursorTheme :: Ptr RiverSeat -> CString -> CUInt -> IO ()
-foreign import capi "river-wm.h river_seat_v1_pointer_warp"
+foreign import capi "river-window-management.h river_seat_v1_pointer_warp"
   riverSeatPointerWarp :: Ptr RiverSeat -> CInt -> CInt -> IO ()
 
-foreign import capi "river-wm.h river_pointer_binding_v1_destroy"
+foreign import capi "river-window-management.h river_pointer_binding_v1_destroy"
   riverPointerBindingDestroy :: Ptr RiverPointerBinding -> IO ()
-foreign import capi "river-wm.h river_pointer_binding_v1_enable"
+foreign import capi "river-window-management.h river_pointer_binding_v1_enable"
   riverPointerBindingEnable :: Ptr RiverPointerBinding -> IO ()
-foreign import capi "river-wm.h river_pointer_binding_v1_disable"
+foreign import capi "river-window-management.h river_pointer_binding_v1_disable"
   riverPointerBindingDisable :: Ptr RiverPointerBinding -> IO ()
 
-foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_get_xkb_binding"
+foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_get_xkb_binding"
   riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)
-foreign import capi "river-xkb-binding.h river_xkb_bindings_v1_destroy"
+foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_destroy"
   riverXkbBindingsDestroy :: Ptr RiverXkbBindings -> IO ()
-foreign import capi "river-xkb-binding.h river_xkb_binding_v1_enable"
+foreign import capi "river-xkb-bindings.h river_xkb_binding_v1_enable"
   riverXkbBindingEnable :: Ptr RiverXkbBinding -> IO ()
 
 foreign import capi "river-layer-shell.h river_layer_shell_v1_destroy"
