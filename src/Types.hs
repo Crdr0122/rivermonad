@@ -37,7 +37,7 @@ data WMState = WMState
   , cursorPosition :: (CInt, CInt)
   }
 
-data OpDeltaState = Dragging | Resizing RiverEdge | ResizingTile | None
+data OpDeltaState = Dragging | DraggingTile Rect | Resizing RiverEdge | ResizingTile | None
 
 data WlDisplay
 data WlRegistry

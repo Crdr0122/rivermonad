@@ -127,6 +127,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
               { workspaceRatios = newWorkspaceRatios
               , currentOpDelta = (dx, 0, 0, 0)
               }
+        DraggingTile rect -> pure ()
 
 hsSeatOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
 hsSeatOpRelease _ _ = pure ()

@@ -1,6 +1,6 @@
 module Handlers.Window where
 
-import Control.Monad (when)
+import Control.Monad (unless, when)
 import Data.Bimap qualified as B
 import Data.IORef
 import Data.Map.Strict qualified as M
@@ -54,16 +54,27 @@ hsWindowDimensions dataPtr winP width height = do
   state@WMState{opDeltaState} <- readIORef stateIORef
   case opDeltaState of
     None -> do
-      let w@Window{isFloating, floatingGeometry, isFullscreen} = allWindows state M.! winP
-      when (isFloating && not isFullscreen) $ do
-        let newGeometry =
-              (fromMaybe (Rect 0 0 0 0) floatingGeometry)
-                { rw = width
-                , rh = height
-                }
-            newWindow = w{floatingGeometry = Just newGeometry}
-            newAllWindows = M.insert winP newWindow (allWindows state)
-        writeIORef stateIORef state{allWindows = newAllWindows}
+      let w@Window{isFloating, floatingGeometry, isFullscreen, tilingGeometry} = allWindows state M.! winP
+      unless isFullscreen $
+        if isFloating
+          then do
+            let newGeometry =
+                  (fromMaybe (Rect 0 0 0 0) floatingGeometry)
+                    { rw = width
+                    , rh = height
+                    }
+                newWindow = w{floatingGeometry = Just newGeometry}
+                newAllWindows = M.insert winP newWindow (allWindows state)
+            writeIORef stateIORef state{allWindows = newAllWindows}
+          else do
+            let newGeometry =
+                  (fromMaybe (Rect 0 0 0 0) tilingGeometry)
+                    { rw = width
+                    , rh = height
+                    }
+                newWindow = w{tilingGeometry = Just newGeometry}
+                newAllWindows = M.insert winP newWindow (allWindows state)
+            writeIORef stateIORef state{allWindows = newAllWindows}
     _ -> pure ()
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
