@@ -76,13 +76,13 @@ declareGeneratedCSources pcci@PreConfComponentInputs{packageBuildDescr = pbd, lo
   let bi =
         emptyBuildInfo
           { cSources = map makeSymbolicPath allCFiles
-          -- , includeDirs = [genDir] -- For the generated headers
+          , includeDirs = [genDir, cDir] -- For the generated headers
           }
   print bi
   return $
     (noPreConfComponentOutputs pcci)
-      { componentDiff = buildInfoComponentDiff (componentName comp) bi
-      }
+      -- { componentDiff = buildInfoComponentDiff (componentName comp) bi
+      -- }
 
 -- ============================================================================
 -- BUILD HOOKS: Rules to actually generate the files

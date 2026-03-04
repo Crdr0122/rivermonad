@@ -33,7 +33,7 @@ license-file: LICENSE
 -- maintainer:
 -- A copyright notice.
 -- copyright:
-build-type: Hooks
+build-type: Custom
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
 extra-doc-files: CHANGELOG.md
 
@@ -92,7 +92,6 @@ executable rivermonad
     src
 
   include-dirs:
-    c_src
     generated
 
   extra-libraries: wayland-client

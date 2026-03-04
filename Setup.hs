@@ -2,22 +2,35 @@ import Control.Monad (forM_)
 import Distribution.Simple
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Setup
+import Distribution.Types.BuildInfo
+import Distribution.Types.Executable
+import Distribution.Types.HookedBuildInfo
+import Distribution.Types.PackageDescription
+
+import Distribution.Utils.Path (makeSymbolicPath)
 import System.Directory (createDirectoryIfMissing, listDirectory)
 import System.FilePath (takeBaseName, takeExtension, (</>))
 import System.Process (callProcess)
 
+genDir :: FilePath
+genDir = "generated"
+protoDir :: FilePath
+protoDir = "protocols"
+cDir :: FilePath
+cDir = "c_src"
+
 main =
   defaultMainWithHooks
     simpleUserHooks
-      { preBuild = \args flags -> do
+      { preConf = \args flags -> do
           generateWaylandProtocols
-          preBuild simpleUserHooks args flags
+          preConf simpleUserHooks args flags
+      , buildHook = \pd lbi uhs flags ->
+          insertCFiles pd lbi uhs flags
       }
 
 generateWaylandProtocols :: IO ()
 generateWaylandProtocols = do
-  let protoDir = "protocols"
-      genDir = "generated"
   createDirectoryIfMissing True genDir
 
   allFiles <- listDirectory protoDir
@@ -32,9 +45,26 @@ generateWaylandProtocols = do
     callProcess "wayland-scanner" ["client-header", protoPath, headerOut]
     callProcess "wayland-scanner" ["private-code", protoPath, codeOut]
 
-  -- Create the Master C File
-  let cFiles = map (++ ".c") shortNames
-  let masterCPath = genDir </> "all_protocols.c"
-  let masterCContent = unlines $ map (\f -> "#include \"" ++ f ++ "\"") cFiles
+insertCFiles :: PackageDescription -> LocalBuildInfo -> UserHooks -> BuildFlags -> IO ()
+insertCFiles pd@PackageDescription{executables} lbi uhs flags = do
+  allGenFiles <- listDirectory genDir
+  allCFiles <- listDirectory cDir
+  let
+    genFiles = (makeSymbolicPath . (genDir </>)) <$> filter (\f -> takeExtension f == ".c") allGenFiles
+    cFiles = (makeSymbolicPath . (cDir </>)) <$> filter (\f -> takeExtension f == ".c") allCFiles
+    genDirSymbolic = makeSymbolicPath genDir
+    masterCFile = makeSymbolicPath "generated/all_protocols.c"
+    newExecutables =
+      fmap
+        ( \e@Executable{buildInfo = b@BuildInfo{cSources, includeDirs}} ->
+            e
+              { buildInfo =
+                  b
+                    { cSources = genFiles ++ cFiles ++ cSources
+                    , includeDirs = genDirSymbolic : includeDirs
+                    }
+              }
+        )
+        executables
 
-  writeFile masterCPath masterCContent
+  buildHook simpleUserHooks pd{executables = newExecutables} lbi uhs flags
