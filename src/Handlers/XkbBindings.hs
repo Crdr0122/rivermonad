@@ -1,6 +1,6 @@
 module Handlers.XkbBindings where
 
-import Data.IORef
+import Control.Concurrent.MVar
 import Foreign
 import Foreign.C
 import Types
@@ -31,20 +31,19 @@ instance Storable XkbBindingListener where
 foreign import ccall "wrapper"
   mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
 
-registerKeybind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, IORef WMState -> IO ()) -> IO ()
+registerKeybind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, MVar WMState -> IO ()) -> IO ()
 registerKeybind dataPtr seat (key, modifier, onPressed) = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
+    releasedPtr <- mkXkbCallback (\_ _ -> pure ())
+    stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
 
-  pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
-  releasedPtr <- mkXkbCallback (\_ _ -> pure ())
-  stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
+    let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
+        bindingManager = currentXkbBindings state
+    listenerPtr <- malloc :: IO (Ptr XkbBindingListener)
+    poke listenerPtr listener
+    newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
+    _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-  let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
-      bindingManager = currentXkbBindings state
-  listenerPtr <- malloc :: IO (Ptr XkbBindingListener)
-  poke listenerPtr listener
-  newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
-  _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
-
-  writeIORef stateIORef state{manageQueue = manageQueue state >> riverXkbBindingEnable newBinding}
+    pure state{manageQueue = manageQueue state >> riverXkbBindingEnable newBinding}

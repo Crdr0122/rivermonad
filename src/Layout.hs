@@ -1,9 +1,9 @@
 module Layout (startLayout) where
 
 import Config
+import Control.Concurrent.MVar
 import Data.Bimap qualified as B
 import Data.Foldable
-import Data.IORef
 import Data.List
 import Data.Map.Strict qualified as M
 import Data.Maybe
@@ -15,130 +15,133 @@ import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
-startLayout :: IORef WMState -> IO ()
-startLayout stateIORef = do
-  state <- readIORef stateIORef
+startLayout :: MVar WMState -> IO ()
+startLayout stateMVar = do
+  state <- readMVar stateMVar
   let outputs = B.toList (allOutputWorkspaces state)
-  mapM_ (\(o, w) -> startLayoutOutput o w stateIORef) outputs
+  mapM_ (\(o, w) -> startLayoutOutput o w stateMVar) outputs
 
-startLayoutOutput :: Ptr RiverOutput -> WorkspaceID -> IORef WMState -> IO ()
-startLayoutOutput output focusedWorkspace stateIORef = do
-  print "Start layout"
-  state@WMState
-    { allOutputs
-    , workspaceRatios
-    , floatingQueue
-    , newWindowQueue
-    , workspaceLayouts
-    , allWorkspacesFloating
-    , allWorkspacesTiled
-    , allWorkspacesFullscreen
-    , allWindows
-    } <-
-    readIORef stateIORef
-  let mOut = M.lookup output allOutputs
-  case mOut of
-    Nothing -> pure ()
-    Just o@Output{outX, outY, outHeight, outWidth} -> do
-      let (tileable, floatingWindowsQueue, nonFullscreenPtrs) = getWindows
-          geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
-          ratio = workspaceRatios M.! focusedWorkspace
+startLayoutOutput :: Ptr RiverOutput -> WorkspaceID -> MVar WMState -> IO ()
+startLayoutOutput output focusedWorkspace stateMVar = do
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allOutputs
+       , workspaceRatios
+       , floatingQueue
+       , newWindowQueue
+       , workspaceLayouts
+       , allWorkspacesFloating
+       , allWorkspacesTiled
+       , allWorkspacesFullscreen
+       , allWindows
+       } -> do
+        let mOut = M.lookup output allOutputs
+        case mOut of
+          Nothing -> pure state
+          Just o@Output{outX, outY, outHeight, outWidth} -> do
+            let (tileable, floatingWindowsQueue, nonFullscreenPtrs) = getWindows
+                geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
+                ratio = workspaceRatios M.! focusedWorkspace
 
-          (newQueuedFloatingWindows, newTiledWindows, newFullscreenWindows) =
-            ruleNewWindows (fmap (allWindows M.!) newWindowQueue)
+                (newQueuedFloatingWindows, newTiledWindows, newFullscreenWindows) =
+                  ruleNewWindows (fmap (allWindows M.!) newWindowQueue)
 
-          windowsToTile = newTiledWindows ++ toList tileable
+                windowsToTile = newTiledWindows ++ toList tileable
 
-          layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
-          gappedLayout = shrinkWindows gapPx layout
-          borderedLayout = shrinkWindows borderPx gappedLayout
+                layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
+                gappedLayout = shrinkWindows gapPx layout
+                borderedLayout = shrinkWindows borderPx gappedLayout
 
-          newFloatingWindows = newQueuedFloatingWindows ++ floatingWindowsQueue
+                newFloatingWindows = newQueuedFloatingWindows ++ floatingWindowsQueue
 
-          (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
+                (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-          newWorkspacesFloating =
-            BS.insertList focusedWorkspace (fmap winPtr newFloatingWindows ++ floatingQueue) allWorkspacesFloating
-          newWorkspacesTiled =
-            BS.insertList focusedWorkspace (fmap winPtr newTiledWindows) allWorkspacesTiled
-          newWorkspacesFullscreen =
-            BS.insertList focusedWorkspace (fmap winPtr newFullscreenWindows) allWorkspacesFullscreen
+                newWorkspacesFloating =
+                  BS.insertList focusedWorkspace (fmap winPtr newFloatingWindows ++ floatingQueue) allWorkspacesFloating
+                newWorkspacesTiled =
+                  BS.insertList focusedWorkspace (fmap winPtr newTiledWindows) allWorkspacesTiled
+                newWorkspacesFullscreen =
+                  BS.insertList focusedWorkspace (fmap winPtr newFullscreenWindows) allWorkspacesFullscreen
 
-          newAllWindows =
-            M.unions
-              [ ( M.fromList $
-                    map
-                      (\(rect, w) -> (winPtr w, w{isFloating = True, floatingGeometry = Just rect}))
-                      (zip floatingPositions newFloatingWindows)
-                )
-              , ( M.fromList $
-                    map
-                      (\w -> (winPtr w, w{isFullscreen = True}))
-                      newFullscreenWindows
-                )
-              , allWindows
-              ]
+                newAllWindows =
+                  M.unions
+                    [ ( M.fromList $
+                          map
+                            (\(rect, w) -> (winPtr w, w{isFloating = True, floatingGeometry = Just rect}))
+                            (zip floatingPositions newFloatingWindows)
+                      )
+                    , ( M.fromList $
+                          map
+                            (\w -> (winPtr w, w{isFullscreen = True}))
+                            newFullscreenWindows
+                      )
+                    , ( M.fromList $
+                          map
+                            (\(w, rect) -> (winPtr w, w{tilingGeometry = Just rect}))
+                            borderedLayout
+                      )
+                    , allWindows
+                    ]
 
-      -- All manage actions -> executed directly here
-      -- 1. Resize tiling windows
-      mapM_
-        (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh)
-        borderedLayout
-
-      -- 2. Resize new floating windows
-      floatMAction
-
-      -- 3. Fullscreen windows are already fullscreened
-      mapM_ (\w -> riverWindowFullscreen (winPtr w) output) newFullscreenWindows
-
-      -- All render actions
-      let renderTileNodeActions =
+            -- All manage actions -> executed directly here
+            -- 1. Resize tiling windows
             mapM_
-              (\(Window{nodePtr}, Rect{rx, ry}) -> riverNodeSetPosition nodePtr rx ry)
+              (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh)
               borderedLayout
 
-          renderBorderActions =
-            mapM_ (renderBorder (focusedWindow state) bColor fColor borderPx) nonFullscreenPtrs
+            -- 2. Resize new floating windows
+            floatMAction
 
-          renderActions =
-            renderTileNodeActions
-              >> lowerAllWindows windowsToTile
-              >> floatRAction
-              >> renderBorderActions
-              >> raiseAllWindows newFullscreenWindows
+            -- 3. Fullscreen windows are already fullscreened
+            mapM_ (\w -> riverWindowFullscreen (winPtr w) output) newFullscreenWindows
 
-      writeIORef
-        stateIORef
-        state
-          { renderQueue = renderQueue state >> renderActions
-          , manageQueue = pure ()
-          , floatingQueue = []
-          , newWindowQueue = []
-          , allWindows = newAllWindows
-          , allWorkspacesFloating = newWorkspacesFloating
-          , allWorkspacesTiled = newWorkspacesTiled
-          , allWorkspacesFullscreen = newWorkspacesFullscreen
-          }
-     where
-      ruleNewWindows xs =
-        let (float, tiled) =
-              partition
-                ( \Window{winTitle, winAppID, dimensionsHint = (_, _, maxW, maxH), parentWindow} ->
-                    any (\(t, a) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules
-                      || (maxW /= 0 && maxH /= 0)
-                      || isJust parentWindow
-                )
-                xs
-         in (float, tiled, [])
-      getWindows =
-        let
-          tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
-          floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
-          allW = allWindows
-          queueFloatingWindows = fmap (allW M.!) floatingQueue
-          tilingWindows = fmap (allW M.!) tilingWindowPtrs
-         in
-          (tilingWindows, queueFloatingWindows, tilingWindowPtrs S.>< floatingWindowPtrs S.>< (S.fromList floatingQueue))
+            -- All render actions
+            let renderTileNodeActions =
+                  mapM_
+                    (\(Window{nodePtr}, Rect{rx, ry}) -> riverNodeSetPosition nodePtr rx ry)
+                    borderedLayout
+
+                renderBorderActions =
+                  mapM_ (renderBorder (focusedWindow state) bColor fColor borderPx) nonFullscreenPtrs
+
+                renderActions =
+                  renderTileNodeActions
+                    >> lowerAllWindows windowsToTile
+                    >> floatRAction
+                    >> renderBorderActions
+                    >> raiseAllWindows newFullscreenWindows
+
+            pure
+              state
+                { renderQueue = renderQueue state >> renderActions
+                , manageQueue = pure ()
+                , floatingQueue = []
+                , newWindowQueue = []
+                , allWindows = newAllWindows
+                , allWorkspacesFloating = newWorkspacesFloating
+                , allWorkspacesTiled = newWorkspacesTiled
+                , allWorkspacesFullscreen = newWorkspacesFullscreen
+                }
+           where
+            ruleNewWindows xs =
+              let (float, tiled) =
+                    partition
+                      ( \Window{winTitle, winAppID, dimensionsHint = (_, _, maxW, maxH), parentWindow} ->
+                          any (\(t, a) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules
+                            || (maxW /= 0 && maxH /= 0)
+                            || isJust parentWindow
+                      )
+                      xs
+               in (float, tiled, [])
+            getWindows =
+              let
+                tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
+                floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
+                allW = allWindows
+                queueFloatingWindows = fmap (allW M.!) floatingQueue
+                tilingWindows = fmap (allW M.!) tilingWindowPtrs
+               in
+                (tilingWindows, queueFloatingWindows, tilingWindowPtrs S.>< floatingWindowPtrs S.>< (S.fromList floatingQueue))
 
 raiseAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)

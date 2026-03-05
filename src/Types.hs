@@ -1,7 +1,7 @@
 module Types where
 
+import Control.Concurrent.MVar
 import Data.Bimap
-import Data.IORef
 import Data.Map.Strict
 import Foreign
 import Foreign.C
@@ -9,7 +9,7 @@ import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
 type WorkspaceID = Int
-type WMStateRef = IORef WMState
+type WMStateRef = MVar WMState
 data WMState = WMState
   { manageQueue :: IO ()
   , renderQueue :: IO ()
@@ -37,7 +37,7 @@ data WMState = WMState
   , cursorPosition :: (CInt, CInt)
   }
 
-data OpDeltaState = Dragging | DraggingTile Rect | Resizing RiverEdge | ResizingTile | None
+data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
 
 data WlDisplay
 data WlRegistry

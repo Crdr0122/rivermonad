@@ -12,9 +12,9 @@ module Config (
   floatingRules,
 ) where
 
+import Control.Concurrent.MVar
 import Data.Bimap qualified as B
 import Data.Bits ((.|.))
-import Data.IORef
 import Data.Map.Strict qualified as M
 import Data.Word (Word32)
 import Foreign.C (CInt, CUInt)
@@ -23,7 +23,7 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 import Utils.Layouts
 
-allPointerBindings :: [(CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ())]
+allPointerBindings :: [(CUInt, CUInt, MVar WMState -> IO (), MVar WMState -> IO ())]
 allPointerBindings =
   [ (btnLeft, modSuper, dragWindow, stopDragging)
   , (btnRight, modSuper, resizeWindow, stopResizing)
@@ -53,7 +53,8 @@ execOnStart =
   [ -- , "thunar"
     -- , "foot -e yazi"
     -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
-    "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
+    "foot"
+  , "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
   ]
 
 borderPx :: CInt
@@ -74,7 +75,7 @@ modSuperShift = modSuper .|. modShift
 floatingRules :: [(String, String)]
 floatingRules = [("Rename ", "thunar")]
 
-allKeyBindings :: [(CUInt, CUInt, IORef WMState -> IO ())]
+allKeyBindings :: [(CUInt, CUInt, MVar WMState -> IO ())]
 allKeyBindings =
   [ (keyQ, modSuper, closeCurrentWindow)
   , (keyTab, modSuper, cycleWindowsOrSlaves True)
@@ -141,9 +142,9 @@ allKeyBindings =
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))
   ]
 
-cycleWindowsOrSlaves :: Bool -> IORef WMState -> IO ()
-cycleWindowsOrSlaves forward stateIORef = do
-  state <- readIORef stateIORef
+cycleWindowsOrSlaves :: Bool -> MVar WMState -> IO ()
+cycleWindowsOrSlaves forward stateMVar = do
+  state <- readMVar stateMVar
   case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
-    "TwoPane" -> cycleWindowSlaves forward stateIORef
-    _ -> cycleWindows forward stateIORef
+    "TwoPane" -> cycleWindowSlaves forward stateMVar
+    _ -> cycleWindows forward stateMVar

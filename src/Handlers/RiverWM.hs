@@ -2,10 +2,8 @@ module Handlers.RiverWM where
 
 import Config
 
--- import Data.Bits ((.|.))
-
+import Control.Concurrent.MVar
 import Data.Bimap qualified as B
-import Data.IORef
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe
@@ -31,82 +29,81 @@ foreign export ccall "hs_wm_render_start"
 
 hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 hsOnNewWindow dataPtr _ win = do
-  print "New window"
-  node <- riverWindowGetNode win
-  let w =
-        Window
-          { winPtr = win
-          , nodePtr = node
-          , isFloating = False
-          , isFullscreen = False
-          , winTitle = ""
-          , winAppID = ""
-          , floatingGeometry = Nothing
-          , tilingGeometry = Nothing
-          , dimensionsHint = (0, 0, 0, 0)
-          , parentWindow = Nothing
-          }
-  _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyIORef stateIORef $ \state -> do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    node <- riverWindowGetNode win
+    let w =
+          Window
+            { winPtr = win
+            , nodePtr = node
+            , isFloating = False
+            , isFullscreen = False
+            , winTitle = ""
+            , winAppID = ""
+            , floatingGeometry = Nothing
+            , tilingGeometry = Nothing
+            , dimensionsHint = (0, 0, 0, 0)
+            , parentWindow = Nothing
+            }
+    _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
+
     let newWindows = M.insert win w (allWindows state)
         newManageQueue = manageQueue state >> (startupApplyManage win)
-
-    state
-      { allWindows = newWindows
-      , manageQueue = newManageQueue
-      , newWindowQueue = win : newWindowQueue state
-      , focusedWindow = Just (win)
-      }
+    pure
+      state
+        { allWindows = newWindows
+        , manageQueue = newManageQueue
+        , newWindowQueue = win : newWindowQueue state
+        , focusedWindow = Just (win)
+        }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
 hsOnNewSeat dataPtr _ seat = do
-  _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  writeIORef stateIORef state{focusedSeat = seat}
-  theme <- newCString (fst xCursorTheme)
-  riverSeatSetXcursorTheme seat theme (snd xCursorTheme)
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
+    theme <- newCString (fst xCursorTheme)
+    riverSeatSetXcursorTheme seat theme (snd xCursorTheme)
+    pure state{focusedSeat = seat}
   mapM_ (registerKeybind dataPtr seat) allKeyBindings
   mapM_ (registerPointerbind dataPtr seat) allPointerBindings
 
 hsOnNewOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
 hsOnNewOutput dataPtr _ output = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
-  let o = Output output newLayerShellOutputPtr 0 0 0 0
-      newOutputsList = M.insert output o (allOutputs state)
-      newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
-      remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ allOutputWorkspaces state) [1 ..]
-      newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
-  _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
-  _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
-  riverLayerShellOutputSetDefault newLayerShellOutputPtr
-  writeIORef
-    stateIORef
-    state
-      { allOutputs = newOutputsList
-      , focusedOutput = output
-      , allLayerShellOutputs = newLayerShellOutputs
-      , allOutputWorkspaces = newOutputsWorkspaces
-      }
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
+    let o = Output output newLayerShellOutputPtr 0 0 0 0
+        newOutputsList = M.insert output o (allOutputs state)
+        newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
+        remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ allOutputWorkspaces state) [1 ..]
+        newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
+    _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
+    _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
+    riverLayerShellOutputSetDefault newLayerShellOutputPtr
+    pure
+      state
+        { allOutputs = newOutputsList
+        , focusedOutput = output
+        , allLayerShellOutputs = newLayerShellOutputs
+        , allOutputWorkspaces = newOutputsWorkspaces
+        }
 
 hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsManageStart dataPtr wmManager = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  state <- readMVar stateMVar
   manageQueue state
-  startLayout stateIORef
+  startLayout stateMVar
   riverWindowManagerManageFinish wmManager
 
 hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsRenderStart dataPtr wmManager = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
-  renderQueue state
-  riverWindowManagerRenderFinish wmManager
-  writeIORef stateIORef state{renderQueue = pure ()}
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    renderQueue state
+    riverWindowManagerRenderFinish wmManager
+    pure state{renderQueue = pure ()}
 
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do

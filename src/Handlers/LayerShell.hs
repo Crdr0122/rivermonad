@@ -1,6 +1,6 @@
 module Handlers.LayerShell where
 
-import Data.IORef
+import Control.Concurrent.MVar
 import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
@@ -11,15 +11,15 @@ foreign export ccall "hs_layer_shell_output_non_exclusive_area"
 
 hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyIORef stateIORef $ \state -> do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
     let oldOutputs = allOutputs state
     case M.lookup lsOutput (allLayerShellOutputs state) of
-      Nothing -> state
+      Nothing -> pure state
       Just oPtr -> do
         case M.lookup oPtr oldOutputs of
-          Nothing -> state
+          Nothing -> pure state
           Just o -> do
             let updatedOutput = o{outX = x, outY = y, outWidth = width, outHeight = height}
                 newOutputs = M.insert oPtr updatedOutput oldOutputs
-            state{allOutputs = newOutputs}
+            pure state{allOutputs = newOutputs}

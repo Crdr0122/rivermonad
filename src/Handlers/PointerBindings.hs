@@ -1,6 +1,6 @@
 module Handlers.PointerBindings where
 
-import Data.IORef
+import Control.Concurrent.MVar
 import Foreign
 import Foreign.C
 import Types
@@ -28,18 +28,17 @@ instance Storable PointerBindingListener where
 foreign import ccall "wrapper"
   mkPointerCallback :: PointerCallback -> IO (FunPtr PointerCallback)
 
-registerPointerbind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, IORef WMState -> IO (), IORef WMState -> IO ()) -> IO ()
+registerPointerbind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt, MVar WMState -> IO (), MVar WMState -> IO ()) -> IO ()
 registerPointerbind dataPtr seat (key, modifier, onPressed, onReleased) = do
-  stateIORef <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readIORef stateIORef
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    pressedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
+    releasedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onReleased)
 
-  pressedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
-  releasedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onReleased)
+    let listener = PointerBindingListener pressedPtr releasedPtr
+    listenerPtr <- malloc :: IO (Ptr PointerBindingListener)
+    poke listenerPtr listener
+    newBinding <- riverSeatGetPointerBinding seat key modifier
+    _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-  let listener = PointerBindingListener pressedPtr releasedPtr
-  listenerPtr <- malloc :: IO (Ptr PointerBindingListener)
-  poke listenerPtr listener
-  newBinding <- riverSeatGetPointerBinding seat key modifier
-  _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
-
-  writeIORef stateIORef state{manageQueue = manageQueue state >> riverPointerBindingEnable newBinding}
+    pure state{manageQueue = manageQueue state >> riverPointerBindingEnable newBinding}

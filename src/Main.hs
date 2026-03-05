@@ -3,8 +3,8 @@ module Main where
 import Config
 import Control.Monad (forever)
 import Data.Bimap qualified as B
-import Data.IORef
 import Data.Map.Strict qualified as M
+import Control.Concurrent.MVar
 import Foreign.Ptr
 import Foreign.StablePtr
 import Types
@@ -49,7 +49,7 @@ main = do
     else putStrLn "XKb bound!"
 
   st <-
-    newIORef
+    newMVar
       WMState
         { manageQueue = pure ()
         , renderQueue = pure ()
