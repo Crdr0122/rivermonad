@@ -136,6 +136,9 @@ keyMinus = 0x002d
 keyEqual :: CUInt
 keyEqual = 0x003d
 
+keyGrave :: CUInt
+keyGrave = 0x0060
+
 -- Pointer
 btnLeft, btnRight, btnMiddle, btnSide, btnExtra :: CUInt
 btnLeft = 0x110
@@ -158,5 +161,5 @@ modAlt :: CUInt
 modAlt = 0x08
 
 modSuper :: CUInt
--- modSuper = 0x40
-modSuper = 0x08
+modSuper = 0x40
+-- modSuper = 0x08

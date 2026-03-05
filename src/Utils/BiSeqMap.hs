@@ -1,4 +1,16 @@
-module Utils.BiSeqMap (BiSeqMap, empty, insert, lookupA, lookupBs, delete, move, insertSeq, insertList, insertByIndex) where
+module Utils.BiSeqMap (
+  BiSeqMap,
+  empty,
+  insert,
+  lookupA,
+  lookupBs,
+  delete,
+  move,
+  insertSeq,
+  insertList,
+  insertByIndex,
+  lookUpNext,
+) where
 
 import Data.Foldable (foldr')
 import Data.Map.Strict qualified as M
@@ -34,6 +46,16 @@ insertByIndex a b index bimap@(BiSeqMap ab ba)
               ab
           ba' = M.insert b a ba
        in BiSeqMap ab' ba'
+
+lookUpNext :: (Ord a, Ord b) => a -> Bool -> b -> BiSeqMap a b -> b
+lookUpNext a forward b bimap =
+  let s = lookupBs a bimap
+   in case S.elemIndexL b s of
+        Nothing -> b
+        Just i ->
+          if forward
+            then S.index s ((i + 1) `mod` length s)
+            else S.index s ((i - 1) `mod` length s)
 
 insertSeq :: (Ord a, Ord b) => a -> S.Seq b -> BiSeqMap a b -> BiSeqMap a b
 insertSeq a bs (BiSeqMap ab ba) = BiSeqMap ab' ba

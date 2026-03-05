@@ -27,15 +27,16 @@ allPointerBindings :: [(CUInt, CUInt, MVar WMState -> IO (), MVar WMState -> IO 
 allPointerBindings =
   [ (btnLeft, modSuper, dragWindow, stopDragging)
   , (btnRight, modSuper, resizeWindow, stopResizing)
+  , (btnRight, modSuper .|. modAlt, exec "hyprpicker", doNothing)
   ]
 
 defaultLayouts :: M.Map WorkspaceID LayoutType
 defaultLayouts =
   M.fromList
-    [ (1, twoPaneLayout)
+    [ (1, monocleLayout)
     , (2, stackLayout)
-    , (3, circleLayout)
-    , (4, roledexLayout)
+    , (3, twoPaneLayout)
+    , (4, monocleLayout)
     , (5, monocleLayout)
     , (6, monocleLayout)
     , (7, monocleLayout)
@@ -50,10 +51,7 @@ defaultRatios =
 
 execOnStart :: [String]
 execOnStart =
-  [ -- , "thunar"
-    -- , "foot -e yazi"
-    -- , "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
-    "foot"
+  [ "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
   , "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
   ]
 
@@ -78,12 +76,15 @@ floatingRules = [("Rename ", "thunar")]
 allKeyBindings :: [(CUInt, CUInt, MVar WMState -> IO ())]
 allKeyBindings =
   [ (keyQ, modSuper, closeCurrentWindow)
-  , (keyTab, modSuper, cycleWindowsOrSlaves True)
-  , (keyTab, modSuperShift, cycleWindowsOrSlaves False)
+  , (keyTab, modSuper, cycleWindowsOrSlavesOrFocus True)
+  , (keyTab, modSuperShift, cycleWindowsOrSlavesOrFocus False)
+  , (keyGrave, modSuper, cycleWindowFocus True)
+  , (keyGrave, modSuperShift, cycleWindowFocus False)
   , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
   , (keyF, modSuper, toggleFullscreenCurrentWindow)
   , (keyS, modSuper, zoomWindow)
   , (keySpace, modSuper, toggleFloatingCurrentWindow)
+  , (keySpace, modSuperShift, toggleFocusFloating)
   , (keyEnter, modSuper, exec "foot")
   , (keyZ, modSuper, exec "foot -e yazi")
   , (keyX, modSuper, exec "foot -e nvim")
@@ -148,3 +149,14 @@ cycleWindowsOrSlaves forward stateMVar = do
   case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
     "TwoPane" -> cycleWindowSlaves forward stateMVar
     _ -> cycleWindows forward stateMVar
+
+cycleWindowsOrSlavesOrFocus :: Bool -> MVar WMState -> IO ()
+cycleWindowsOrSlavesOrFocus forward stateMVar = do
+  state <- readMVar stateMVar
+  case focusedWindow state of
+    Nothing -> pure ()
+    Just w -> do
+      let Window{isFloating, isFullscreen} = (allWindows state M.! w)
+      if isFloating || isFullscreen
+        then cycleWindowFocus forward stateMVar
+        else cycleWindowsOrSlaves forward stateMVar

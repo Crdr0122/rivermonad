@@ -16,6 +16,9 @@ module Utils.KeyDispatches (
   modifyLayoutRatio,
   moveWindowToWorkspace,
   switchWorkspace,
+  doNothing,
+  toggleFocusFloating,
+  cycleWindowFocus,
 ) where
 
 import Control.Concurrent.MVar
@@ -31,12 +34,91 @@ import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
+doNothing :: MVar WMState -> IO ()
+doNothing _ = pure ()
+
 closeCurrentWindow :: MVar WMState -> IO ()
 closeCurrentWindow stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let closeWindow (Just w) = riverWindowClose w
         closeWindow Nothing = pure ()
     pure $ state{manageQueue = manageQueue state >> closeWindow (focusedWindow state)}
+
+toggleFocusFloating :: MVar WMState -> IO ()
+toggleFocusFloating stateMVar = do
+  modifyMVar_ stateMVar $ \state@WMState{allOutputWorkspaces, focusedOutput, focusedWindow} -> do
+    case focusedWindow of
+      Nothing -> pure state
+      Just w -> do
+        let window = allWindows state M.! w
+            focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+        if
+          | isFullscreen window -> pure state
+          | isFloating window -> do
+              case BS.lookupBs focusedWorkspace (allWorkspacesTiled state) of
+                S.Empty -> pure state
+                h S.:<| _ -> pure state{focusedWindow = Just h}
+          | otherwise -> do
+              case BS.lookupBs focusedWorkspace (allWorkspacesFloating state) of
+                S.Empty -> pure state
+                h S.:<| _ -> pure state{focusedWindow = Just h}
+
+cycleWindowFocus :: Bool -> MVar WMState -> IO ()
+cycleWindowFocus forward stateMVar = do
+  modifyMVar_ stateMVar $ \state@WMState{allOutputWorkspaces, focusedOutput, focusedWindow} -> do
+    case focusedWindow of
+      Nothing -> pure state
+      Just w -> do
+        let Window{isFullscreen, isFloating} = allWindows state M.! w
+            focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+            nextWindow bm = BS.lookUpNext focusedWorkspace forward w bm
+        if
+          | isFullscreen -> do
+              let
+                next = nextWindow (allWorkspacesFullscreen state)
+                Window{nodePtr} = allWindows state M.! next
+              pure
+                state
+                  { focusedWindow = Just $ next
+                  , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
+                  }
+          | isFloating -> do
+              let
+                next = nextWindow (allWorkspacesFloating state)
+                Window{floatingGeometry, nodePtr} = allWindows state M.! next
+              case floatingGeometry of
+                Nothing -> pure state
+                Just Rect{rx, ry, rw, rh} -> do
+                  let
+                    warp =
+                      riverSeatPointerWarp
+                        (focusedSeat state)
+                        ((rx + rw) `div` 2)
+                        ((ry + rh) `div` 2)
+                  pure
+                    state
+                      { focusedWindow = Just $ next
+                      , manageQueue = manageQueue state >> warp
+                      , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
+                      }
+          | otherwise -> do
+              let
+                next = nextWindow (allWorkspacesTiled state)
+                Window{tilingGeometry} = allWindows state M.! next
+              case tilingGeometry of
+                Nothing -> pure state
+                Just Rect{rx, ry, rw, rh} -> do
+                  let
+                    warp =
+                      riverSeatPointerWarp
+                        (focusedSeat state)
+                        ((rx + rw) `div` 2)
+                        ((ry + rh) `div` 2)
+                  pure
+                    state
+                      { focusedWindow = Just $ next
+                      , manageQueue = manageQueue state >> warp
+                      }
 
 toggleFullscreenCurrentWindow :: MVar WMState -> IO ()
 toggleFullscreenCurrentWindow stateMVar = do
