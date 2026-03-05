@@ -128,7 +128,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                     partition
                       ( \Window{winTitle, winAppID, dimensionsHint = (_, _, maxW, maxH), parentWindow} ->
                           any (\(t, a) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules
-                            || (maxW /= 0 && maxH /= 0)
                             || isJust parentWindow
                       )
                       xs

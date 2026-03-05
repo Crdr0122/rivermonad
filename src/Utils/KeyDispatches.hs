@@ -324,10 +324,9 @@ switchWorkspace targetID stateMVar = do
                 )
   nextAction
 
-moveWindowToWorkspace :: WorkspaceID -> Bool -> MVar WMState -> IO ()
-moveWindowToWorkspace targetID silent stateMVar = do
-  nextAction <-
-    modifyMVar stateMVar $
+moveWindowToWorkspace :: WorkspaceID ->  MVar WMState -> IO ()
+moveWindowToWorkspace targetID stateMVar = do
+    modifyMVar_ stateMVar $
       \state@WMState
          { allWorkspacesFloating
          , allWorkspacesTiled
@@ -338,12 +337,12 @@ moveWindowToWorkspace targetID silent stateMVar = do
          , renderQueue
          } -> do
           case focusedWindow state of
-            Nothing -> pure (state, pure ())
+            Nothing -> pure state
             Just w -> do
               let
                 Window{isFloating} = allWindows M.! w
               if (allOutputWorkspaces B.! focusedOutput == targetID)
-                then pure (state, pure ())
+                then pure state
                 else do
                   let
                     (newAllTile, newAllFloat) =
@@ -356,17 +355,13 @@ moveWindowToWorkspace targetID silent stateMVar = do
                           ( BS.insert targetID w (BS.delete w allWorkspacesTiled)
                           , allWorkspacesFloating
                           )
+                  riverWindowManagerManageDirty currentWmManager
                   pure
-                    ( state
+                     state
                         { allWorkspacesTiled = newAllTile
                         , allWorkspacesFloating = newAllFloat
                         , renderQueue = renderQueue >> riverWindowHide w
                         }
-                    , if silent
-                        then riverWindowManagerManageDirty currentWmManager
-                        else switchWorkspace targetID stateMVar
-                    )
-  nextAction
 
 cycleLayout :: [LayoutType] -> MVar WMState -> IO ()
 cycleLayout [] _ = pure ()
@@ -397,7 +392,7 @@ modifyLayoutRatio change stateMVar = do
     pure state{workspaceRatios = newWorkspaceRatios}
 
 exec :: String -> MVar WMState -> IO ()
-exec command _ = spawnCommand command >> pure ()
+exec command _ =  spawnCommand ( "systemd-run --user --scope --slice=app.slice " ++ command ) >> pure ()
 
 dragWindow :: MVar WMState -> IO ()
 dragWindow stateMVar = do

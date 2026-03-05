@@ -41,7 +41,7 @@ defaultLayouts =
     , (6, monocleLayout)
     , (7, monocleLayout)
     , (8, monocleLayout)
-    , (9, monocleLayout)
+    , (9, roledexLayout)
     ]
 
 defaultRatios :: M.Map WorkspaceID Double
@@ -50,10 +50,7 @@ defaultRatios =
     zip [1 .. 9] (repeat 0.6)
 
 execOnStart :: [String]
-execOnStart =
-  [ "waybar -c /home/yu/.config/waybar/mango/config.jsonc -s /home/yu/.config/waybar/mango/style.css"
-  , "swaybg -i ~/nixconf/assets/Wallpaper.jpg"
-  ]
+execOnStart = [ ]
 
 borderPx :: CInt
 borderPx = 2
@@ -92,6 +89,7 @@ allKeyBindings =
   , (keyB, modSuper, exec "foot -e btop")
   , (keyN, modSuper, exec "foot -e ncmpcpp")
   , (keyM, modSuper, exec "foot -e neomutt")
+  , (keyA, modSuper, exec "firefox")
   , (keyD, modSuper, exec "~/.config/rofi/launcher/launcher.sh")
   , (keyE, modSuper, exec "~/.config/rofi/notification/notification.sh")
   , (keyO, modSuper, exec "~/.config/rofi/password/password.sh")
@@ -113,32 +111,32 @@ allKeyBindings =
   , (keyKP7, modSuper, switchWorkspace 7)
   , (keyKP8, modSuper, switchWorkspace 8)
   , (keyKP9, modSuper, switchWorkspace 9)
-  , (key1, modSuperShift, moveWindowToWorkspace 1 True)
-  , (key2, modSuperShift, moveWindowToWorkspace 2 True)
-  , (key3, modSuperShift, moveWindowToWorkspace 3 True)
-  , (key4, modSuperShift, moveWindowToWorkspace 4 True)
-  , (key5, modSuperShift, moveWindowToWorkspace 5 True)
-  , (key6, modSuperShift, moveWindowToWorkspace 6 True)
-  , (key7, modSuperShift, moveWindowToWorkspace 7 True)
-  , (key8, modSuperShift, moveWindowToWorkspace 8 True)
-  , (key9, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyKP1, modSuperShift, moveWindowToWorkspace 1 True)
-  , (keyKP2, modSuperShift, moveWindowToWorkspace 2 True)
-  , (keyKP3, modSuperShift, moveWindowToWorkspace 3 True)
-  , (keyKP4, modSuperShift, moveWindowToWorkspace 4 True)
-  , (keyKP5, modSuperShift, moveWindowToWorkspace 5 True)
-  , (keyKP6, modSuperShift, moveWindowToWorkspace 6 True)
-  , (keyKP7, modSuperShift, moveWindowToWorkspace 7 True)
-  , (keyKP8, modSuperShift, moveWindowToWorkspace 8 True)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyLeft, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyRight, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyUp, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyDown, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  , (key1, modSuperShift, moveWindowToWorkspace 1 )
+  , (key2, modSuperShift, moveWindowToWorkspace 2 )
+  , (key3, modSuperShift, moveWindowToWorkspace 3 )
+  , (key4, modSuperShift, moveWindowToWorkspace 4 )
+  , (key5, modSuperShift, moveWindowToWorkspace 5 )
+  , (key6, modSuperShift, moveWindowToWorkspace 6 )
+  , (key7, modSuperShift, moveWindowToWorkspace 7 )
+  , (key8, modSuperShift, moveWindowToWorkspace 8 )
+  , (key9, modSuperShift, moveWindowToWorkspace 9 )
+  , (keyKP1, modSuperShift, moveWindowToWorkspace 1 )
+  , (keyKP2, modSuperShift, moveWindowToWorkspace 2 )
+  , (keyKP3, modSuperShift, moveWindowToWorkspace 3 )
+  , (keyKP4, modSuperShift, moveWindowToWorkspace 4 )
+  , (keyKP5, modSuperShift, moveWindowToWorkspace 5 )
+  , (keyKP6, modSuperShift, moveWindowToWorkspace 6 )
+  , (keyKP7, modSuperShift, moveWindowToWorkspace 7 )
+  , (keyKP8, modSuperShift, moveWindowToWorkspace 8 )
+  , (keyKP9, modSuperShift, moveWindowToWorkspace 9 )
+  -- , (keyLeft, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyRight, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyUp, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyDown, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
+  -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
   , (keyEqual, modSuper, modifyLayoutRatio 0.04)
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))
   ]
