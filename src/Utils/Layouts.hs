@@ -14,19 +14,23 @@ stackLayout = LayoutType "Stack" applyStack
  where
   applyStack _ _ [] = []
   applyStack _ total [w] = [(w, total)] -- Only one window? It gets the whole screen
-  applyStack r total (master : slaves) =
+  applyStack r total (master : slaveHead : slaves) =
     let masterWidth = truncate $ fromIntegral (rw total) * r
         masterRect = total{rw = masterWidth}
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveHeight = rh stackRect `div` (fromIntegral $ length slaves)
+        leftOverHeight = rh stackRect `mod` (fromIntegral $ length slaves)
+
+        -- First slave window gets the leftover height
+        slaveHeadGeo = (slaveHead, stackRect{rh = slaveHeight + leftOverHeight})
 
         -- Map over slaves to give them each a slice of the stack height
         slaveGeos =
           zipWith
-            (\w i -> (w, stackRect{ry = ry stackRect + (i * slaveHeight), rh = slaveHeight}))
+            (\w i -> (w, stackRect{ry = ry stackRect + (i * slaveHeight) + leftOverHeight, rh = slaveHeight}))
             slaves
             [0 ..]
-     in (master, masterRect) : slaveGeos
+     in (master, masterRect) : slaveHeadGeo : slaveGeos
 
 monocleLayout :: LayoutType
 monocleLayout = LayoutType "Monocle" applyMonocle

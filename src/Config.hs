@@ -40,7 +40,7 @@ defaultLayouts =
     , (5, monocleLayout)
     , (6, monocleLayout)
     , (7, monocleLayout)
-    , (8, monocleLayout)
+    , (8, circleLayout)
     , (9, roledexLayout)
     ]
 
@@ -80,6 +80,7 @@ allKeyBindings =
   , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
   , (keyF, modSuper, toggleFullscreenCurrentWindow)
   , (keyS, modSuper, zoomWindow)
+  , (keyR, modSuperShift, reloadWindowManager)
   , (keySpace, modSuper, toggleFloatingCurrentWindow)
   , (keySpace, modSuperShift, toggleFocusFloating)
   , (keyEnter, modSuper, exec "foot")

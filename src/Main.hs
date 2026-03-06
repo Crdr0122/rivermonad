@@ -1,10 +1,10 @@
 module Main where
 
 import Config
+import Control.Concurrent.MVar
 import Control.Monad (forever)
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
-import Control.Concurrent.MVar
 import Foreign.Ptr
 import Foreign.StablePtr
 import Types
@@ -61,7 +61,8 @@ main = do
         , allWorkspacesTiled = BS.empty
         , allWorkspacesFloating = BS.empty
         , allWorkspacesFullscreen = BS.empty
-        , floatingQueue = []
+        , floatingQueue = M.fromList (zip [1 .. 9] (repeat []))
+        , fullscreenQueue = M.fromList (zip [1 .. 9] (repeat []))
         , newWindowQueue = []
         , focusedSeat = nullPtr
         , allOutputWorkspaces = B.empty

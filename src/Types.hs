@@ -1,10 +1,14 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Types where
 
 import Control.Concurrent.MVar
+import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
 import Foreign
 import Foreign.C
+import GHC.Generics
 import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
@@ -27,7 +31,8 @@ data WMState = WMState
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , newWindowQueue :: [Ptr RiverWindow]
-  , floatingQueue :: [Ptr RiverWindow]
+  , floatingQueue :: Map WorkspaceID [Ptr RiverWindow]
+  , fullscreenQueue :: Map WorkspaceID [Ptr RiverWindow]
   , currentWmManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentXkbConfig :: Ptr RiverXkbConfig
@@ -84,13 +89,9 @@ data Output = Output
   , outX :: CInt
   , outY :: CInt
   }
-  deriving (Eq)
+  deriving (Generic, Eq)
 
-data KeyConfig = KeyConfig
-  { keysym :: CUInt
-  , mods :: CUInt
-  , action :: WMState -> IO ()
-  }
+-- instance ToJSON Output
 
 data LayoutType = LayoutType
   { layoutName :: String

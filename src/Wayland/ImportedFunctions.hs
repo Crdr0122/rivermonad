@@ -27,6 +27,8 @@ foreign import capi "river-window-management.h river_window_manager_v1_render_fi
   riverWindowManagerRenderFinish :: Ptr RiverWMManager -> IO ()
 foreign import capi "river-window-management.h river_window_manager_v1_get_shell_surface"
   riverWindowManagerGetShellSurface :: Ptr RiverWMManager -> Ptr WlSurface -> IO ()
+foreign import capi "river-window-management.h river_window_manager_v1_exit_session"
+  riverWindowManagerExitSession :: Ptr RiverWMManager -> IO ()
 
 foreign import capi "river-window-management.h river_window_v1_destroy"
   riverWindowDestroy :: Ptr RiverWindow -> IO ()
@@ -74,6 +76,8 @@ foreign import capi "river-window-management.h river_window_v1_set_clip_box"
   riverWindowSetClipBox :: Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 foreign import capi "river-window-management.h river_window_v1_set_content_clip_box"
   riverWindowSetContentClipBox :: Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
+foreign import capi "river-window-management.h river_window_v1_set_dimension_bounds"
+  riverWindowSetDimensionBounds :: Ptr RiverWindow -> CInt -> CInt -> IO ()
 
 foreign import capi "river-window-management.h river_node_v1_destroy"
   riverNodeDestroy :: Ptr RiverNode -> IO ()
@@ -90,6 +94,8 @@ foreign import capi "river-window-management.h river_node_v1_place_below"
 
 foreign import capi "river-window-management.h river_output_v1_destroy"
   riverOutputDestroy :: Ptr RiverOutput -> IO ()
+foreign import capi "river-window-management.h river_output_v1_set_presentation_mode"
+  riverOutputSetPresentationMode :: Ptr RiverOutput -> CUInt -> IO ()
 
 foreign import capi "river-window-management.h river_seat_v1_destroy"
   riverSeatDestroy :: Ptr RiverSeat -> IO ()

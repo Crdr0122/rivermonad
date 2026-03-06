@@ -19,10 +19,12 @@ module Utils.KeyDispatches (
   doNothing,
   toggleFocusFloating,
   cycleWindowFocus,
+  reloadWindowManager,
 ) where
 
 import Control.Concurrent.MVar
 import Control.Monad (unless)
+import Data.Aeson
 import Data.Bimap qualified as B
 import Data.List (elemIndex)
 import Data.Map qualified as M
@@ -130,6 +132,7 @@ toggleFullscreenCurrentWindow stateMVar = do
        , allWorkspacesFullscreen
        , allWorkspacesTiled
        , floatingQueue
+       , fullscreenQueue
        , allOutputWorkspaces
        , focusedOutput
        , currentWmManager
@@ -137,32 +140,26 @@ toggleFullscreenCurrentWindow stateMVar = do
         case focusedWindow of
           Nothing -> pure state
           Just win -> do
-            let window@Window{isFloating, isFullscreen, nodePtr} = allWindows M.! win
+            let window@Window{isFloating, isFullscreen} = allWindows M.! win
                 focusedWorkspace = allOutputWorkspaces B.! focusedOutput
 
                 fullscreenWindow f
                   | f =
                       state
                         { allWorkspacesFloating = BS.delete win allWorkspacesFloating
-                        , allWorkspacesFullscreen = BS.insert focusedWorkspace win allWorkspacesFullscreen
-                        , manageQueue = manageQueue state >> fA
-                        , renderQueue = renderQueue state >> rA
+                        , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
                         }
                   | otherwise =
                       state
                         { allWorkspacesTiled = BS.delete win allWorkspacesTiled
-                        , manageQueue = manageQueue state >> fA
-                        , renderQueue = renderQueue state >> rA
+                        , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
                         }
-                 where
-                  fA = riverWindowFullscreen win focusedOutput
-                  rA = riverNodePlaceTop nodePtr
 
                 exitFullscreenWindow f
                   | f =
                       state
                         { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-                        , floatingQueue = win : floatingQueue
+                        , floatingQueue = M.adjust (win :) focusedWorkspace floatingQueue
                         , manageQueue = manageQueue state >> fA
                         }
                   | otherwise =
@@ -172,7 +169,7 @@ toggleFullscreenCurrentWindow stateMVar = do
                         , manageQueue = manageQueue state >> fA
                         }
                  where
-                  fA = riverWindowExitFullscreen win
+                  fA = riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
 
                 newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
                 newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
@@ -197,7 +194,8 @@ floatCurrentWindow stateMVar = do
       Nothing -> pure state
       Just win -> do
         let newTiled = BS.delete win (allWorkspacesTiled state)
-        pure $ state{allWorkspacesTiled = newTiled, floatingQueue = win : floatingQueue state}
+            focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+        pure $ state{allWorkspacesTiled = newTiled, floatingQueue = M.adjust (win :) focusedWorkspace (floatingQueue state)}
 
 tileCurrentWindow :: MVar WMState -> IO ()
 tileCurrentWindow stateMVar = do
@@ -324,44 +322,44 @@ switchWorkspace targetID stateMVar = do
                 )
   nextAction
 
-moveWindowToWorkspace :: WorkspaceID ->  MVar WMState -> IO ()
+moveWindowToWorkspace :: WorkspaceID -> MVar WMState -> IO ()
 moveWindowToWorkspace targetID stateMVar = do
-    modifyMVar_ stateMVar $
-      \state@WMState
-         { allWorkspacesFloating
-         , allWorkspacesTiled
-         , allWindows
-         , focusedOutput
-         , allOutputWorkspaces
-         , currentWmManager
-         , renderQueue
-         } -> do
-          case focusedWindow state of
-            Nothing -> pure state
-            Just w -> do
-              let
-                Window{isFloating} = allWindows M.! w
-              if (allOutputWorkspaces B.! focusedOutput == targetID)
-                then pure state
-                else do
-                  let
-                    (newAllTile, newAllFloat) =
-                      if isFloating
-                        then
-                          ( allWorkspacesTiled
-                          , BS.insert targetID w (BS.delete w allWorkspacesFloating)
-                          )
-                        else
-                          ( BS.insert targetID w (BS.delete w allWorkspacesTiled)
-                          , allWorkspacesFloating
-                          )
-                  riverWindowManagerManageDirty currentWmManager
-                  pure
-                     state
-                        { allWorkspacesTiled = newAllTile
-                        , allWorkspacesFloating = newAllFloat
-                        , renderQueue = renderQueue >> riverWindowHide w
-                        }
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allWorkspacesFloating
+       , allWorkspacesTiled
+       , allWindows
+       , focusedOutput
+       , allOutputWorkspaces
+       , currentWmManager
+       , renderQueue
+       } -> do
+        case focusedWindow state of
+          Nothing -> pure state
+          Just w -> do
+            let
+              Window{isFloating} = allWindows M.! w
+            if (allOutputWorkspaces B.! focusedOutput == targetID)
+              then pure state
+              else do
+                let
+                  (newAllTile, newAllFloat) =
+                    if isFloating
+                      then
+                        ( allWorkspacesTiled
+                        , BS.insert targetID w (BS.delete w allWorkspacesFloating)
+                        )
+                      else
+                        ( BS.insert targetID w (BS.delete w allWorkspacesTiled)
+                        , allWorkspacesFloating
+                        )
+                riverWindowManagerManageDirty currentWmManager
+                pure
+                  state
+                    { allWorkspacesTiled = newAllTile
+                    , allWorkspacesFloating = newAllFloat
+                    , renderQueue = renderQueue >> riverWindowHide w
+                    }
 
 cycleLayout :: [LayoutType] -> MVar WMState -> IO ()
 cycleLayout [] _ = pure ()
@@ -392,7 +390,12 @@ modifyLayoutRatio change stateMVar = do
     pure state{workspaceRatios = newWorkspaceRatios}
 
 exec :: String -> MVar WMState -> IO ()
-exec command _ =  spawnCommand ( "systemd-run --user --scope --slice=app.slice " ++ command ) >> pure ()
+exec command _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command) >> pure ()
+
+reloadWindowManager :: MVar WMState -> IO ()
+reloadWindowManager stateMVar = do
+  state <- takeMVar stateMVar
+  pure ()
 
 dragWindow :: MVar WMState -> IO ()
 dragWindow stateMVar = do

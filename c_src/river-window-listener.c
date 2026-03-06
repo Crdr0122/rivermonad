@@ -52,6 +52,11 @@ static void handle_minimize_requested(void *data,
 static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
                                   int32_t pid) {}
 
+static void handle_presentation_hint(void *data, struct river_window_v1 *window,
+                                     uint32_t hint) {}
+static void handle_identifier(void *data, struct river_window_v1 *window,
+                              const char *identifier) {}
+
 static const struct river_window_v1_listener window_listener = {
     .closed = hs_window_closed,
     .dimensions_hint = hs_window_dimensions_hint,
@@ -69,6 +74,8 @@ static const struct river_window_v1_listener window_listener = {
     .exit_fullscreen_requested = handle_exit_fullscreen_requested,
     .minimize_requested = handle_minimize_requested,
     .unreliable_pid = handle_unreliable_pid,
+    .presentation_hint = handle_presentation_hint,
+    .identifier = handle_identifier,
 };
 
 const struct river_window_v1_listener *get_river_window_listener(void) {

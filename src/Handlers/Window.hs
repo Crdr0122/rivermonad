@@ -91,6 +91,7 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   modifyMVar_ stateMVar $ \state@WMState{allWindows} -> do
     let newWindows = M.adjust (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)}) win allWindows
         newState = state{allWindows = newWindows}
+        focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
     if minW == maxW && minH == maxH && minW /= 0 && minH /= 0
       then do
         let newTiled = BS.delete win (allWorkspacesTiled state)
@@ -99,7 +100,7 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
           newState
             { allWorkspacesTiled = newTiled
             , allWorkspacesFullscreen = newFullscreen
-            , floatingQueue = win : floatingQueue state
+            , floatingQueue = M.adjust (win :) focusedWorkspace (floatingQueue state)
             }
       else pure newState
 
@@ -128,20 +129,20 @@ hsWindowFullscreenRequested dataPtr win output = do
        , allWorkspacesFloating
        , allWorkspacesTiled
        , allWorkspacesFullscreen
+       , fullscreenQueue
        } -> do
-        let window@Window{isFloating, nodePtr} = allWindows M.! win
+        let window@Window{isFloating} = allWindows M.! win
             newWindows = M.insert win window{isFullscreen = True} allWindows
             newState
               | isFloating = state{allWorkspacesFloating = BS.delete win allWorkspacesFloating}
               | otherwise = state{allWorkspacesTiled = BS.delete win allWorkspacesTiled}
-            targetWorkspace = allOutputWorkspaces state B.! output
+            focusedWorkspace = allOutputWorkspaces state B.! output
 
         pure
           newState
             { allWindows = newWindows
-            , manageQueue = manageQueue state >> riverWindowFullscreen win output
-            , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
-            , allWorkspacesFullscreen = BS.insert targetWorkspace win allWorkspacesFullscreen
+            , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
+            , allWorkspacesFullscreen = BS.insert focusedWorkspace win allWorkspacesFullscreen
             }
 
 hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
