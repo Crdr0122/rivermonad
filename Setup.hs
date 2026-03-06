@@ -53,7 +53,6 @@ insertCFiles pd@PackageDescription{executables} lbi uhs flags = do
     genFiles = (makeSymbolicPath . (genDir </>)) <$> filter (\f -> takeExtension f == ".c") allGenFiles
     cFiles = (makeSymbolicPath . (cDir </>)) <$> filter (\f -> takeExtension f == ".c") allCFiles
     genDirSymbolic = makeSymbolicPath genDir
-    masterCFile = makeSymbolicPath "generated/all_protocols.c"
     newExecutables =
       fmap
         ( \e@Executable{buildInfo = b@BuildInfo{cSources, includeDirs}} ->
