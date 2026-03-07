@@ -118,6 +118,7 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 { renderQueue = renderQueue state >> renderActions
                 , manageQueue = pure ()
                 , floatingQueue = M.insert focusedWorkspace [] floatingQueue
+                , fullscreenQueue = M.insert focusedWorkspace [] fullscreenQueue
                 , newWindowQueue = []
                 , allWindows = newAllWindows
                 , allWorkspacesFloating = newWorkspacesFloating

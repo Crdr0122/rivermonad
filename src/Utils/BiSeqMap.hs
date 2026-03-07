@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Utils.BiSeqMap (
   BiSeqMap,
   empty,
@@ -12,14 +14,17 @@ module Utils.BiSeqMap (
   lookUpNext,
 ) where
 
+import Data.Aeson
 import Data.Foldable (foldr')
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S
+import GHC.Generics
 
 data BiSeqMap a b = BiSeqMap
   { aToBs :: M.Map a (S.Seq b)
   , bToA :: M.Map b a
   }
+  deriving (Show, Generic)
 
 empty :: BiSeqMap a b
 empty = BiSeqMap M.empty M.empty

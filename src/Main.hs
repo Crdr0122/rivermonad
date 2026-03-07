@@ -3,10 +3,13 @@ module Main where
 import Config
 import Control.Concurrent.MVar
 import Control.Monad (forever)
+import Data.Aeson
 import Data.Bimap qualified as B
+import Data.ByteString.Lazy qualified as Byte
 import Data.Map.Strict qualified as M
 import Foreign.Ptr
 import Foreign.StablePtr
+import System.Directory
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.KeyDispatches
@@ -48,6 +51,18 @@ main = do
     then putStrLn "XKb NOT bound"
     else putStrLn "XKb bound!"
 
+  let statePath = "/tmp/rivermonad-state.json"
+  exists <- doesFileExist statePath
+  (ratios, oldWindows) <-
+    if not exists
+      then pure (defaultRatios, M.empty)
+      else do
+        content <- Byte.readFile statePath
+        case decode content of
+          Just PersistedState{persistedWorkspaceRatios, persistedWindows} -> do
+            pure (persistedWorkspaceRatios, persistedWindows)
+          Nothing -> pure (defaultRatios, M.empty)
+
   st <-
     newMVar
       WMState
@@ -68,7 +83,7 @@ main = do
         , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts
-        , workspaceRatios = defaultRatios
+        , workspaceRatios = ratios
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell
@@ -76,6 +91,7 @@ main = do
         , opDeltaState = None
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
+        , persistedState = oldWindows
         }
   stPtr <- newStablePtr st
 

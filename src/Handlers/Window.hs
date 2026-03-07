@@ -24,6 +24,63 @@ foreign export ccall "hs_window_title"
   hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 foreign export ccall "hs_window_app_id"
   hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+foreign export ccall "hs_window_identifier"
+  hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+
+hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+hsWindowIdentifier dataPtr win identifier = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state@WMState{persistedState, allWindows} -> do
+    i <- peekCString identifier
+    if M.null (persistedState)
+      then do
+        let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
+        pure
+          state
+            { allWindows = newWindows
+            , newWindowQueue = win : newWindowQueue state
+            , focusedWindow = Just (win)
+            }
+      else case M.lookup i persistedState of
+        Nothing -> do
+          let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
+          pure
+            state
+              { allWindows = newWindows
+              , newWindowQueue = win : newWindowQueue state
+              , focusedWindow = Just (win)
+              }
+        Just (supposedWorkspace, windowStatus) -> do
+          let newPersisted = M.delete i persistedState
+              hidingAction =
+                if supposedWorkspace == allOutputWorkspaces state B.! focusedOutput state then pure () else riverWindowHide win
+              s = case windowStatus of
+                Tiled -> do
+                  let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
+                      newWorkspacesTiled = BS.insert supposedWorkspace win (allWorkspacesTiled state)
+                  state
+                    { allWindows = newWindows
+                    , allWorkspacesTiled = newWorkspacesTiled
+                    }
+                Floating -> do
+                  let newWindows = M.adjust (\w -> w{winIdentifier = i, isFloating = True}) win allWindows
+                  state
+                    { allWindows = newWindows
+                    , floatingQueue = M.adjust (win :) supposedWorkspace (floatingQueue state)
+                    }
+                Fullscreen -> do
+                  let newWindows = M.adjust (\w -> w{winIdentifier = i, isFullscreen = True}) win allWindows
+                  state
+                    { allWindows = newWindows
+                    , fullscreenQueue = M.adjust (win :) supposedWorkspace (fullscreenQueue state)
+                    }
+                FullscreenFloating -> do
+                  let newWindows = M.adjust (\w -> w{winIdentifier = i, isFullscreen = True, isFloating = True}) win allWindows
+                  state
+                    { allWindows = newWindows
+                    , fullscreenQueue = M.adjust (win :) supposedWorkspace (fullscreenQueue state)
+                    }
+          pure s{persistedState = newPersisted, renderQueue = renderQueue state >> hidingAction}
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do

@@ -17,6 +17,9 @@ extern void hs_window_title(void *data, struct river_window_v1 *window,
 extern void hs_window_app_id(void *data, struct river_window_v1 *window,
                              const char *app_id);
 
+extern void hs_window_identifier(void *data, struct river_window_v1 *window,
+                                 const char *identifier);
+
 static void handle_decoration_hint(void *data, struct river_window_v1 *window,
                                    uint32_t hint) {}
 
@@ -54,8 +57,6 @@ static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
 
 static void handle_presentation_hint(void *data, struct river_window_v1 *window,
                                      uint32_t hint) {}
-static void handle_identifier(void *data, struct river_window_v1 *window,
-                              const char *identifier) {}
 
 static const struct river_window_v1_listener window_listener = {
     .closed = hs_window_closed,
@@ -75,7 +76,7 @@ static const struct river_window_v1_listener window_listener = {
     .minimize_requested = handle_minimize_requested,
     .unreliable_pid = handle_unreliable_pid,
     .presentation_hint = handle_presentation_hint,
-    .identifier = handle_identifier,
+    .identifier = hs_window_identifier,
 };
 
 const struct river_window_v1_listener *get_river_window_listener(void) {

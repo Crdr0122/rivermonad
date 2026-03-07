@@ -23,6 +23,8 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 import Utils.Layouts
 
+
+
 allPointerBindings :: [(CUInt, CUInt, MVar WMState -> IO (), MVar WMState -> IO ())]
 allPointerBindings =
   [ (btnLeft, modSuper, dragWindow, stopDragging)
@@ -68,7 +70,19 @@ modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
 
 floatingRules :: [(String, String)]
-floatingRules = [("Rename ", "thunar")]
+floatingRules =
+  [ ("Rename ", "thunar")
+  , ("", "blueman-manager")
+  , ("", "th123.exe")
+  , ("Authentication Required", "")
+  , ("", "sokulauncher.exe")
+  , ("", "swarm.exe")
+  , ("", "snapgene.exe")
+  , ("", "prism.exe")
+  , ("", "fiji-Main")
+  , ("SnapGene", "")
+  , ("", "beatoraja")
+  ]
 
 allKeyBindings :: [(CUInt, CUInt, MVar WMState -> IO ())]
 allKeyBindings =
@@ -95,6 +109,7 @@ allKeyBindings =
   , (keyE, modSuper, exec "~/.config/rofi/notification/notification.sh")
   , (keyO, modSuper, exec "~/.config/rofi/password/password.sh")
   , (keyI, modSuper, exec "~/.config/rofi/mirror/mirror.sh")
+  , (keyC, modSuper, exec "~/.config/rofi/powermenu/powermenu.sh")
   , -- , (keyP, modSuper, togglePinCurrentWindow)
     (key1, modSuper, switchWorkspace 1)
   , (key2, modSuper, switchWorkspace 2)

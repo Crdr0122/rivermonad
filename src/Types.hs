@@ -40,6 +40,7 @@ data WMState = WMState
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
+  , persistedState :: Map String (WorkspaceID, WindowStatus)
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
@@ -70,6 +71,7 @@ data WlSurface
 data Window = Window
   { winPtr :: Ptr RiverWindow
   , nodePtr :: Ptr RiverNode
+  , winIdentifier :: String
   , winTitle :: String
   , winAppID :: String
   , isFloating :: Bool
@@ -79,7 +81,6 @@ data Window = Window
   , dimensionsHint :: (CInt, CInt, CInt, CInt)
   , parentWindow :: Maybe (Ptr RiverWindow)
   }
-  deriving (Eq)
 
 data Output = Output
   { outPtr :: Ptr RiverOutput
@@ -90,8 +91,6 @@ data Output = Output
   , outY :: CInt
   }
   deriving (Generic, Eq)
-
--- instance ToJSON Output
 
 data LayoutType = LayoutType
   { layoutName :: String
@@ -121,3 +120,16 @@ edgeTop = 1
 edgeBottom = 2
 edgeLeft = 4
 edgeRight = 8
+
+data PersistedState = PersistedState
+  { persistedWindows :: Map String (WorkspaceID, WindowStatus)
+  , persistedWorkspaceRatios :: Map WorkspaceID Double
+  }
+  deriving (Generic)
+
+instance ToJSON PersistedState
+instance FromJSON PersistedState
+
+data WindowStatus = Tiled | Floating | Fullscreen | FullscreenFloating deriving (Show, Eq, Generic)
+instance ToJSON WindowStatus
+instance FromJSON WindowStatus

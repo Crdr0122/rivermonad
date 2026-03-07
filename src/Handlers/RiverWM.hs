@@ -38,6 +38,7 @@ hsOnNewWindow dataPtr _ win = do
             , nodePtr = node
             , isFloating = False
             , isFullscreen = False
+            , winIdentifier = ""
             , winTitle = ""
             , winAppID = ""
             , floatingGeometry = Nothing
@@ -53,8 +54,6 @@ hsOnNewWindow dataPtr _ win = do
       state
         { allWindows = newWindows
         , manageQueue = newManageQueue
-        , newWindowQueue = win : newWindowQueue state
-        , focusedWindow = Just (win)
         }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()

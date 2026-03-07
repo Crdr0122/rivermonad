@@ -286,40 +286,42 @@ switchWorkspace targetID stateMVar = do
          } -> do
           let
             currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
-          if currentFocusedWorkspace == targetID
-            then pure (state, switchWorkspace lastFocusedWorkspace stateMVar)
-            else do
-              let
-                alreadyShowing = B.lookupR targetID allOutputWorkspaces
-                currentWindows = allWorkspaceWindows currentFocusedWorkspace state
-                newWindows = allWorkspaceWindows targetID state
-                newOutput = B.insert focusedOutput targetID allOutputWorkspaces
+          if
+            | currentFocusedWorkspace == targetID && lastFocusedWorkspace == targetID -> pure (state, pure ())
+            | currentFocusedWorkspace == targetID ->
+                pure (state, switchWorkspace lastFocusedWorkspace stateMVar)
+            | otherwise -> do
+                let
+                  alreadyShowing = B.lookupR targetID allOutputWorkspaces
+                  currentWindows = allWorkspaceWindows currentFocusedWorkspace state
+                  newWindows = allWorkspaceWindows targetID state
+                  newOutput = B.insert focusedOutput targetID allOutputWorkspaces
 
-                (newOutputWorkspaces, hidingActions, showingActions) = case alreadyShowing of
-                  Nothing ->
-                    ( newOutput
-                    , mapM_ riverWindowHide currentWindows
-                    , mapM_ riverWindowShow newWindows
-                    )
-                  Just o2 ->
-                    ( B.insert o2 currentFocusedWorkspace newOutput
-                    , pure ()
-                    , pure ()
-                    )
+                  (newOutputWorkspaces, hidingActions, showingActions) = case alreadyShowing of
+                    Nothing ->
+                      ( newOutput
+                      , mapM_ riverWindowHide currentWindows
+                      , mapM_ riverWindowShow newWindows
+                      )
+                    Just o2 ->
+                      ( B.insert o2 currentFocusedWorkspace newOutput
+                      , pure ()
+                      , pure ()
+                      )
 
-                newFocusedWindow = case newWindows of
-                  w S.:<| _ -> Just w
-                  S.Empty -> Nothing
+                  newFocusedWindow = case newWindows of
+                    w S.:<| _ -> Just w
+                    S.Empty -> Nothing
 
-              pure
-                ( state
-                    { renderQueue = renderQueue state >> hidingActions >> showingActions
-                    , allOutputWorkspaces = newOutputWorkspaces
-                    , lastFocusedWorkspace = currentFocusedWorkspace
-                    , focusedWindow = newFocusedWindow
-                    }
-                , riverWindowManagerManageDirty (currentWmManager state)
-                )
+                pure
+                  ( state
+                      { renderQueue = renderQueue state >> hidingActions >> showingActions
+                      , allOutputWorkspaces = newOutputWorkspaces
+                      , lastFocusedWorkspace = currentFocusedWorkspace
+                      , focusedWindow = newFocusedWindow
+                      }
+                  , riverWindowManagerManageDirty (currentWmManager state)
+                  )
   nextAction
 
 moveWindowToWorkspace :: WorkspaceID -> MVar WMState -> IO ()
@@ -394,8 +396,30 @@ exec command _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " +
 
 reloadWindowManager :: MVar WMState -> IO ()
 reloadWindowManager stateMVar = do
-  state <- takeMVar stateMVar
-  pure ()
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allWorkspacesTiled
+       , allWorkspacesFloating
+       , allWorkspacesFullscreen
+       , allWindows
+       , workspaceRatios
+       } -> do
+        let
+          windowsToRecord =
+            M.fromList $
+              fmap
+                ( \Window{winPtr, winIdentifier, isFloating, isFullscreen} ->
+                    if
+                      | isFloating && isFullscreen -> (winIdentifier, (fromMaybe 1 (BS.lookupA winPtr allWorkspacesFullscreen), FullscreenFloating))
+                      | isFullscreen -> (winIdentifier, (fromMaybe 1 (BS.lookupA winPtr allWorkspacesFullscreen), Fullscreen))
+                      | isFloating -> (winIdentifier, (fromMaybe 1 (BS.lookupA winPtr allWorkspacesFloating), Floating))
+                      | otherwise -> (winIdentifier, (fromMaybe 1 (BS.lookupA winPtr allWorkspacesTiled), Tiled))
+                )
+                (M.elems allWindows)
+          newPersisted = PersistedState{persistedWorkspaceRatios = workspaceRatios, persistedWindows = windowsToRecord}
+        encodeFile "/tmp/rivermonad-state.json" newPersisted
+        _ <- spawnCommand ("systemd-run --user --scope --slice=app.slice Rivermonad-reload")
+        pure state
 
 dragWindow :: MVar WMState -> IO ()
 dragWindow stateMVar = do
