@@ -17,6 +17,39 @@ import Wayland.ImportedFunctions
 
 startLayout :: MVar WMState -> IO ()
 startLayout stateMVar = do
+  modifyMVar_ stateMVar $ \state -> do
+    let
+      newWindows = (allWindows state M.!) <$> newWindowQueue state
+      focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+      checkWorkspaceRule window@Window{winTitle, winAppID} = case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) workspaceRules of
+        Nothing -> (window, focusedWorkspace)
+        Just (_, _, w) -> (window, w)
+
+      divided = checkWorkspaceRule <$> newWindows
+
+      (floating, tiled) =
+        partition
+          ( \(Window{winTitle, winAppID, parentWindow}, _) ->
+              isJust parentWindow
+                || ( case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules of
+                       Nothing -> False
+                       Just (_, _, fl) -> fl
+                   )
+          )
+          divided
+
+      newFocused = case find (\(_, i) -> i == focusedWorkspace) divided of
+        Nothing -> focusedWindow state
+        Just (w, _) -> Just $ winPtr w
+
+    pure
+      state
+        { floatingQueue = foldl' (\queue (Window{winPtr}, i) -> M.adjust (winPtr :) i queue) (floatingQueue state) floating
+        , allWorkspacesTiled = foldl' (\bimap (Window{winPtr}, i) -> BS.insert i winPtr bimap) (allWorkspacesTiled state) tiled
+        , newWindowQueue = []
+        , focusedWindow = newFocused
+        }
+
   state <- readMVar stateMVar
   let outputs = B.toList (allOutputWorkspaces state)
   mapM_ (\(o, w) -> startLayoutOutput o w stateMVar) outputs
@@ -29,7 +62,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
        , workspaceRatios
        , floatingQueue
        , fullscreenQueue
-       , newWindowQueue
        , workspaceLayouts
        , allWorkspacesFloating
        , allWorkspacesTiled
@@ -44,23 +76,18 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
                 ratio = workspaceRatios M.! focusedWorkspace
 
-                (newQueuedFloatingWindows, newTiledWindows, newQueuedFullscreenWindows) =
-                  ruleNewWindows (fmap (allWindows M.!) newWindowQueue)
-
-                windowsToTile = newTiledWindows ++ toList tileable
+                windowsToTile = toList tileable
                 layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
                 gappedLayout = shrinkWindows gapPx layout
                 borderedLayout = shrinkWindows borderPx gappedLayout
 
-                newFloatingWindows = newQueuedFloatingWindows ++ map (allWindows M.!) (floatingQueue M.! focusedWorkspace)
+                newFloatingWindows = map (allWindows M.!) (floatingQueue M.! focusedWorkspace)
                 (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-                newFullscreenWindows = newQueuedFullscreenWindows ++ fmap (allWindows M.!) (fullscreenQueue M.! focusedWorkspace)
+                newFullscreenWindows = fmap (allWindows M.!) (fullscreenQueue M.! focusedWorkspace)
 
                 newWorkspacesFloating =
                   BS.insertList focusedWorkspace (fmap winPtr newFloatingWindows) allWorkspacesFloating
-                newWorkspacesTiled =
-                  BS.insertList focusedWorkspace (fmap winPtr newTiledWindows) allWorkspacesTiled
                 newWorkspacesFullscreen =
                   BS.insertList focusedWorkspace (fmap winPtr newFullscreenWindows) allWorkspacesFullscreen
 
@@ -97,18 +124,24 @@ startLayoutOutput output focusedWorkspace stateMVar = do
             mapM_ (\Window{winPtr} -> riverWindowFullscreen winPtr output >> riverWindowInformFullscreen winPtr) newFullscreenWindows
 
             -- All render actions
-            let renderTileNodeActions =
+            let renderTileActions =
                   mapM_
-                    (\(Window{nodePtr}, Rect{rx, ry}) -> riverNodeSetPosition nodePtr rx ry)
+                    (\(Window{nodePtr, winPtr}, Rect{rx, ry, rw, rh}) -> riverNodeSetPosition nodePtr rx ry >> riverWindowSetContentClipBox winPtr 0 0 rw rh)
                     borderedLayout
 
                 renderBorderActions =
                   mapM_ (renderBorder (focusedWindow state) bColor fColor borderPx) nonFullscreenPtrs
 
+                freeFloatingClipbox =
+                  mapM_
+                    (\Window{winPtr} -> riverWindowSetContentClipBox winPtr 0 0 0 0)
+                    newFloatingWindows
+
                 renderActions =
-                  renderTileNodeActions
+                  renderTileActions
                     >> lowerAllWindows windowsToTile
                     >> floatRAction
+                    >> freeFloatingClipbox
                     >> renderBorderActions
                     >> raiseAllWindows (reverse newFullscreenWindows) -- Fullscreen windows are at the top -> First one raise to top last
             pure
@@ -120,43 +153,9 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 , newWindowQueue = []
                 , allWindows = newAllWindows
                 , allWorkspacesFloating = newWorkspacesFloating
-                , allWorkspacesTiled = newWorkspacesTiled
                 , allWorkspacesFullscreen = newWorkspacesFullscreen
                 }
            where
-            ruleNewWindows xs =
-              let (float, tiled) =
-                    partition
-                      ( \Window{winTitle, winAppID, parentWindow} ->
-                          any (\(t, a) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules
-                            || isJust parentWindow
-                      )
-                      xs
-               in (float, tiled, [])
-            -- ruleNewWindows xs =
-            --   let
-            --     checkNewWindowWorkspace Window{winTitle, winAppID, parentWindow} ((t, a), (status, mWorkspace))
-            --       | t `isInfixOf` winTitle && a `isInfixOf` winAppID =
-            --           if (fromMaybe focusedWorkspace mWorkspace) == focusedWorkspace
-            --             then if isJust parentWindow && isNothing status then Just Floating else Just (fromMaybe Tiled status)
-            --             else Nothing
-            --       | otherwise = Just Tiled
-            --
-            --     accumulate4uple (w, st) (fl, ti, full, other) = case st of
-            --       Nothing -> (fl, ti, full, w : other)
-            --       Just Floating -> (w : fl, ti, full, other)
-            --       Just Tiled -> (fl, w : ti, full, other)
-            --       Just Fullscreen -> (fl, ti, w : full, other)
-            --       Just FullscreenFloating -> (fl, ti, w : full, other)
-            --
-            --     combineWindowStatus a Nothing = a
-            --     combineWindowStatus Nothing a = a
-            --     combineWindowStatus a _ = a
-            --
-            --     ruled = (\w -> (w, foldl' combineWindowStatus Nothing (checkNewWindowWorkspace w <$> windowRules))) <$> xs
-            --    in
-            --     foldr accumulate4uple ([], [], [], []) ruled
-
             getWindows =
               let
                 tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)

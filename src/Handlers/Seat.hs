@@ -39,8 +39,8 @@ hsSeatPointerEnter dataPtr seat win = do
           Just o -> o
     pure
       state
-        { focusedWindow = Just (win)
-        , manageQueue = manageQueue state >> riverSeatFocusWindow seat win
+        { manageQueue = manageQueue state >> riverSeatFocusWindow seat win
+        , focusedWindow = Just (win)
         , focusedOutput = output
         }
 

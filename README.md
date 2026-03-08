@@ -26,8 +26,8 @@ Everything will be hardcoded for personal use
       - [X] Workspace layout ratios
 - [-] Window rules
   - [X] Open floating  
-  - [X] Open fullscreen (?)
-  - [ ] Open on workspace
+  - [ ] Open fullscreen (?)
+  - [X] Open on workspace
   - [ ] Open with set size
 - [ ] Ipc
   - [ ] Receive ipc keydispatches

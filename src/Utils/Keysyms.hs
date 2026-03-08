@@ -98,6 +98,61 @@ keyKP7 = 0xffb7
 keyKP8 = 0xffb8
 keyKP9 = 0xffb9
 
+keyKPSpace :: CUInt
+keyKPTab :: CUInt
+keyKPEnter :: CUInt
+keyKPF1 :: CUInt
+keyKPF2 :: CUInt
+keyKPF3 :: CUInt
+keyKPF4 :: CUInt
+keyKPHome :: CUInt
+keyKPLeft :: CUInt
+keyKPUp :: CUInt
+keyKPRight :: CUInt
+keyKPDown :: CUInt
+keyKPPrior :: CUInt
+keyKPPageUp :: CUInt
+keyKPNext :: CUInt
+keyKPPageDown :: CUInt
+keyKPEnd :: CUInt
+keyKPBegin :: CUInt
+keyKPInsert :: CUInt
+keyKPDelete :: CUInt
+keyKPEqual :: CUInt
+keyKPMultiply :: CUInt
+keyKPAdd :: CUInt
+keyKPSeparator :: CUInt
+keyKPSubtract :: CUInt
+keyKPDecimal :: CUInt
+keyKPDivide :: CUInt
+keyKPSpace = 0xff80 -- /* Space */
+keyKPTab = 0xff89
+keyKPEnter = 0xff8d --  /* Enter */
+keyKPF1 = 0xff91 -- /* PF1, KP_A, ... */
+keyKPF2 = 0xff92
+keyKPF3 = 0xff93
+keyKPF4 = 0xff94
+keyKPHome = 0xff95
+keyKPLeft = 0xff96
+keyKPUp = 0xff97
+keyKPRight = 0xff98
+keyKPDown = 0xff99
+keyKPPrior = 0xff9a
+keyKPPageUp = 0xff9a
+keyKPNext = 0xff9b
+keyKPPageDown = 0xff9b
+keyKPEnd = 0xff9c
+keyKPBegin = 0xff9d
+keyKPInsert = 0xff9e
+keyKPDelete = 0xff9f
+keyKPEqual = 0xffbd -- /* Equals */
+keyKPMultiply = 0xffaa
+keyKPAdd = 0xffab
+keyKPSeparator = 0xffac --  /* Separator, often comma */
+keyKPSubtract = 0xffad
+keyKPDecimal = 0xffae
+keyKPDivide = 0xffaf
+
 keyHome :: CUInt
 keyLeft :: CUInt
 keyUp :: CUInt
@@ -162,4 +217,5 @@ modAlt = 0x08
 
 modSuper :: CUInt
 modSuper = 0x40
+
 -- modSuper = 0x08

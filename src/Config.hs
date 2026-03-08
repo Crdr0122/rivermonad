@@ -9,7 +9,7 @@ module Config (
   gapPx,
   allPointerBindings,
   xCursorTheme,
-  windowRules,
+  workspaceRules,
   statePath,
   floatingRules,
 ) where
@@ -69,39 +69,30 @@ xCursorTheme = ("Himehina", 24)
 modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
 
-windowRules :: [((String, String), (Maybe WindowStatus, Maybe WorkspaceID))]
-windowRules =
-  [ (("Rename ", "thunar"), (Just Floating, Nothing))
-  , (("", "blueman-manager"), (Just Floating, Nothing))
-  , (("Thunar", ""), (Nothing, Just 2))
-  , (("", "th123.exe"), (Just Floating, Nothing))
-  , (("Authentication Required", ""), (Just Floating, Nothing))
-  , (("", "sokulauncher.exe"), (Just Floating, Nothing))
-  , (("", "swarm.exe"), (Just Floating, Nothing))
-  , (("", "snapgene.exe"), (Just Floating, Nothing))
-  , (("", "prism.exe"), (Just Floating, Nothing))
-  , (("", "fiji-Main"), (Just Floating, Nothing))
-  , (("SnapGene", ""), (Just Floating, Nothing))
-  , (("", "beatoraja"), (Just Floating, Nothing))
-  , (("", "Slack"), (Nothing, Just 2))
-  , (("", "QQ"), (Nothing, Just 2))
-  , (("", "wechat"), (Nothing, Just 2))
-  , (("", "vesktop"), (Nothing, Just 2))
+workspaceRules :: [(String, String, WorkspaceID)]
+workspaceRules =
+  [ ("Thunar", "", 2)
+  , ("", "Slack", 2)
+  , ("QQ", "QQ", 2)
+  , ("", "wechat", 2)
+  , ("", "vesktop", 2)
   ]
 
-floatingRules :: [(String, String)]
+floatingRules :: [(String, String, Bool)]
 floatingRules =
-  [ ("Rename ", "thunar")
-  , ("", "blueman-manager")
-  , ("", "th123.exe")
-  , ("Authentication Required", "")
-  , ("", "sokulauncher.exe")
-  , ("", "swarm.exe")
-  , ("", "snapgene.exe")
-  , ("", "prism.exe")
-  , ("", "fiji-Main")
-  , ("SnapGene", "")
-  , ("", "beatoraja")
+  [ ("Rename ", "thunar", True)
+  , ("", "blueman-manager", True)
+  , ("", "th123.exe", True)
+  , ("Authentication Required", "", True)
+  , ("", "sokulauncher.exe", True)
+  , ("", "swarm.exe", True)
+  , ("", "snapgene.exe", True)
+  , ("", "prism.exe", True)
+  , ("", "fiji-Main", True)
+  , ("SnapGene", "", True)
+  , ("", "beatoraja", True)
+  , ("QQ", "QQ", False)
+  , ("", "QQ", True)
   ]
 
 statePath :: FilePath
@@ -161,23 +152,19 @@ allKeyBindings =
   , (key7, modSuperShift, moveWindowToWorkspace 7)
   , (key8, modSuperShift, moveWindowToWorkspace 8)
   , (key9, modSuperShift, moveWindowToWorkspace 9)
-  , (keyKP1, modSuperShift, moveWindowToWorkspace 1)
-  , (keyKP2, modSuperShift, moveWindowToWorkspace 2)
-  , (keyKP3, modSuperShift, moveWindowToWorkspace 3)
-  , (keyKP4, modSuperShift, moveWindowToWorkspace 4)
-  , (keyKP5, modSuperShift, moveWindowToWorkspace 5)
-  , (keyKP6, modSuperShift, moveWindowToWorkspace 6)
-  , (keyKP7, modSuperShift, moveWindowToWorkspace 7)
-  , (keyKP8, modSuperShift, moveWindowToWorkspace 8)
-  , (keyKP9, modSuperShift, moveWindowToWorkspace 9)
+  , (keyKPEnd, modSuperShift, moveWindowToWorkspace 1)
+  , (keyKPDown, modSuperShift, moveWindowToWorkspace 2)
+  , (keyKPPageDown, modSuperShift, moveWindowToWorkspace 3)
+  , (keyKPLeft, modSuperShift, moveWindowToWorkspace 4)
+  , (keyKPBegin, modSuperShift, moveWindowToWorkspace 5)
+  , (keyKPRight, modSuperShift, moveWindowToWorkspace 6)
+  , (keyKPHome, modSuperShift, moveWindowToWorkspace 7)
+  , (keyKPUp, modSuperShift, moveWindowToWorkspace 8)
+  , (keyKPPageUp, modSuperShift, moveWindowToWorkspace 9)
   , -- , (keyLeft, modSuperShift, moveWindowToWorkspace 9 True)
     -- , (keyRight, modSuperShift, moveWindowToWorkspace 9 True)
     -- , (keyUp, modSuperShift, moveWindowToWorkspace 9 True)
     -- , (keyDown, modSuperShift, moveWindowToWorkspace 9 True)
-    -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-    -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-    -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
-    -- , (keyKP9, modSuperShift, moveWindowToWorkspace 9 True)
     (keyEqual, modSuper, modifyLayoutRatio 0.04)
   , (keyMinus, modSuper, modifyLayoutRatio (-0.04))
   ]
