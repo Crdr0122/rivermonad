@@ -5,6 +5,7 @@ module Config (
   borderColor,
   borderPx,
   focusedBorderColor,
+  pinnedBorderColor,
   execOnStart,
   gapPx,
   allPointerBindings,
@@ -56,9 +57,10 @@ execOnStart = []
 
 borderPx :: CInt
 borderPx = 2
-borderColor, focusedBorderColor :: Word32
+borderColor, focusedBorderColor, pinnedBorderColor :: Word32
 borderColor = 0x444444ff
 focusedBorderColor = 0x7fc8ffff
+pinnedBorderColor = 0x341539ff
 
 gapPx :: CInt
 gapPx = 0
@@ -111,6 +113,7 @@ allKeyBindings =
   , (keyR, modSuperShift, reloadWindowManager statePath)
   , (keySpace, modSuper, toggleFloatingCurrentWindow)
   , (keySpace, modSuperShift, toggleFocusFloating)
+  , (keyP, modSuper, togglePinWindow)
   , (keyEnter, modSuper, exec "foot")
   , (keyZ, modSuper, exec "foot -e yazi")
   , (keyX, modSuper, exec "foot -e nvim")
@@ -124,8 +127,7 @@ allKeyBindings =
   , (keyO, modSuper, exec "~/.config/rofi/password/password.sh")
   , (keyI, modSuper, exec "~/.config/rofi/mirror/mirror.sh")
   , (keyC, modSuper, exec "~/.config/rofi/powermenu/powermenu.sh")
-  , -- , (keyP, modSuper, togglePinCurrentWindow)
-    (key1, modSuper, switchWorkspace 1)
+  , (key1, modSuper, switchWorkspace 1)
   , (key2, modSuper, switchWorkspace 2)
   , (key3, modSuper, switchWorkspace 3)
   , (key4, modSuper, switchWorkspace 4)

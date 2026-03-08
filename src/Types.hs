@@ -5,7 +5,6 @@ module Types where
 import Control.Concurrent.MVar
 import Data.Aeson
 import Data.Bimap
-import Data.HashSet
 import Data.Map.Strict
 import Foreign
 import Foreign.C
@@ -77,6 +76,7 @@ data Window = Window
   , winAppID :: String
   , isFloating :: Bool
   , isFullscreen :: Bool
+  , isPinned :: Bool
   , floatingGeometry :: Maybe Rect
   , tilingGeometry :: Maybe Rect
   , dimensionsHint :: (CInt, CInt, CInt, CInt)

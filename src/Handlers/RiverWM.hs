@@ -38,6 +38,7 @@ hsOnNewWindow dataPtr _ win = do
             , nodePtr = node
             , isFloating = False
             , isFullscreen = False
+            , isPinned = False
             , winIdentifier = ""
             , winTitle = ""
             , winAppID = ""
@@ -110,7 +111,7 @@ hsRenderStart dataPtr wmManager = do
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do
   let use_ssd = riverWindowUseSsd w
-      set_tiled = riverWindowSetTiled w 15
+      set_tiled = riverWindowSetTiled w edgeAll
   set_tiled >> use_ssd
 
 startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()

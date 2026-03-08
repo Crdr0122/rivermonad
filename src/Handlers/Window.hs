@@ -12,7 +12,6 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TEE
 import Foreign
 import Foreign.C
-import System.IO
 import Types
 import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
@@ -37,7 +36,6 @@ hsWindowIdentifier dataPtr win identifier = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state@WMState{persistedState, allWindows} -> do
     i <- peekCString identifier
-    print i
     case M.lookup i persistedState of
       Nothing -> do
         let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
@@ -126,8 +124,6 @@ hsWindowDimensions dataPtr winP width height = do
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
-  print "Has Parent"
-  hFlush stdout
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     let newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
@@ -162,8 +158,6 @@ hsWindowTitle dataPtr win title = do
         bs <- BStr.packCString title
         let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
             newWindows = M.adjust (\w -> w{winTitle = decoded}) win (allWindows state)
-        print decoded
-        hFlush stdout
         pure state{allWindows = newWindows}
 
 hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
@@ -176,8 +170,6 @@ hsWindowAppID dataPtr win appID = do
         bs <- BStr.packCString appID
         let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
             newWindows = M.adjust (\w -> w{winAppID = decoded}) win (allWindows state)
-        print decoded
-        hFlush stdout
         pure state{allWindows = newWindows}
 
 hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
@@ -192,7 +184,7 @@ hsWindowFullscreenRequested dataPtr win output = do
        , fullscreenQueue
        } -> do
         let window@Window{isFloating} = allWindows M.! win
-            newWindows = M.insert win window{isFullscreen = True} allWindows
+            newWindows = M.insert win window{isFullscreen = True, isPinned = False} allWindows
             newState
               | isFloating = state{allWorkspacesFloating = BS.delete win allWorkspacesFloating}
               | otherwise = state{allWorkspacesTiled = BS.delete win allWorkspacesTiled}

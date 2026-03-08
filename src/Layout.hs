@@ -10,6 +10,7 @@ import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
+import System.IO
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
@@ -72,24 +73,25 @@ startLayoutOutput output focusedWorkspace stateMVar = do
         case mOut of
           Nothing -> pure state
           Just o@Output{outX, outY, outHeight, outWidth} -> do
-            let (tileable, nonFullscreenPtrs) = getWindows
+            let (tileable, nonFullscreen) = getWindows
                 geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
                 ratio = workspaceRatios M.! focusedWorkspace
 
                 windowsToTile = toList tileable
                 layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
+                -- layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry (toList tileable)
                 gappedLayout = shrinkWindows gapPx layout
                 borderedLayout = shrinkWindows borderPx gappedLayout
 
-                newFloatingWindows = map (allWindows M.!) (floatingQueue M.! focusedWorkspace)
+                newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
                 (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-                newFullscreenWindows = fmap (allWindows M.!) (fullscreenQueue M.! focusedWorkspace)
-
+                newFullscreenWindows =
+                  (allWindows M.!) <$> (fullscreenQueue M.! focusedWorkspace)
                 newWorkspacesFloating =
-                  BS.insertList focusedWorkspace (fmap winPtr newFloatingWindows) allWorkspacesFloating
+                  BS.insertList focusedWorkspace (winPtr <$> newFloatingWindows) allWorkspacesFloating
                 newWorkspacesFullscreen =
-                  BS.insertList focusedWorkspace (fmap winPtr newFullscreenWindows) allWorkspacesFullscreen
+                  BS.insertList focusedWorkspace (winPtr <$> newFullscreenWindows) allWorkspacesFullscreen
 
                 newAllWindows =
                   M.unions
@@ -124,13 +126,17 @@ startLayoutOutput output focusedWorkspace stateMVar = do
             mapM_ (\Window{winPtr} -> riverWindowFullscreen winPtr output >> riverWindowInformFullscreen winPtr) newFullscreenWindows
 
             -- All render actions
+            print $ (winTitle) <$> nonFullscreen
+            print $ "Focused: " ++ show (focusedWindow state)
+            print $ "Need Border: " ++ show (winPtr <$> nonFullscreen)
+            hFlush stdout
             let renderTileActions =
                   mapM_
                     (\(Window{nodePtr, winPtr}, Rect{rx, ry, rw, rh}) -> riverNodeSetPosition nodePtr rx ry >> riverWindowSetContentClipBox winPtr 0 0 rw rh)
                     borderedLayout
 
                 renderBorderActions =
-                  mapM_ (renderBorder (focusedWindow state) bColor fColor borderPx) nonFullscreenPtrs
+                  mapM_ (renderBorder (focusedWindow state) bColor fColor pColor borderPx) nonFullscreen
 
                 freeFloatingClipbox =
                   mapM_
@@ -139,7 +145,7 @@ startLayoutOutput output focusedWorkspace stateMVar = do
 
                 renderActions =
                   renderTileActions
-                    >> lowerAllWindows windowsToTile
+                    >> lowerAllWindows tileable
                     >> floatRAction
                     >> freeFloatingClipbox
                     >> renderBorderActions
@@ -160,9 +166,11 @@ startLayoutOutput output focusedWorkspace stateMVar = do
               let
                 tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
                 floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
-                tilingWindows = fmap (allWindows M.!) tilingWindowPtrs
+                tilingWindows = (allWindows M.!) <$> tilingWindowPtrs
+                floatingWindow = (allWindows M.!) <$> floatingWindowPtrs
+                floatingQueuedWindows = (allWindows M.!) <$> S.fromList (floatingQueue M.! focusedWorkspace)
                in
-                (tilingWindows, tilingWindowPtrs S.>< floatingWindowPtrs S.>< (S.fromList (floatingQueue M.! focusedWorkspace)))
+                (tilingWindows, tilingWindows S.>< floatingWindow S.>< floatingQueuedWindows)
 
 raiseAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
@@ -184,11 +192,12 @@ shrinkWindows b =
         )
     )
 
-renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> CInt -> Ptr RiverWindow -> IO ()
-renderBorder Nothing (r, g, b, a) _ bPx w = riverWindowSetBorders w edgeAll bPx r g b a
-renderBorder (Just focused) (r, g, b, a) (fr, fg, fb, fa) bPx w
-  | w == focused = riverWindowSetBorders w edgeAll bPx fr fg fb fa
-  | otherwise = riverWindowSetBorders w edgeAll bPx r g b a
+renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> CInt -> Window -> IO ()
+renderBorder Nothing (r, g, b, a) _ _ bPx w = riverWindowSetBorders (winPtr w) edgeAll bPx r g b a
+renderBorder (Just focused) (r, g, b, a) (fr, fg, fb, fa) (pr, pg, pb, pa) bPx Window{winPtr, isPinned}
+  | isPinned = riverWindowSetBorders winPtr edgeAll bPx pr pg pb pa
+  | winPtr == focused = riverWindowSetBorders winPtr edgeAll bPx fr fg fb fa
+  | otherwise = riverWindowSetBorders winPtr edgeAll bPx r g b a
 
 translateColor :: Word32 -> (CUInt, CUInt, CUInt, CUInt)
 translateColor rgba = (toCU r', toCU g', toCU b', toCU a')
@@ -216,7 +225,7 @@ translateColor rgba = (toCU r', toCU g', toCU b', toCU a')
 
   toCU = fromIntegral
 
-bColor :: (CUInt, CUInt, CUInt, CUInt)
+bColor, fColor, pColor :: (CUInt, CUInt, CUInt, CUInt)
 bColor = translateColor borderColor
-fColor :: (CUInt, CUInt, CUInt, CUInt)
 fColor = translateColor focusedBorderColor
+pColor = translateColor pinnedBorderColor

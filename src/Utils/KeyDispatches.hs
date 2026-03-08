@@ -18,6 +18,7 @@ module Utils.KeyDispatches (
   switchWorkspace,
   doNothing,
   toggleFocusFloating,
+  togglePinWindow,
   cycleWindowFocus,
   reloadWindowManager,
 ) where
@@ -26,6 +27,7 @@ import Control.Concurrent.MVar
 import Control.Monad (unless)
 import Data.Aeson
 import Data.Bimap qualified as B
+import Data.Foldable (toList)
 import Data.List (elemIndex)
 import Data.Map qualified as M
 import Data.Maybe
@@ -100,7 +102,7 @@ cycleWindowFocus forward stateMVar = do
                   pure
                     state
                       { focusedWindow = Just $ next
-                      , manageQueue = manageQueue state >> warp
+                      , manageQueue = manageQueue state
                       , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
                       }
           | otherwise -> do
@@ -119,7 +121,7 @@ cycleWindowFocus forward stateMVar = do
                   pure
                     state
                       { focusedWindow = Just $ next
-                      , manageQueue = manageQueue state >> warp
+                      , manageQueue = manageQueue state
                       }
 
 toggleFullscreenCurrentWindow :: MVar WMState -> IO ()
@@ -140,42 +142,45 @@ toggleFullscreenCurrentWindow stateMVar = do
         case focusedWindow of
           Nothing -> pure state
           Just win -> do
-            let window@Window{isFloating, isFullscreen} = allWindows M.! win
-                focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+            let window@Window{isFloating, isFullscreen, isPinned} = allWindows M.! win
+            if isPinned
+              then pure state
+              else do
+                let focusedWorkspace = allOutputWorkspaces B.! focusedOutput
 
-                fullscreenWindow f
-                  | f =
-                      state
-                        { allWorkspacesFloating = BS.delete win allWorkspacesFloating
-                        , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
-                        }
-                  | otherwise =
-                      state
-                        { allWorkspacesTiled = BS.delete win allWorkspacesTiled
-                        , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
-                        }
+                    fullscreenWindow f
+                      | f =
+                          state
+                            { allWorkspacesFloating = BS.delete win allWorkspacesFloating
+                            , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
+                            }
+                      | otherwise =
+                          state
+                            { allWorkspacesTiled = BS.delete win allWorkspacesTiled
+                            , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
+                            }
 
-                exitFullscreenWindow f
-                  | f =
-                      state
-                        { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-                        , floatingQueue = M.adjust (win :) focusedWorkspace floatingQueue
-                        , manageQueue = manageQueue state >> fA
-                        }
-                  | otherwise =
-                      state
-                        { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-                        , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
-                        , manageQueue = manageQueue state >> fA
-                        }
-                 where
-                  fA = riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
+                    exitFullscreenWindow f
+                      | f =
+                          state
+                            { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+                            , floatingQueue = M.adjust (win :) focusedWorkspace floatingQueue
+                            , manageQueue = manageQueue state >> fA
+                            }
+                      | otherwise =
+                          state
+                            { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
+                            , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
+                            , manageQueue = manageQueue state >> fA
+                            }
+                     where
+                      fA = riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
 
-                newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
-                newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
+                    newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
+                    newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
 
-            riverWindowManagerManageDirty currentWmManager
-            pure $ newState{allWindows = newWindows}
+                riverWindowManagerManageDirty currentWmManager
+                pure newState{allWindows = newWindows}
 
 toggleFloatingCurrentWindow :: MVar WMState -> IO ()
 toggleFloatingCurrentWindow stateMVar = do
@@ -184,7 +189,7 @@ toggleFloatingCurrentWindow stateMVar = do
     Nothing -> pure ()
     Just win -> do
       let w = allWindows state M.! win
-      unless (isFullscreen w) $
+      unless (isFullscreen w || isPinned w) $
         if isFloating w then tileCurrentWindow stateMVar else floatCurrentWindow stateMVar
 
 floatCurrentWindow :: MVar WMState -> IO ()
@@ -208,6 +213,20 @@ tileCurrentWindow stateMVar = do
           newTiled = BS.insert (allOutputWorkspaces state B.! focusedOutput state) win (allWorkspacesTiled state)
           newAllWindows = M.adjust (\w -> w{isFloating = False}) win (allWindows state)
         pure $ state{allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled, allWindows = newAllWindows}
+
+togglePinWindow :: MVar WMState -> IO ()
+togglePinWindow stateMVar = do
+  modifyMVar_ stateMVar $ \state ->
+    case focusedWindow state of
+      Nothing -> pure state
+      Just win -> do
+        let
+          Window{isFullscreen, isFloating} = allWindows state M.! win
+        if isFloating && not isFullscreen
+          then do
+            let newWindows = M.adjust (\w -> w{isPinned = not (isPinned w)}) win (allWindows state)
+            pure state{allWindows = newWindows}
+          else pure state
 
 cycleWindows :: Bool -> MVar WMState -> IO ()
 cycleWindows forward stateMVar = do
@@ -282,7 +301,10 @@ switchWorkspace targetID stateMVar = do
       \state@WMState
          { allOutputWorkspaces
          , focusedOutput
+         , allWindows
+         , allWorkspacesFloating
          , lastFocusedWorkspace
+         , focusedSeat
          } -> do
           let
             currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
@@ -296,11 +318,13 @@ switchWorkspace targetID stateMVar = do
                   currentWindows = allWorkspaceWindows currentFocusedWorkspace state
                   newWindows = allWorkspaceWindows targetID state
                   newOutput = B.insert focusedOutput targetID allOutputWorkspaces
+                  pinnedWindows = S.filter (\w -> isPinned $ allWindows M.! w) $ BS.lookupBs currentFocusedWorkspace allWorkspacesFloating
+                  newWorkspacesFloating = foldl' (\bimap w -> BS.move w targetID bimap) allWorkspacesFloating pinnedWindows
 
                   (newOutputWorkspaces, hidingActions, showingActions) = case alreadyShowing of
                     Nothing ->
                       ( newOutput
-                      , mapM_ riverWindowHide currentWindows
+                      , mapM_ (\w -> unless (isPinned $ allWindows M.! w) $ riverWindowHide w) currentWindows
                       , mapM_ riverWindowShow newWindows
                       )
                     Just o2 ->
@@ -309,15 +333,19 @@ switchWorkspace targetID stateMVar = do
                       , pure ()
                       )
 
-                  newFocusedWindow = case newWindows of
-                    w S.:<| _ -> Just w
-                    S.Empty -> Nothing
+                  (newFocusedWindow, focusAction) = case newWindows S.>< pinnedWindows of
+                    w S.:<| _ -> (Just w, riverSeatFocusWindow focusedSeat w)
+                    S.Empty -> (Nothing, pure ())
+
+                print $ "Pinned: " ++ show pinnedWindows
 
                 pure
                   ( state
                       { renderQueue = renderQueue state >> hidingActions >> showingActions
+                      , manageQueue = manageQueue state >> focusAction
                       , allOutputWorkspaces = newOutputWorkspaces
                       , lastFocusedWorkspace = currentFocusedWorkspace
+                      , allWorkspacesFloating = newWorkspacesFloating
                       , focusedWindow = newFocusedWindow
                       }
                   , riverWindowManagerManageDirty (currentWmManager state)
@@ -340,8 +368,8 @@ moveWindowToWorkspace targetID stateMVar = do
           Nothing -> pure state
           Just w -> do
             let
-              Window{isFloating} = allWindows M.! w
-            if (allOutputWorkspaces B.! focusedOutput == targetID)
+              Window{isFloating, isPinned} = allWindows M.! w
+            if allOutputWorkspaces B.! focusedOutput == targetID || isPinned
               then pure state
               else do
                 let
