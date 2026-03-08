@@ -7,6 +7,7 @@ import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
 import Types
+import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_seat_pointer_enter"
@@ -28,10 +29,19 @@ hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatPointerEnter dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
+    let window = allWindows state M.! win
+        workspace
+          | isFullscreen window = BS.findA win (allWorkspacesFullscreen state)
+          | isFloating window = BS.findA win (allWorkspacesFloating state)
+          | otherwise = BS.findA win (allWorkspacesTiled state)
+        output = case B.lookupR workspace (allOutputWorkspaces state) of
+          Nothing -> focusedOutput state
+          Just o -> o
     pure
       state
         { focusedWindow = Just (win)
         , manageQueue = manageQueue state >> riverSeatFocusWindow seat win
+        , focusedOutput = output
         }
 
 hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()

@@ -6,6 +6,7 @@ module Utils.BiSeqMap (
   insert,
   lookupA,
   lookupBs,
+  findA,
   delete,
   move,
   insertSeq,
@@ -73,6 +74,9 @@ insertList a bs bm = res
 
 lookupA :: (Ord b) => b -> BiSeqMap a b -> Maybe a
 lookupA b = M.lookup b . bToA
+
+findA :: (Ord b) => b -> BiSeqMap a b -> a
+findA b bm = bToA bm M.! b
 
 lookupBs :: (Ord a) => a -> BiSeqMap a b -> S.Seq b
 lookupBs a = M.findWithDefault S.empty a . aToBs

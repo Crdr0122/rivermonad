@@ -38,3 +38,4 @@ Everything will be hardcoded for personal use
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [ ] Libinput
+- [ ] Multiseats (Not needed?)
