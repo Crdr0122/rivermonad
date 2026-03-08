@@ -32,23 +32,15 @@ hsWindowIdentifier dataPtr win identifier = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state@WMState{persistedState, allWindows} -> do
     i <- peekCString identifier
-    if M.null (persistedState)
-      then do
-        let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
-        pure
-          state
-            { allWindows = newWindows
-            , newWindowQueue = win : newWindowQueue state
-            , focusedWindow = Just (win)
-            }
-      else case M.lookup i persistedState of
+    print i
+    case M.lookup i persistedState of
         Nothing -> do
           let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
           pure
             state
               { allWindows = newWindows
               , newWindowQueue = win : newWindowQueue state
-              , focusedWindow = Just (win)
+              -- , focusedWindow = Just (win)
               }
         Just (supposedWorkspace, windowStatus) -> do
           let newPersisted = M.delete i persistedState
@@ -166,6 +158,7 @@ hsWindowTitle dataPtr win title = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     t <- peekCString title
+    print t
     let newWindows = M.adjust (\w -> w{winTitle = t}) win (allWindows state)
     pure state{allWindows = newWindows}
 
@@ -174,6 +167,7 @@ hsWindowAppID dataPtr win appID = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     a <- peekCString appID
+    print a
     let newWindows = M.adjust (\w -> w{winAppID = a}) win (allWindows state)
     pure state{allWindows = newWindows}
 

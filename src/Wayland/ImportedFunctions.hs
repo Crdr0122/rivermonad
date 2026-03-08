@@ -12,6 +12,7 @@ foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :
 foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()
 foreign import ccall unsafe "get_river_seat_listener" getRiverSeatListener :: Ptr ()
 foreign import ccall unsafe "get_river_layer_shell_output_listener" getRiverLayerShellOutputListener :: Ptr ()
+foreign import ccall unsafe "get_river_layer_shell_seat_listener" getRiverLayerShellSeatListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
 
@@ -136,10 +137,14 @@ foreign import capi "river-layer-shell.h river_layer_shell_v1_get_output"
   riverLayerShellGetOutput :: Ptr RiverLayerShell -> Ptr RiverOutput -> IO (Ptr RiverLayerShellOutput)
 foreign import capi "river-layer-shell.h river_layer_shell_v1_get_seat"
   riverLayerShellGetSeat :: Ptr RiverLayerShell -> Ptr RiverSeat -> IO (Ptr RiverLayerShellSeat)
+
 foreign import capi "river-layer-shell.h river_layer_shell_output_v1_destroy"
   riverLayerShellOutputDestroy :: Ptr RiverLayerShellOutput -> IO ()
 foreign import capi "river-layer-shell.h river_layer_shell_output_v1_set_default"
   riverLayerShellOutputSetDefault :: Ptr RiverLayerShellOutput -> IO ()
+
+foreign import capi "river-layer-shell.h river_layer_shell_seat_v1_destroy"
+  riverLayerShellSeatDestroy :: Ptr RiverLayerShellSeat -> IO ()
 
 foreign import capi "river-xkb-config.h river_xkb_config_v1_stop"
   riverXkbConfigStop :: Ptr RiverXkbConfig -> IO ()

@@ -5,6 +5,7 @@ import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
 import Types
+import Wayland.ImportedFunctions
 
 foreign export ccall "hs_layer_shell_output_non_exclusive_area"
   hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
@@ -23,3 +24,15 @@ hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
             let updatedOutput = o{outX = x, outY = y, outWidth = width, outHeight = height}
                 newOutputs = M.insert oPtr updatedOutput oldOutputs
             pure state{allOutputs = newOutputs}
+
+foreign export ccall "hs_layer_shell_seat_focus_none"
+  hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
+
+hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
+hsLayerShellSeatFocusNone dataPtr _ = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let mAction = case focusedWindow state of
+          Nothing -> pure ()
+          Just w -> riverSeatFocusWindow (focusedSeat state) w
+    pure state{manageQueue = manageQueue state >> mAction}

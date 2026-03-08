@@ -51,7 +51,6 @@ main = do
     then putStrLn "XKb NOT bound"
     else putStrLn "XKb bound!"
 
-  let statePath = "/tmp/rivermonad-state.json"
   exists <- doesFileExist statePath
   (ratios, oldWindows) <-
     if not exists
@@ -60,6 +59,7 @@ main = do
         content <- Byte.readFile statePath
         case decode content of
           Just PersistedState{persistedWorkspaceRatios, persistedWindows} -> do
+            removeFile statePath
             pure (persistedWorkspaceRatios, persistedWindows)
           Nothing -> pure (defaultRatios, M.empty)
 

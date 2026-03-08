@@ -9,7 +9,8 @@ module Config (
   gapPx,
   allPointerBindings,
   xCursorTheme,
-  floatingRules,
+  windowRules,
+  statePath,
 ) where
 
 import Control.Concurrent.MVar
@@ -22,8 +23,6 @@ import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
 import Utils.Layouts
-
-
 
 allPointerBindings :: [(CUInt, CUInt, MVar WMState -> IO (), MVar WMState -> IO ())]
 allPointerBindings =
@@ -52,7 +51,7 @@ defaultRatios =
     zip [1 .. 9] (repeat 0.6)
 
 execOnStart :: [String]
-execOnStart = []
+execOnStart = ["pwvucontrol", "foot -e nvim"]
 
 borderPx :: CInt
 borderPx = 2
@@ -69,20 +68,27 @@ xCursorTheme = ("Himehina", 24)
 modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
 
-floatingRules :: [(String, String)]
-floatingRules =
-  [ ("Rename ", "thunar")
-  , ("", "blueman-manager")
-  , ("", "th123.exe")
-  , ("Authentication Required", "")
-  , ("", "sokulauncher.exe")
-  , ("", "swarm.exe")
-  , ("", "snapgene.exe")
-  , ("", "prism.exe")
-  , ("", "fiji-Main")
-  , ("SnapGene", "")
-  , ("", "beatoraja")
+windowRules :: [((String, String), (Maybe WindowStatus, Maybe WorkspaceID))]
+windowRules =
+  [ (("Rename ", "thunar"), (Just Floating, Nothing))
+  , (("", "blueman-manager"), (Just Floating, Nothing))
+  , (("", "th123.exe"), (Just Floating, Nothing))
+  , (("Authentication Required", ""), (Just Floating, Nothing))
+  , (("", "sokulauncher.exe"), (Just Floating, Nothing))
+  , (("", "swarm.exe"), (Just Floating, Nothing))
+  , (("", "snapgene.exe"), (Just Floating, Nothing))
+  , (("", "prism.exe"), (Just Floating, Nothing))
+  , (("", "fiji-Main"), (Just Floating, Nothing))
+  , (("SnapGene", ""), (Just Floating, Nothing))
+  , (("", "beatoraja"), (Just Floating, Nothing))
+  , (("", "Slack"), (Nothing, Just 2))
+  , (("", "QQ"), (Nothing, Just 2))
+  , (("", "wechat"), (Nothing, Just 2))
+  , (("", "vesktop"), (Nothing, Just 2))
   ]
+
+statePath :: FilePath
+statePath = "/tmp/rivermonad-state.json"
 
 allKeyBindings :: [(CUInt, CUInt, MVar WMState -> IO ())]
 allKeyBindings =
@@ -94,7 +100,7 @@ allKeyBindings =
   , (keyW, modSuper, cycleLayout [monocleLayout, twoPaneLayout, stackLayout])
   , (keyF, modSuper, toggleFullscreenCurrentWindow)
   , (keyS, modSuper, zoomWindow)
-  , (keyR, modSuperShift, reloadWindowManager)
+  , (keyR, modSuperShift, reloadWindowManager statePath)
   , (keySpace, modSuper, toggleFloatingCurrentWindow)
   , (keySpace, modSuperShift, toggleFocusFloating)
   , (keyEnter, modSuper, exec "foot")

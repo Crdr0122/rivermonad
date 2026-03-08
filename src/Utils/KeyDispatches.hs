@@ -394,8 +394,8 @@ modifyLayoutRatio change stateMVar = do
 exec :: String -> MVar WMState -> IO ()
 exec command _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command) >> pure ()
 
-reloadWindowManager :: MVar WMState -> IO ()
-reloadWindowManager stateMVar = do
+reloadWindowManager :: FilePath -> MVar WMState -> IO ()
+reloadWindowManager fp stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allWorkspacesTiled
@@ -417,7 +417,7 @@ reloadWindowManager stateMVar = do
                 )
                 (M.elems allWindows)
           newPersisted = PersistedState{persistedWorkspaceRatios = workspaceRatios, persistedWindows = windowsToRecord}
-        encodeFile "/tmp/rivermonad-state.json" newPersisted
+        encodeFile fp newPersisted
         _ <- spawnCommand ("systemd-run --user --scope --slice=app.slice Rivermonad-reload")
         pure state
 

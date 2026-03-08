@@ -14,7 +14,6 @@ module Utils.BiSeqMap (
   lookUpNext,
 ) where
 
-import Data.Aeson
 import Data.Foldable (foldr')
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S

@@ -61,6 +61,9 @@ hsOnNewSeat dataPtr _ seat = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
+
+    newLayerShellSeatPtr <- riverLayerShellGetSeat (currentLayerShell state) seat
+    _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
     theme <- newCString (fst xCursorTheme)
     riverSeatSetXcursorTheme seat theme (snd xCursorTheme)
     pure state{focusedSeat = seat}
@@ -79,12 +82,12 @@ hsOnNewOutput dataPtr _ output = do
         newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
-    riverLayerShellOutputSetDefault newLayerShellOutputPtr
     pure
       state
         { allOutputs = newOutputsList
         , focusedOutput = output
         , allLayerShellOutputs = newLayerShellOutputs
+        , manageQueue = manageQueue state >> riverLayerShellOutputSetDefault newLayerShellOutputPtr
         , allOutputWorkspaces = newOutputsWorkspaces
         }
 

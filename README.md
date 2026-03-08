@@ -15,9 +15,20 @@ Everything will be hardcoded for personal use
   - [ ] Magnifier
   - [X] Workspace individual layouts
   - [ ] Combine layouts
+  - [ ] Adding deleting master windows (I dont need)
 - [X] Floating, resize, dragging
   - [X] Floating resizing
   - [X] Tiling resizing
+- [X] Recompile and restart wm with state saving
+  - [X] Recompiling and restarting
+  - [X] Saving state
+      - [X] Window workspaces
+      - [X] Workspace layout ratios
+- [-] Window rules
+  - [X] Open floating  
+  - [ ] Open fullscreen (?)
+  - [ ] Open on workspace
+  - [ ] Open with set size
 - [ ] Ipc
   - [ ] Receive ipc keydispatches
   - [ ] Send out workspace information for bars
@@ -27,8 +38,3 @@ Everything will be hardcoded for personal use
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [ ] Libinput
-- [X] Recompile and restart wm with state saving
-  - [X] Recompiling and restarting
-  - [X] Saving state
-      - [X] Window workspaces
-      - [X] Workspace layout ratios

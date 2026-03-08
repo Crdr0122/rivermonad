@@ -35,14 +35,14 @@ hsSeatPointerEnter dataPtr seat win = do
         }
 
 hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsSeatWindowInteraction dataPtr _ win = do
+hsSeatWindowInteraction dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     let Window{nodePtr, isFloating} = (allWindows state) M.! win
     pure
       state
         { focusedWindow = Just (win)
-        , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr)
+        , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr) >> riverSeatFocusWindow seat win
         }
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
