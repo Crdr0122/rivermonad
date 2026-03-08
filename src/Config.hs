@@ -11,6 +11,7 @@ module Config (
   xCursorTheme,
   windowRules,
   statePath,
+  floatingRules,
 ) where
 
 import Control.Concurrent.MVar
@@ -51,7 +52,7 @@ defaultRatios =
     zip [1 .. 9] (repeat 0.6)
 
 execOnStart :: [String]
-execOnStart = ["pwvucontrol", "foot -e nvim"]
+execOnStart = []
 
 borderPx :: CInt
 borderPx = 2
@@ -72,6 +73,7 @@ windowRules :: [((String, String), (Maybe WindowStatus, Maybe WorkspaceID))]
 windowRules =
   [ (("Rename ", "thunar"), (Just Floating, Nothing))
   , (("", "blueman-manager"), (Just Floating, Nothing))
+  , (("Thunar", ""), (Nothing, Just 2))
   , (("", "th123.exe"), (Just Floating, Nothing))
   , (("Authentication Required", ""), (Just Floating, Nothing))
   , (("", "sokulauncher.exe"), (Just Floating, Nothing))
@@ -85,6 +87,21 @@ windowRules =
   , (("", "QQ"), (Nothing, Just 2))
   , (("", "wechat"), (Nothing, Just 2))
   , (("", "vesktop"), (Nothing, Just 2))
+  ]
+
+floatingRules :: [(String, String)]
+floatingRules =
+  [ ("Rename ", "thunar")
+  , ("", "blueman-manager")
+  , ("", "th123.exe")
+  , ("Authentication Required", "")
+  , ("", "sokulauncher.exe")
+  , ("", "swarm.exe")
+  , ("", "snapgene.exe")
+  , ("", "prism.exe")
+  , ("", "fiji-Main")
+  , ("SnapGene", "")
+  , ("", "beatoraja")
   ]
 
 statePath :: FilePath

@@ -90,6 +90,7 @@ executable rivermonad
     process,
     text,
     bytestring,
+    unordered-containers,
     bimap,
     directory,
 

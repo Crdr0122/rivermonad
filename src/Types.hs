@@ -5,6 +5,7 @@ module Types where
 import Control.Concurrent.MVar
 import Data.Aeson
 import Data.Bimap
+import Data.HashSet
 import Data.Map.Strict
 import Foreign
 import Foreign.C

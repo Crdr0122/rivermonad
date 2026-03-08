@@ -44,7 +44,7 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
                 ratio = workspaceRatios M.! focusedWorkspace
 
-                (newQueuedFloatingWindows, newTiledWindows, newQueuedFullscreenWindows, leftovers) =
+                (newQueuedFloatingWindows, newTiledWindows, newQueuedFullscreenWindows) =
                   ruleNewWindows (fmap (allWindows M.!) newWindowQueue)
 
                 windowsToTile = newTiledWindows ++ toList tileable
@@ -84,7 +84,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                     , allWindows
                     ]
 
-            print $ winTitle <$> leftovers
             -- All manage actions -> executed directly here
             -- 1. Resize tiling windows
             mapM_
@@ -111,15 +110,14 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                     >> lowerAllWindows windowsToTile
                     >> floatRAction
                     >> renderBorderActions
-                    >> raiseAllWindows newFullscreenWindows
-
+                    >> raiseAllWindows (reverse newFullscreenWindows) -- Fullscreen windows are at the top -> First one raise to top last
             pure
               state
                 { renderQueue = renderQueue state >> renderActions
                 , manageQueue = pure ()
                 , floatingQueue = M.insert focusedWorkspace [] floatingQueue
                 , fullscreenQueue = M.insert focusedWorkspace [] fullscreenQueue
-                , newWindowQueue = winPtr <$> leftovers
+                , newWindowQueue = []
                 , allWindows = newAllWindows
                 , allWorkspacesFloating = newWorkspacesFloating
                 , allWorkspacesTiled = newWorkspacesTiled
@@ -127,28 +125,37 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 }
            where
             ruleNewWindows xs =
-              let
-                checkNewWindowWorkspace Window{winTitle, winAppID, parentWindow} ((t, a), (status, mWorkspace))
-                  | t `isInfixOf` winTitle && a `isInfixOf` winAppID =
-                      if (fromMaybe focusedWorkspace mWorkspace) == focusedWorkspace
-                        then if isJust parentWindow && isNothing status then Just Floating else Just (fromMaybe Tiled status)
-                        else Nothing
-                  | otherwise = Just Tiled
-
-                accumulate4uple (w, st) (fl, ti, full, other) = case st of
-                  Nothing -> (fl, ti, full, w : other)
-                  Just Floating -> (w : fl, ti, full, other)
-                  Just Tiled -> (fl, w : ti, full, other)
-                  Just Fullscreen -> (fl, ti, w : full, other)
-                  Just FullscreenFloating -> (fl, ti, w : full, other)
-
-                combineWindowStatus a Nothing = a
-                combineWindowStatus Nothing a = a
-                combineWindowStatus a _ = a
-
-                ruled = (\w -> (w, foldl' combineWindowStatus Nothing (checkNewWindowWorkspace w <$> windowRules))) <$> xs
-               in
-                foldr accumulate4uple ([], [], [], []) ruled
+              let (float, tiled) =
+                    partition
+                      ( \Window{winTitle, winAppID, parentWindow} ->
+                          any (\(t, a) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules
+                            || isJust parentWindow
+                      )
+                      xs
+               in (float, tiled, [])
+            -- ruleNewWindows xs =
+            --   let
+            --     checkNewWindowWorkspace Window{winTitle, winAppID, parentWindow} ((t, a), (status, mWorkspace))
+            --       | t `isInfixOf` winTitle && a `isInfixOf` winAppID =
+            --           if (fromMaybe focusedWorkspace mWorkspace) == focusedWorkspace
+            --             then if isJust parentWindow && isNothing status then Just Floating else Just (fromMaybe Tiled status)
+            --             else Nothing
+            --       | otherwise = Just Tiled
+            --
+            --     accumulate4uple (w, st) (fl, ti, full, other) = case st of
+            --       Nothing -> (fl, ti, full, w : other)
+            --       Just Floating -> (w : fl, ti, full, other)
+            --       Just Tiled -> (fl, w : ti, full, other)
+            --       Just Fullscreen -> (fl, ti, w : full, other)
+            --       Just FullscreenFloating -> (fl, ti, w : full, other)
+            --
+            --     combineWindowStatus a Nothing = a
+            --     combineWindowStatus Nothing a = a
+            --     combineWindowStatus a _ = a
+            --
+            --     ruled = (\w -> (w, foldl' combineWindowStatus Nothing (checkNewWindowWorkspace w <$> windowRules))) <$> xs
+            --    in
+            --     foldr accumulate4uple ([], [], [], []) ruled
 
             getWindows =
               let
