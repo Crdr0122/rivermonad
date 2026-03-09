@@ -93,6 +93,7 @@ executable rivermonad
     unordered-containers,
     bimap,
     directory,
+    unix,
 
   -- Directories containing source files.
   hs-source-dirs:
