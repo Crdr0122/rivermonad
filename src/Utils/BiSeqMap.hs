@@ -9,7 +9,7 @@ module Utils.BiSeqMap (
   findA,
   delete,
   move,
-  insertSeq,
+  changeSeqOrder,
   insertList,
   insertByIndex,
   lookUpNext,
@@ -62,10 +62,10 @@ lookUpNext a forward b bimap =
             then S.index s ((i + 1) `mod` length s)
             else S.index s ((i - 1) `mod` length s)
 
-insertSeq :: (Ord a, Ord b) => a -> S.Seq b -> BiSeqMap a b -> BiSeqMap a b
-insertSeq a bs (BiSeqMap ab ba) = BiSeqMap ab' ba
+changeSeqOrder :: (Ord a, Ord b) => a -> (S.Seq b -> S.Seq b) -> BiSeqMap a b -> BiSeqMap a b
+changeSeqOrder a fun (BiSeqMap ab ba) = BiSeqMap ab' ba
  where
-  ab' = M.insert a bs ab
+  ab' = M.adjust fun a ab
 
 insertList :: (Ord a, Ord b) => a -> [b] -> BiSeqMap a b -> BiSeqMap a b
 insertList a bs bm = res
