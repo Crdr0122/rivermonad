@@ -65,6 +65,8 @@ type PointerCallback = Ptr () -> Ptr RiverPointerBinding -> IO ()
 data RiverXkbConfig
 data RiverXkbKeyboard
 data RiverXkbKeymap
+data RiverInputManager
+data RiverLibinputConfig
 
 data WlSurface
 

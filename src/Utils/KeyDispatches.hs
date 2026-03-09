@@ -27,9 +27,8 @@ import Control.Concurrent.MVar
 import Control.Monad (unless)
 import Data.Aeson
 import Data.Bimap qualified as B
-import Data.Foldable (toList)
 import Data.List (elemIndex)
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
 import System.Process
@@ -89,40 +88,20 @@ cycleWindowFocus forward stateMVar = do
           | isFloating -> do
               let
                 next = nextWindow (allWorkspacesFloating state)
-                Window{floatingGeometry, nodePtr} = allWindows state M.! next
-              case floatingGeometry of
-                Nothing -> pure state
-                Just Rect{rx, ry, rw, rh} -> do
-                  let
-                    warp =
-                      riverSeatPointerWarp
-                        (focusedSeat state)
-                        ((rx + rw) `div` 2)
-                        ((ry + rh) `div` 2)
-                  pure
-                    state
-                      { focusedWindow = Just $ next
-                      , manageQueue = manageQueue state
-                      , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
-                      }
+                Window{nodePtr} = allWindows state M.! next
+              pure
+                state
+                  { focusedWindow = Just $ next
+                  , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
+                  }
           | otherwise -> do
               let
                 next = nextWindow (allWorkspacesTiled state)
-                Window{tilingGeometry} = allWindows state M.! next
-              case tilingGeometry of
-                Nothing -> pure state
-                Just Rect{rx, ry, rw, rh} -> do
-                  let
-                    warp =
-                      riverSeatPointerWarp
-                        (focusedSeat state)
-                        ((rx + rw) `div` 2)
-                        ((ry + rh) `div` 2)
-                  pure
-                    state
-                      { focusedWindow = Just $ next
-                      , manageQueue = manageQueue state
-                      }
+              pure
+                state
+                  { focusedWindow = Just $ next
+                  , manageQueue = manageQueue state
+                  }
 
 toggleFullscreenCurrentWindow :: MVar WMState -> IO ()
 toggleFullscreenCurrentWindow stateMVar = do
@@ -233,63 +212,52 @@ cycleWindows forward stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let
       work = allOutputWorkspaces state B.! focusedOutput state
-      oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
       cycleW _ S.Empty = S.empty
       cycleW True (h S.:<| hs) = hs S.|> h
       cycleW False (hs S.:|> h) = h S.<| hs
-    case oldTiledWindows of
-      S.Empty -> pure state
-      s ->
-        pure $
-          state
-            { allWorkspacesTiled = BS.insertSeq work (cycleW forward s) (allWorkspacesTiled state)
-            }
+    pure
+      state
+        { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) (allWorkspacesTiled state)
+        }
 
 cycleWindowSlaves :: Bool -> MVar WMState -> IO ()
 cycleWindowSlaves forward stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let
       work = allOutputWorkspaces state B.! focusedOutput state
-      oldTiledWindows = BS.lookupBs work $ allWorkspacesTiled state
-      cycleW _ S.Empty = S.empty
-      cycleW True (hs S.:|> h) = h S.<| hs
-      cycleW False (h S.:<| hs) = hs S.|> h
-    case oldTiledWindows of
-      S.Empty -> pure state
-      h S.:<| hs -> case hs of
-        S.Empty -> pure state
-        s -> do
-          pure $
-            state
-              { allWorkspacesTiled = BS.insertSeq work (h S.<| (cycleW forward s)) (allWorkspacesTiled state)
-              }
+      cycleW True (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
+      cycleW False (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
+      cycleW _ hs = hs
+    pure $
+      state
+        { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) (allWorkspacesTiled state)
+        }
 
 zoomWindow :: MVar WMState -> IO ()
 zoomWindow stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
-      Just currentWin -> do
-        if (isFloating (allWindows state M.! currentWin))
+      Just currentWin ->
+        if (\w -> isFloating w || isFullscreen w) (allWindows state M.! currentWin)
           then pure state
           else do
             let
               workspace = allOutputWorkspaces state B.! focusedOutput state
               bimap = allWorkspacesTiled state
-              currentSeq = BS.lookupBs workspace bimap
-              newSeq = case currentSeq of
-                S.Empty -> currentSeq
+              zoom s = case s of
+                S.Empty -> s
                 w S.:<| ws ->
                   if w == currentWin
                     then
                       ( case ws of
-                          S.Empty -> currentSeq
+                          S.Empty -> s
                           w2 S.:<| wss -> w2 S.<| (w S.<| wss)
                       )
                     else case S.elemIndexL currentWin ws of
-                      Nothing -> currentSeq
+                      Nothing -> s
                       Just i -> currentWin S.<| (S.update i w ws)
 
-            let newWorkspacesTiled = BS.insertSeq workspace newSeq bimap
+            let newWorkspacesTiled = BS.changeSeqOrder workspace zoom bimap
             riverWindowManagerManageDirty (currentWmManager state)
             pure $ state{allWorkspacesTiled = newWorkspacesTiled}
       Nothing -> pure state
@@ -357,6 +325,7 @@ moveWindowToWorkspace targetID stateMVar = do
     \state@WMState
        { allWorkspacesFloating
        , allWorkspacesTiled
+       , allWorkspacesFullscreen
        , allWindows
        , focusedOutput
        , allOutputWorkspaces
@@ -367,28 +336,17 @@ moveWindowToWorkspace targetID stateMVar = do
           Nothing -> pure state
           Just w -> do
             let
-              Window{isFloating, isPinned} = allWindows M.! w
+              Window{isFloating, isPinned, isFullscreen} = allWindows M.! w
             if allOutputWorkspaces B.! focusedOutput == targetID || isPinned
               then pure state
               else do
                 let
-                  (newAllTile, newAllFloat) =
-                    if isFloating
-                      then
-                        ( allWorkspacesTiled
-                        , BS.insert targetID w (BS.delete w allWorkspacesFloating)
-                        )
-                      else
-                        ( BS.insert targetID w (BS.delete w allWorkspacesTiled)
-                        , allWorkspacesFloating
-                        )
+                  newState
+                    | isFullscreen = state{allWorkspacesFullscreen = BS.move w targetID allWorkspacesFullscreen}
+                    | isFloating = state{allWorkspacesFloating = BS.move w targetID allWorkspacesFloating}
+                    | otherwise = state{allWorkspacesTiled = BS.move w targetID allWorkspacesTiled}
                 riverWindowManagerManageDirty currentWmManager
-                pure
-                  state
-                    { allWorkspacesTiled = newAllTile
-                    , allWorkspacesFloating = newAllFloat
-                    , renderQueue = renderQueue >> riverWindowHide w
-                    }
+                pure newState{renderQueue = renderQueue >> riverWindowHide w}
 
 cycleLayout :: [LayoutType] -> MVar WMState -> IO ()
 cycleLayout [] _ = pure ()
