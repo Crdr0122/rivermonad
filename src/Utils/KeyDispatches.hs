@@ -27,7 +27,7 @@ import Control.Monad (unless)
 import Data.Aeson
 import Data.Bimap qualified as B
 import Data.List (elemIndex)
-import Data.Map qualified as M
+import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
 import System.Process
