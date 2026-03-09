@@ -304,8 +304,6 @@ switchWorkspace targetID stateMVar = do
                     w S.:<| _ -> (Just w, riverSeatFocusWindow focusedSeat w)
                     S.Empty -> (Nothing, pure ())
 
-                print $ "Pinned: " ++ show pinnedWindows
-
                 pure
                   ( state
                       { renderQueue = renderQueue state >> hidingActions >> showingActions

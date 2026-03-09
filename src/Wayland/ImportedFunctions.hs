@@ -15,6 +15,7 @@ foreign import ccall unsafe "get_river_layer_shell_output_listener" getRiverLaye
 foreign import ccall unsafe "get_river_layer_shell_seat_listener" getRiverLayerShellSeatListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
+foreign import ccall unsafe "get_river_xkb_keymap_listener" getRiverXkbKeymapListener :: Ptr ()
 
 foreign import capi "river-window-management.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()

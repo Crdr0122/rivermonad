@@ -1,9 +1,8 @@
-module Handlers.XkbConfig where
+module Handlers.XkbConfig(hsXkbConfigFinished,hsXkbConfigXkbKeyboard,hsXkbKeymapSuccess,hsXkbKeymapFailure) where
 
 import Foreign
 import Foreign.C
-import GHC.IO.Device (SeekMode (AbsoluteSeek))
-import System.Posix.Files (setFdSize)
+import System.IO
 import System.Posix.IO
 import System.Posix.Types (Fd (..))
 import Types
@@ -24,8 +23,25 @@ hsXkbConfigXkbKeyboard dataPtr config keyboard = do
   riverXkbKeyboardNumlockEnable keyboard
   fd <- createKeymapFd composeKeyMap
   keymap <- riverXkbConfigCreateKeymap config fd 1
-  -- _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeymapListener dataPtr
+  _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
   pure ()
+
+foreign export ccall "hs_xkb_keymap_success"
+  hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
+foreign export ccall "hs_xkb_keymap_failure"
+  hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
+
+hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
+hsXkbKeymapSuccess keyboard keymap = do
+  -- riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
+  pure()
+
+hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
+hsXkbKeymapFailure _ _ errorMsg = do
+  e <- peekCString errorMsg
+  print "Failed creating keymap"
+  print e
+  hFlush stdout
 
 -- You'll need to import these from a library like 'unix' or bind them via FFI
 foreign import ccall unsafe "memfd_create"
@@ -46,12 +62,14 @@ createKeymapFd content = do
   -- 1. Create anonymous file in RAM
   withCString "river-keymap" $ \name -> do
     fd <- c_memfd_create name mfd_allow_sealing
+    let fd_ = Fd fd
 
     -- 2. Write the content
+    print content
     let bytes = castCharToCChar <$> content
     withArrayLen bytes $ \len ptr -> do
-      _ <- fdWriteBuf (Fd fd) (castPtr ptr) (fromIntegral len)
-
+      _ <- fdWriteBuf fd_ (castPtr ptr) (fromIntegral len)
+      _ <- fdSeek fd_ AbsoluteSeek 0
       -- 3. Seal the file so it's read-only for the compositor
       -- This is required by the river_xkb_config_v1 protocol
       _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
@@ -63,10 +81,10 @@ foreign import ccall unsafe "fcntl"
 
 composeKeyMap :: String
 composeKeyMap =
-  "xkb_keymap {\n"
-    ++ "    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\n"
-    ++ "    xkb_types     { include \"complete\" };\n"
-    ++ "    xkb_compat    { include \"complete\" };\n"
-    ++ "    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\n"
-    ++ "    xkb_geometry  { include \"pc(pc105)\" };\n"
-    ++ "};"
+  "xkb_keymap {\
+  \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
+  \    xkb_types     { include \"complete\" };\
+  \    xkb_compat    { include \"complete\" };\
+  \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
+  \    xkb_geometry  { include \"pc(pc105)\" };\
+  \};\n"

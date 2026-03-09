@@ -10,11 +10,12 @@ import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
-import System.IO
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
+
+-- import System.IO
 
 startLayout :: MVar WMState -> IO ()
 startLayout stateMVar = do
@@ -126,10 +127,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
             mapM_ (\Window{winPtr} -> riverWindowFullscreen winPtr output >> riverWindowInformFullscreen winPtr) newFullscreenWindows
 
             -- All render actions
-            print $ (winTitle) <$> nonFullscreen
-            print $ "Focused: " ++ show (focusedWindow state)
-            print $ "Need Border: " ++ show (winPtr <$> nonFullscreen)
-            hFlush stdout
             let renderTileActions =
                   mapM_
                     (\(Window{nodePtr, winPtr}, Rect{rx, ry, rw, rh}) -> riverNodeSetPosition nodePtr rx ry >> riverWindowSetContentClipBox winPtr 0 0 rw rh)
