@@ -33,7 +33,7 @@ Everything will be hardcoded for personal use
   - [ ] Receive ipc keydispatches
   - [ ] Send out workspace information for bars
 - [ ] Multimonitor focus other outputs
-- [ ] Window pinning (Only floating)
+- [X] Window pinning (Only floating)
 - [ ] Directional window focus and swapping (Only tiling)
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition

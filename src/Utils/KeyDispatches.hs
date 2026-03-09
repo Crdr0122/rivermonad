@@ -310,8 +310,7 @@ switchWorkspace targetID stateMVar = do
             currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
           if
             | currentFocusedWorkspace == targetID && lastFocusedWorkspace == targetID -> pure (state, pure ())
-            | currentFocusedWorkspace == targetID ->
-                pure (state, switchWorkspace lastFocusedWorkspace stateMVar)
+            | currentFocusedWorkspace == targetID -> pure (state, switchWorkspace lastFocusedWorkspace stateMVar)
             | otherwise -> do
                 let
                   alreadyShowing = B.lookupR targetID allOutputWorkspaces
