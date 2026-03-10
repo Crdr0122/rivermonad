@@ -1,4 +1,4 @@
-module Handlers.XkbConfig(hsXkbConfigFinished,hsXkbConfigXkbKeyboard,hsXkbKeymapSuccess,hsXkbKeymapFailure) where
+module Handlers.XkbConfig (hsXkbConfigFinished, hsXkbConfigXkbKeyboard, hsXkbKeymapSuccess, hsXkbKeymapFailure) where
 
 import Foreign
 import Foreign.C
@@ -33,19 +33,21 @@ foreign export ccall "hs_xkb_keymap_failure"
 
 hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
 hsXkbKeymapSuccess keyboard keymap = do
-  -- riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
-  pure()
+  riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
+  print "Successfully set keymap"
+  hFlush stdout
 
 hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 hsXkbKeymapFailure _ _ errorMsg = do
   e <- peekCString errorMsg
-  print "Failed creating keymap"
-  print e
-  hFlush stdout
+  print $ "Failed creating keymap" ++ e
 
 -- You'll need to import these from a library like 'unix' or bind them via FFI
 foreign import ccall unsafe "memfd_create"
   c_memfd_create :: CString -> CUInt -> IO CInt
+
+foreign import ccall unsafe "fcntl"
+  c_fcntl :: CInt -> CInt -> CInt -> IO CInt
 
 -- Constants for sealing
 mfd_allow_sealing :: CUInt
@@ -76,8 +78,6 @@ createKeymapFd content = do
 
       return fd
 
-foreign import ccall unsafe "fcntl"
-  c_fcntl :: CInt -> CInt -> CInt -> IO CInt
 
 composeKeyMap :: String
 composeKeyMap =

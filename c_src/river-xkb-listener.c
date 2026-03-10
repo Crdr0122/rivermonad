@@ -1,6 +1,6 @@
+#define _GNU_SOURCE
 #include "../generated/river-xkb-config.h"
 #include <HsFFI.h>
-#include <stdio.h>
 #include <wayland-client-core.h>
 
 extern void hs_xkb_config_finished(void *data, struct river_xkb_config_v1 *xkb);
@@ -40,11 +40,9 @@ static const struct river_xkb_keyboard_v1_listener xkb_keyboard_listener = {
 
 extern void hs_xkb_keymap_success(void *data,
                                   struct river_xkb_keymap_v1 *keymap);
-
 extern void hs_xkb_keymap_failure(void *data,
                                   struct river_xkb_keymap_v1 *keymap,
                                   const char *error_msg);
-
 static const struct river_xkb_keymap_v1_listener xkb_keymap_listener = {
     .success = hs_xkb_keymap_success,
     .failure = hs_xkb_keymap_failure,
@@ -58,6 +56,7 @@ const struct river_xkb_keyboard_v1_listener *
 get_river_xkb_keyboard_listener(void) {
   return &xkb_keyboard_listener;
 }
+
 const struct river_xkb_keymap_v1_listener *get_river_xkb_keymap_listener(void) {
   return &xkb_keymap_listener;
 }
