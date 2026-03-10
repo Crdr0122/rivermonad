@@ -15,7 +15,6 @@ import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
--- import System.IO
 
 startLayout :: MVar WMState -> IO ()
 startLayout stateMVar = do
@@ -23,7 +22,7 @@ startLayout stateMVar = do
     let
       newWindows = (allWindows state M.!) <$> newWindowQueue state
       focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
-      checkWorkspaceRule window@Window{winTitle, winAppID} = case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) workspaceRules of
+      checkWorkspaceRule window@Window{winTitle, winAppID} = case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (workspaceRules myConfig) of
         Nothing -> (window, focusedWorkspace)
         Just (_, _, w) -> (window, w)
 
@@ -33,7 +32,7 @@ startLayout stateMVar = do
         partition
           ( \(Window{winTitle, winAppID, parentWindow}, _) ->
               isJust parentWindow
-                || ( case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) floatingRules of
+                || ( case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (floatingRules myConfig) of
                        Nothing -> False
                        Just (_, _, fl) -> fl
                    )
@@ -80,9 +79,8 @@ startLayoutOutput output focusedWorkspace stateMVar = do
 
                 windowsToTile = toList tileable
                 layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
-                -- layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry (toList tileable)
-                gappedLayout = shrinkWindows gapPx layout
-                borderedLayout = shrinkWindows borderPx gappedLayout
+                gappedLayout = shrinkWindows (gapPx myConfig) layout
+                borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
 
                 newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
                 (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
@@ -133,7 +131,7 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                     borderedLayout
 
                 renderBorderActions =
-                  mapM_ (renderBorder (focusedWindow state) bColor fColor pColor borderPx) nonFullscreen
+                  mapM_ (renderBorder (focusedWindow state) bColor fColor pColor (borderPx myConfig)) nonFullscreen
 
                 freeFloatingClipbox =
                   mapM_
@@ -223,6 +221,6 @@ translateColor rgba = (toCU r', toCU g', toCU b', toCU a')
   toCU = fromIntegral
 
 bColor, fColor, pColor :: (CUInt, CUInt, CUInt, CUInt)
-bColor = translateColor borderColor
-fColor = translateColor focusedBorderColor
-pColor = translateColor pinnedBorderColor
+bColor = translateColor (borderColor myConfig)
+fColor = translateColor (focusedBorderColor myConfig)
+pColor = translateColor (pinnedBorderColor myConfig)

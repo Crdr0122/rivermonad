@@ -39,3 +39,4 @@ Everything will be hardcoded for personal use
 - [ ] Hotkey repetition
 - [ ] Libinput
 - [ ] Multiseats (Not needed?)
+- [X] Xkb Keymap (Needs manually writing keymap string but works)

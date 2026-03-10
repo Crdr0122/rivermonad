@@ -41,6 +41,7 @@ data WMState = WMState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
   , persistedState :: Map String (WorkspaceID, WindowStatus)
+  , currentKeymap :: CInt
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
@@ -123,6 +124,24 @@ edgeTop = 1
 edgeBottom = 2
 edgeLeft = 4
 edgeRight = 8
+
+data RivermonadConfig = RivermonadConfig
+  { defaultLayouts :: Map WorkspaceID LayoutType
+  , defaultRatios :: Map WorkspaceID Double
+  , execOnStart :: [String]
+  , gapPx :: CInt
+  , borderPx :: CInt
+  , borderColor :: Word32
+  , focusedBorderColor :: Word32
+  , pinnedBorderColor :: Word32
+  , xCursorTheme :: (String, CUInt)
+  , workspaceRules :: [(String, String, WorkspaceID)]
+  , floatingRules :: [(String, String, Bool)]
+  , allPointerBindings :: Map (CUInt, CUInt) (MVar WMState -> IO (), MVar WMState -> IO ())
+  , allKeyBindings :: Map (CUInt, CUInt) (MVar WMState -> IO ())
+  , statePath :: FilePath
+  , composeKeyMap :: String
+  }
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)

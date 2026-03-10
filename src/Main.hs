@@ -12,6 +12,7 @@ import Foreign.StablePtr
 import System.Directory
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.Helpers
 import Utils.KeyDispatches
 import Wayland.Client
 import Wayland.ImportedFunctions
@@ -51,18 +52,19 @@ main = do
     then putStrLn "XKb NOT bound"
     else putStrLn "XKb bound!"
 
-  exists <- doesFileExist statePath
+  exists <- doesFileExist (statePath myConfig)
   (ratios, oldWindows) <-
     if not exists
-      then pure (defaultRatios, M.empty)
+      then pure (defaultRatios myConfig, M.empty)
       else do
-        content <- Byte.readFile statePath
+        content <- Byte.readFile (statePath myConfig)
         case decode content of
           Just PersistedState{persistedWorkspaceRatios, persistedWindows} -> do
-            removeFile statePath
+            removeFile (statePath myConfig)
             pure (persistedWorkspaceRatios, persistedWindows)
-          Nothing -> pure (defaultRatios, M.empty)
+          Nothing -> pure (defaultRatios myConfig, M.empty)
 
+  fd <- createKeymapFd (composeKeyMap myConfig)
   st <-
     newMVar
       WMState
@@ -82,7 +84,7 @@ main = do
         , focusedSeat = nullPtr
         , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1
-        , workspaceLayouts = defaultLayouts
+        , workspaceLayouts = defaultLayouts myConfig
         , workspaceRatios = ratios
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
@@ -92,6 +94,7 @@ main = do
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
         , persistedState = oldWindows
+        , currentKeymap = fd
         }
   stPtr <- newStablePtr st
 
@@ -100,7 +103,7 @@ main = do
 
   _ <- wlDisplayRoundtrip display
 
-  mapM_ (flip exec st) execOnStart
+  mapM_ (flip exec st) (execOnStart myConfig)
 
   forever $ do
     _ <- wlDisplayDispatch display

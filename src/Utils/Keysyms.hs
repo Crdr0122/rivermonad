@@ -1,6 +1,7 @@
 module Utils.Keysyms where
 
 import Foreign.C
+import Data.Bits ((.|.))
 
 -- Keysyms
 keyA :: CUInt
@@ -217,5 +218,8 @@ modAlt = 0x08
 
 modSuper :: CUInt
 modSuper = 0x40
+
+modSuperShift :: CUInt
+modSuperShift = modSuper .|. modShift
 
 -- modSuper = 0x08

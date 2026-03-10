@@ -73,6 +73,7 @@ executable rivermonad
     Layout
     Types
     Utils.BiSeqMap
+    Utils.DefaultConfig
     Utils.Helpers
     Utils.KeyDispatches
     Utils.Keysyms
@@ -86,14 +87,14 @@ executable rivermonad
   build-depends:
     base ^>=4.20.2.0,
     aeson,
+    bimap,
+    bytestring,
     containers,
+    directory,
     process,
     text,
-    bytestring,
-    unordered-containers,
-    bimap,
-    directory,
     unix,
+    unordered-containers,
 
   -- Directories containing source files.
   hs-source-dirs:
