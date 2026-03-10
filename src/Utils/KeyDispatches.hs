@@ -333,8 +333,7 @@ moveWindowToWorkspace targetID stateMVar = do
         case focusedWindow state of
           Nothing -> pure state
           Just w -> do
-            let
-              Window{isFloating, isPinned, isFullscreen} = allWindows M.! w
+            let Window{isFloating, isPinned, isFullscreen} = allWindows M.! w
             if allOutputWorkspaces B.! focusedOutput == targetID || isPinned
               then pure state
               else do
@@ -425,14 +424,13 @@ dragWindow stateMVar = do
 stopDragging :: MVar WMState -> IO ()
 stopDragging stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
+    let stop = riverSeatOpEnd (focusedSeat state)
     case opDeltaState state of
       Dragging ->
         case focusedWindow state of
           Nothing -> pure state
           Just w -> do
-            let
-              window = allWindows state M.! w
-              stop = riverSeatOpEnd (focusedSeat state)
+            let window = allWindows state M.! w
             case floatingGeometry window of
               Nothing -> pure state
               Just r -> do
@@ -455,14 +453,17 @@ stopDragging stateMVar = do
           calcDistance (x1, y1) (x2, y2) = sqrt (fromIntegral $ (x1 - x2) ^ (2 :: Int) + (y1 - y2) ^ (2 :: Int))
           distances :: S.Seq Double
           distances =
-            ((\Rect{rx, ry} -> calcDistance (rx, ry) (currentX, currentY)) . (fromMaybe (Rect 0 0 0 0)) . tilingGeometry . (allWindows state M.!))
+            ( (\Rect{rx, ry} -> calcDistance (rx, ry) (currentX, currentY))
+                . (fromMaybe (Rect 0 0 0 0))
+                . tilingGeometry
+                . (allWindows state M.!)
+            )
               <$> currentTiled
           index =
             case distances of
               S.Empty -> 0
               h S.:<| t -> fst $ S.foldlWithIndex (\(oldI, old) i new -> if new < old then (i + 1, new) else (oldI, old)) (0, h) t
           newTiled = BS.insertByIndex focusedWorkspace w (fromIntegral index) (allWorkspacesTiled state)
-          stop = riverSeatOpEnd (focusedSeat state)
         pure
           state
             { manageQueue = manageQueue state >> stop
@@ -470,7 +471,7 @@ stopDragging stateMVar = do
             , allWorkspacesTiled = newTiled
             , currentOpDelta = (0, 0, 0, 0)
             }
-      _ -> pure state
+      _ -> pure state{manageQueue = manageQueue state >> stop}
 
 resizeWindow :: MVar WMState -> IO ()
 resizeWindow stateMVar = do
@@ -482,7 +483,7 @@ resizeWindow stateMVar = do
           win@Window{isFullscreen, isFloating} = (allWindows state M.! w)
         if
           | isFullscreen -> pure state
-          | isFloating -> do
+          | isFloating ->
               case floatingGeometry win of
                 Nothing -> pure state
                 Just Rect{rx, ry, rw, rh} -> do
