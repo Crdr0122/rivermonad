@@ -52,7 +52,6 @@ hsWindowIdentifier dataPtr win identifier = do
               state
                 { allWindows = newWindows
                 , newWindowQueue = win : newWindowQueue state
-                -- , focusedWindow = Just (win)
                 }
           Just (supposedWorkspace, windowStatus) -> do
             let newPersisted = M.delete i persistedState

@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "../generated/river-xkb-config.h"
 #include <HsFFI.h>
 #include <wayland-client-core.h>

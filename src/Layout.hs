@@ -15,38 +15,45 @@ import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
-
 startLayout :: MVar WMState -> IO ()
 startLayout stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let
       newWindows = (allWindows state M.!) <$> newWindowQueue state
       focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
-      checkWorkspaceRule window@Window{winTitle, winAppID} = case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (workspaceRules myConfig) of
-        Nothing -> (window, focusedWorkspace)
-        Just (_, _, w) -> (window, w)
+      checkWorkspaceRule window@Window{winTitle, winAppID} =
+        case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (workspaceRules myConfig) of
+          Nothing -> (window, focusedWorkspace)
+          Just (_, _, w) -> (window, w)
 
-      divided = checkWorkspaceRule <$> newWindows
+      checkTilingRule (window@Window{winTitle, winAppID}, w) =
+        case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (floatingRules myConfig) of
+          Nothing -> (window, w, Tiled)
+          Just (_, _, s) -> (window, w, s)
 
-      (floating, tiled) =
-        partition
-          ( \(Window{winTitle, winAppID, parentWindow}, _) ->
-              isJust parentWindow
-                || ( case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (floatingRules myConfig) of
-                       Nothing -> False
-                       Just (_, _, fl) -> fl
-                   )
+      divided = checkTilingRule <$> (checkWorkspaceRule <$> newWindows)
+
+      (newTiled, newFloating, newFullscreen) =
+        foldl'
+          ( \(oldTiled, oldFloating, oldFullscreen) (Window{winPtr}, w, s) ->
+              case s of
+                Tiled -> (BS.insert w winPtr oldTiled, oldFloating, oldFullscreen)
+                Floating -> (oldTiled, M.adjust (winPtr :) w oldFloating, oldFullscreen)
+                Fullscreen -> (oldTiled, oldFloating, M.adjust (winPtr :) w oldFullscreen)
+                FullscreenFloating -> (oldTiled, oldFloating, M.adjust (winPtr :) w oldFullscreen)
           )
+          (allWorkspacesTiled state, floatingQueue state, fullscreenQueue state)
           divided
 
-      newFocused = case find (\(_, i) -> i == focusedWorkspace) divided of
+      newFocused = case find (\(_, i, _) -> i == focusedWorkspace) divided of
         Nothing -> focusedWindow state
-        Just (w, _) -> Just $ winPtr w
+        Just (w, _, _) -> Just $ winPtr w
 
     pure
       state
-        { floatingQueue = foldl' (\queue (Window{winPtr}, i) -> M.adjust (winPtr :) i queue) (floatingQueue state) floating
-        , allWorkspacesTiled = foldl' (\bimap (Window{winPtr}, i) -> BS.insert i winPtr bimap) (allWorkspacesTiled state) tiled
+        { floatingQueue = newFloating
+        , allWorkspacesTiled = newTiled
+        , fullscreenQueue = newFullscreen
         , newWindowQueue = []
         , focusedWindow = newFocused
         }

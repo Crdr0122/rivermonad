@@ -40,19 +40,19 @@ myConfig =
         , ("", "vesktop", 2)
         ]
     , floatingRules =
-        [ ("Rename ", "thunar", True)
-        , ("", "blueman-manager", True)
-        , ("", "th123.exe", True)
-        , ("Authentication Required", "", True)
-        , ("", "sokulauncher.exe", True)
-        , ("", "swarm.exe", True)
-        , ("", "snapgene.exe", True)
-        , ("", "prism.exe", True)
-        , ("", "fiji-Main", True)
-        , ("SnapGene", "", True)
-        , ("", "beatoraja", True)
-        , ("QQ", "QQ", False)
-        , ("", "QQ", True)
+        [ ("Rename ", "thunar", Floating)
+        , ("", "blueman-manager", Floating)
+        , ("", "th123.exe", Floating)
+        , ("Authentication Required", "", Floating)
+        , ("", "sokulauncher.exe", Floating)
+        , ("", "swarm.exe", Floating)
+        , ("", "snapgene.exe", Floating)
+        , ("", "prism.exe", Floating)
+        , ("", "fiji-Main", Floating)
+        , ("SnapGene", "", Floating)
+        , ("", "beatoraja", Floating)
+        , ("QQ", "QQ", Tiled)
+        , ("", "QQ", Floating)
         ]
     , allKeyBindings =
         M.union

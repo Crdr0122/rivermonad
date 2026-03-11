@@ -136,7 +136,7 @@ data RivermonadConfig = RivermonadConfig
   , pinnedBorderColor :: Word32
   , xCursorTheme :: (String, CUInt)
   , workspaceRules :: [(String, String, WorkspaceID)]
-  , floatingRules :: [(String, String, Bool)]
+  , floatingRules :: [(String, String, WindowStatus)]
   , allPointerBindings :: Map (CUInt, CUInt) (MVar WMState -> IO (), MVar WMState -> IO ())
   , allKeyBindings :: Map (CUInt, CUInt) (MVar WMState -> IO ())
   , statePath :: FilePath
