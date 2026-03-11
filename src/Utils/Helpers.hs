@@ -92,7 +92,6 @@ createKeymapFd content = do
     let fd_ = Fd fd
 
     -- 2. Write the content
-    print content
     let bytes = castCharToCChar <$> content
     withArrayLen bytes $ \len ptr -> do
       _ <- fdWriteBuf fd_ (castPtr ptr) (fromIntegral len)

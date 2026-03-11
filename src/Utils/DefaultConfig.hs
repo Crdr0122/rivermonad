@@ -93,6 +93,14 @@ defaultConfig =
           , ((keyKPPageUp, modSuper), (switchWorkspace 9))
           , ((keyEqual, modSuper), (modifyLayoutRatio 0.04))
           , ((keyMinus, modSuper), (modifyLayoutRatio (-0.04)))
+          , ((keyLeft, modSuper), (focusWindow WindowLeft))
+          , ((keyRight, modSuper), (focusWindow WindowRight))
+          , ((keyUp, modSuper), (focusWindow WindowUp))
+          , ((keyDown, modSuper), (focusWindow WindowDown))
+          , ((keyLeft, modSuperShift), (swapWindow WindowLeft))
+          , ((keyRight, modSuperShift), (swapWindow WindowRight))
+          , ((keyUp, modSuperShift), (swapWindow WindowUp))
+          , ((keyDown, modSuperShift), (swapWindow WindowDown))
           ]
     , composeKeyMap =
         "xkb_keymap {\

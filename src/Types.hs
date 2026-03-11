@@ -99,7 +99,7 @@ data Output = Output
 
 data LayoutType = LayoutType
   { layoutName :: String
-  , layoutFun :: Maybe Int ->Double -> Rect -> Seq Window -> Seq (Window, Rect)
+  , layoutFun :: Maybe Int -> Double -> Rect -> Int -> [Rect]
   }
 
 type RiverEdge = CUInt
@@ -126,7 +126,7 @@ edgeBottom = 2
 edgeLeft = 4
 edgeRight = 8
 
-data WindowDirection = WindowLeft | WindowRight | WindowTop | WindowBottom
+data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
 
 data RivermonadConfig = RivermonadConfig
   { defaultLayouts :: Map WorkspaceID LayoutType

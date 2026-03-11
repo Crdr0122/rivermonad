@@ -76,10 +76,6 @@ myConfig =
               , ((keyO, modSuper), (exec "~/.config/rofi/password/password.sh"))
               , ((keyI, modSuper), (exec "~/.config/rofi/mirror/mirror.sh"))
               , ((keyC, modSuper), (exec "~/.config/rofi/powermenu/powermenu.sh"))
-              -- , (keyLeft, modSuperShift, moveWindowToWorkspace 9 True)
-              -- , (keyRight, modSuperShift, moveWindowToWorkspace 9 True)
-              -- , (keyUp, modSuperShift, moveWindowToWorkspace 9 True)
-              -- , (keyDown, modSuperShift, moveWindowToWorkspace 9 True)
               ]
           )
           (allKeyBindings defaultConfig)

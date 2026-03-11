@@ -33,6 +33,7 @@ import Data.List (elemIndex)
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
+import System.IO
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -321,15 +322,84 @@ switchWorkspace targetID stateMVar = do
 
 focusWindow :: WindowDirection -> MVar WMState -> IO ()
 focusWindow direction stateMVar = do
-  modifyMVar_ stateMVar $ \state ->
+  modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
       Just w -> do
-        let Window{isFloating, isFullscreen} = allWindows state M.! w
-        pure state
+        let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+            tiledWindows = BS.lookupBs focusedWorkspace (allWorkspacesTiled state)
+        case S.elemIndexL w tiledWindows of
+          Nothing -> pure state
+          Just index -> do
+            let geometries = ((fromMaybe (Rect 0 0 0 0)) . tilingGeometry . (allWindows state M.!)) <$> tiledWindows
+                closestWindowIndex = findClosestWindow geometries direction index
+                closestWindow = S.index tiledWindows closestWindowIndex
+                Rect{rx, rw, ry, rh} = S.index geometries closestWindowIndex
+            pure
+              state
+                { focusedWindow = Just closestWindow
+                , manageQueue = manageQueue state >> riverSeatFocusWindow (focusedSeat state) closestWindow >> riverSeatPointerWarp (focusedSeat state) (rx + rw `div` 2) (ry + rh `div` 2)
+                }
 
 swapWindow :: WindowDirection -> MVar WMState -> IO ()
-swapWindow direction stateMVar = do pure ()
+swapWindow direction stateMVar =
+  modifyMVar_ stateMVar $ \state -> do
+    case focusedWindow state of
+      Nothing -> pure state
+      Just w -> do
+        let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+            tiledWindows = BS.lookupBs focusedWorkspace (allWorkspacesTiled state)
+        case S.elemIndexL w tiledWindows of
+          Nothing -> pure state
+          Just index -> do
+            let geometries = ((fromMaybe (Rect 0 0 0 0)) . tilingGeometry . (allWindows state M.!)) <$> tiledWindows
+                closestWindowIndex = findClosestWindow geometries direction index
+                closestWindow = S.index tiledWindows closestWindowIndex
+                swapWindows s = S.update closestWindowIndex w $ S.update index closestWindow s
+                Rect{rx, rw, ry, rh} = S.index geometries closestWindowIndex
+            pure
+              state
+                { allWorkspacesTiled = BS.changeSeqOrder focusedWorkspace swapWindows (allWorkspacesTiled state)
+                , manageQueue = manageQueue state >> riverSeatFocusWindow (focusedSeat state) closestWindow >> riverSeatPointerWarp (focusedSeat state) (rx + rw `div` 2) (ry + rh `div` 2)
+                }
+
+findClosestWindow :: S.Seq Rect -> WindowDirection -> Int -> Int
+findClosestWindow ws direction index = res
+ where
+  infinity = 1.0 / 0.0 :: Double
+  Rect{rx, ry, rw, rh} = S.index ws index
+  (res, _ :: Double) =
+    S.foldlWithIndex
+      ( \(oldI, oldDistance) newI newRect ->
+          let distance = calculateDistance newRect
+           in if distance < oldDistance then (newI, distance) else (oldI, oldDistance)
+      )
+      (index, infinity)
+      ws
+  calculateDistance :: Rect -> Double
+  calculateDistance Rect{rx = x, ry = y, rw = w, rh = h} =
+    if x == rx && y == ry
+      then infinity
+      else
+        let dy = fromIntegral $ (ry + rh `div` 2) - (y + h `div` 2)
+            dx = fromIntegral $ (rx + rw `div` 2) - (x + w `div` 2)
+         in case direction of
+              WindowLeft ->
+                if x + w >= rx + rw || dx < 0
+                  then infinity
+                  else (dx ** 2) + ((dy * 2) ** 2)
+              WindowDown ->
+                if y + h <= ry + rh || dy > 0
+                  then infinity
+                  else (dy ** 2) + ((dx * 2) ** 2)
+              WindowUp ->
+                if y + h >= ry + rh || dy < 0
+                  then infinity
+                  else (dy ** 2) + ((dx * 2) ** 2)
+              WindowRight ->
+                if x + w <= rx + rw || dx > 0
+                  then infinity
+                  else (dx ** 2) + ((dy * 2) ** 2)
 
 moveWindowToWorkspace :: WorkspaceID -> MVar WMState -> IO ()
 moveWindowToWorkspace targetID stateMVar = do
