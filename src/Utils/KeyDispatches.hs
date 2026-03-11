@@ -33,7 +33,6 @@ import Data.List (elemIndex)
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
-import System.IO
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -45,10 +44,23 @@ doNothing _ = pure ()
 
 closeCurrentWindow :: MVar WMState -> IO ()
 closeCurrentWindow stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let closeWindow (Just w) = riverWindowClose w
-        closeWindow Nothing = pure ()
-    pure $ state{manageQueue = manageQueue state >> closeWindow (focusedWindow state)}
+  modifyMVar_ stateMVar $ \state ->
+    case focusedWindow state of
+      Nothing -> pure state
+      Just w -> do
+        let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+            remainingWindows = allWorkspaceWindows focusedWorkspace state
+            nextFocus = case remainingWindows of
+              h S.:<| _ | h /= w ->  h
+              _ S.:<| S.Empty -> w
+              _ S.:<| h S.:<| _ ->  h
+              S.Empty -> w
+
+        pure $
+          state
+            { manageQueue = manageQueue state >> riverWindowClose w >> riverSeatFocusWindow (focusedSeat state) nextFocus
+            , focusedWindow = Just nextFocus
+            }
 
 toggleFocusFloating :: MVar WMState -> IO ()
 toggleFocusFloating stateMVar = do

@@ -92,11 +92,6 @@ hsWindowClosed dataPtr win = do
         newWorkspacesTiled = BS.delete win (allWorkspacesTiled state)
         newWorkspacesFloating = BS.delete win (allWorkspacesFloating state)
         newWorkspacesFullscreen = BS.delete win (allWorkspacesFullscreen state)
-        f = focusedWindow state
-        newFocusedWin
-          | isNothing f = Nothing
-          | fromJust f /= win = f
-          | otherwise = Nothing
     riverWindowDestroy win
     pure
       state
@@ -104,7 +99,6 @@ hsWindowClosed dataPtr win = do
         , allWorkspacesTiled = newWorkspacesTiled
         , allWorkspacesFullscreen = newWorkspacesFullscreen
         , allWorkspacesFloating = newWorkspacesFloating
-        , focusedWindow = newFocusedWin
         }
 
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
