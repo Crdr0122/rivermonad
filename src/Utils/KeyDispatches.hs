@@ -20,6 +20,8 @@ module Utils.KeyDispatches (
   toggleFocusFloating,
   togglePinWindow,
   cycleWindowFocus,
+  focusWindow,
+  swapWindow,
   reloadWindowManager,
 ) where
 
@@ -316,6 +318,18 @@ switchWorkspace targetID stateMVar = do
                   , riverWindowManagerManageDirty (currentWmManager state)
                   )
   nextAction
+
+focusWindow :: WindowDirection -> MVar WMState -> IO ()
+focusWindow direction stateMVar = do
+  modifyMVar_ stateMVar $ \state ->
+    case focusedWindow state of
+      Nothing -> pure state
+      Just w -> do
+        let Window{isFloating, isFullscreen} = allWindows state M.! w
+        pure state
+
+swapWindow :: WindowDirection -> MVar WMState -> IO ()
+swapWindow direction stateMVar = do pure ()
 
 moveWindowToWorkspace :: WorkspaceID -> MVar WMState -> IO ()
 moveWindowToWorkspace targetID stateMVar = do

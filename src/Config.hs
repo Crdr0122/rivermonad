@@ -1,6 +1,4 @@
-module Config (
-  myConfig,
-) where
+module Config (myConfig) where
 
 import Control.Concurrent.MVar
 import Data.Bimap qualified as B

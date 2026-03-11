@@ -6,7 +6,6 @@ import Data.Bimap qualified as B
 import Data.Foldable
 import Data.List
 import Data.Map.Strict qualified as M
-import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
@@ -84,8 +83,7 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
                 ratio = workspaceRatios M.! focusedWorkspace
 
-                windowsToTile = toList tileable
-                layout = layoutFun (workspaceLayouts M.! focusedWorkspace) ratio geometry windowsToTile
+                layout = layoutFun (workspaceLayouts M.! focusedWorkspace) Nothing ratio geometry tileable
                 gappedLayout = shrinkWindows (gapPx myConfig) layout
                 borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
 
@@ -112,18 +110,17 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                             newFullscreenWindows
                       )
                     , ( M.fromList $
-                          map
-                            (\(w, rect) -> (winPtr w, w{tilingGeometry = Just rect}))
-                            borderedLayout
+                          toList $
+                            fmap
+                              (\(w, rect) -> (winPtr w, w{tilingGeometry = Just rect}))
+                              borderedLayout
                       )
                     , allWindows
                     ]
 
             -- All manage actions -> executed directly here
             -- 1. Resize tiling windows
-            mapM_
-              (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh)
-              borderedLayout
+            mapM_ (\(Window{winPtr}, Rect{rw, rh}) -> riverWindowProposeDimensions winPtr rw rh) borderedLayout
 
             -- 2. Resize new floating windows
             floatMAction
@@ -180,9 +177,9 @@ raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
 
-shrinkWindows :: CInt -> [(Window, Rect)] -> [(Window, Rect)]
+shrinkWindows :: CInt -> S.Seq (Window, Rect) -> S.Seq (Window, Rect)
 shrinkWindows b =
-  map
+  fmap
     ( \(w, r) ->
         ( w
         , r

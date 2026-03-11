@@ -6,6 +6,7 @@ import Control.Concurrent.MVar
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
+import Data.Sequence
 import Foreign
 import Foreign.C
 import GHC.Generics
@@ -98,7 +99,7 @@ data Output = Output
 
 data LayoutType = LayoutType
   { layoutName :: String
-  , layoutFun :: Double -> Rect -> [Window] -> [(Window, Rect)]
+  , layoutFun :: Maybe Int ->Double -> Rect -> Seq Window -> Seq (Window, Rect)
   }
 
 type RiverEdge = CUInt
@@ -124,6 +125,8 @@ edgeTop = 1
 edgeBottom = 2
 edgeLeft = 4
 edgeRight = 8
+
+data WindowDirection = WindowLeft | WindowRight | WindowTop | WindowBottom
 
 data RivermonadConfig = RivermonadConfig
   { defaultLayouts :: Map WorkspaceID LayoutType
