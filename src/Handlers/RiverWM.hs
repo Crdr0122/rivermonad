@@ -39,6 +39,7 @@ hsOnNewWindow dataPtr _ win = do
             , isFloating = False
             , isFullscreen = False
             , isPinned = False
+            , isMaximized = False
             , winIdentifier = ""
             , winTitle = ""
             , winAppID = ""
@@ -49,12 +50,10 @@ hsOnNewWindow dataPtr _ win = do
             }
     _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
 
-    let newWindows = M.insert win w (allWindows state)
-        newManageQueue = manageQueue state >> (startupApplyManage win)
     pure
       state
-        { allWindows = newWindows
-        , manageQueue = newManageQueue
+        { allWindows = M.insert win w (allWindows state)
+        , manageQueue = manageQueue state >> (startupApplyManage win)
         }
 
 hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()

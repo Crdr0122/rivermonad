@@ -6,7 +6,6 @@ import Control.Concurrent.MVar
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
-import Data.Sequence
 import Foreign
 import Foreign.C
 import GHC.Generics
