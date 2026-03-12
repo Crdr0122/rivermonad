@@ -26,7 +26,7 @@ myConfig =
           , (5, monocleLayout)
           , (6, monocleLayout)
           , (7, monocleLayout)
-          , (8, circleLayout)
+          , (8, monocleLayout)
           , (9, roledexLayout)
           ]
     , xCursorTheme = ("Himehina", 24)
@@ -63,6 +63,7 @@ myConfig =
               , ((keyS, modSuper), (zoomWindow))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))
               , ((keyP, modSuper), (togglePinWindow))
+              , ((keyF, modSuperShift), (toggleMaximizeWindow))
               , ((keyEnter, modSuper), (exec "foot"))
               , ((keyZ, modSuper), (exec "foot -e yazi"))
               , ((keyX, modSuper), (exec "foot -e nvim"))

@@ -20,6 +20,19 @@ extern void hs_window_app_id(void *data, struct river_window_v1 *window,
 extern void hs_window_identifier(void *data, struct river_window_v1 *window,
                                  const char *identifier);
 
+extern void hs_window_maximize_requested(void *data,
+                                         struct river_window_v1 *window);
+
+extern void hs_window_unmaximize_requested(void *data,
+                                           struct river_window_v1 *window);
+
+extern void hs_window_fullscreen_requested(void *data,
+                                           struct river_window_v1 *window,
+                                           struct river_output_v1 *output);
+
+extern void hs_window_exit_fullscreen_requested(void *data,
+                                                struct river_window_v1 *window);
+
 static void handle_decoration_hint(void *data, struct river_window_v1 *window,
                                    uint32_t hint) {}
 
@@ -35,19 +48,6 @@ static void handle_pointer_resize_requested(void *data,
 static void handle_show_window_menu_requested(void *data,
                                               struct river_window_v1 *window,
                                               int32_t x, int32_t y) {}
-
-static void handle_maximize_requested(void *data,
-                                      struct river_window_v1 *window) {}
-
-static void handle_unmaximize_requested(void *data,
-                                        struct river_window_v1 *window) {}
-
-static void handle_fullscreen_requested(void *data,
-                                        struct river_window_v1 *window,
-                                        struct river_output_v1 *output) {}
-
-static void handle_exit_fullscreen_requested(void *data,
-                                             struct river_window_v1 *window) {}
 
 static void handle_minimize_requested(void *data,
                                       struct river_window_v1 *window) {}
@@ -69,10 +69,10 @@ static const struct river_window_v1_listener window_listener = {
     .pointer_move_requested = handle_pointer_move_requested,
     .pointer_resize_requested = handle_pointer_resize_requested,
     .show_window_menu_requested = handle_show_window_menu_requested,
-    .maximize_requested = handle_maximize_requested,
-    .unmaximize_requested = handle_unmaximize_requested,
-    .fullscreen_requested = handle_fullscreen_requested,
-    .exit_fullscreen_requested = handle_exit_fullscreen_requested,
+    .maximize_requested = hs_window_maximize_requested,
+    .unmaximize_requested = hs_window_unmaximize_requested,
+    .fullscreen_requested = hs_window_fullscreen_requested,
+    .exit_fullscreen_requested = hs_window_exit_fullscreen_requested,
     .minimize_requested = handle_minimize_requested,
     .unreliable_pid = handle_unreliable_pid,
     .presentation_hint = handle_presentation_hint,

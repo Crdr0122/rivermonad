@@ -81,6 +81,7 @@ data Window = Window
   , isFloating :: Bool
   , isFullscreen :: Bool
   , isPinned :: Bool
+  , isMaximized :: Bool
   , floatingGeometry :: Maybe Rect
   , tilingGeometry :: Maybe Rect
   , dimensionsHint :: (CInt, CInt, CInt, CInt)

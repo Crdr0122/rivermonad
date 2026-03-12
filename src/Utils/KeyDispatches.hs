@@ -19,6 +19,7 @@ module Utils.KeyDispatches (
   doNothing,
   toggleFocusFloating,
   togglePinWindow,
+  toggleMaximizeWindow,
   cycleWindowFocus,
   focusWindow,
   swapWindow,
@@ -51,9 +52,9 @@ closeCurrentWindow stateMVar = do
         let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
             remainingWindows = allWorkspaceWindows focusedWorkspace state
             nextFocus = case remainingWindows of
-              h S.:<| _ | h /= w ->  h
+              h S.:<| _ | h /= w -> h
               _ S.:<| S.Empty -> w
-              _ S.:<| h S.:<| _ ->  h
+              _ S.:<| h S.:<| _ -> h
               S.Empty -> w
 
         pure $
@@ -221,6 +222,17 @@ togglePinWindow stateMVar = do
             let newWindows = M.adjust (\w -> w{isPinned = not (isPinned w)}) win (allWindows state)
             pure state{allWindows = newWindows}
           else pure state
+
+toggleMaximizeWindow :: MVar WMState -> IO ()
+toggleMaximizeWindow stateMVar = do
+  modifyMVar_ stateMVar $ \state ->
+    case focusedWindow state of
+      Nothing -> pure state
+      Just win -> do
+        let Window{isMaximized} = allWindows state M.! win
+            newWindows = M.adjust (\w -> w{isMaximized = not isMaximized}) win (allWindows state)
+            maximizeAction = if isMaximized then riverWindowInformUnmaximized win else riverWindowInformMaximized win
+        pure state{allWindows = newWindows, manageQueue = manageQueue state >> maximizeAction}
 
 cycleWindows :: Bool -> MVar WMState -> IO ()
 cycleWindows forward stateMVar = do

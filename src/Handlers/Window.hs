@@ -30,6 +30,14 @@ foreign export ccall "hs_window_app_id"
   hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 foreign export ccall "hs_window_identifier"
   hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
+foreign export ccall "hs_window_fullscreen_requested"
+  hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
+foreign export ccall "hs_window_exit_fullscreen_requested"
+  hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
+foreign export ccall "hs_window_maximize_requested"
+  hsWindowMaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
+foreign export ccall "hs_window_unmaximize_requested"
+  hsWindowUnmaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 
 hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowIdentifier dataPtr win identifier = do
@@ -226,6 +234,20 @@ hsWindowExitFullscreenRequested dataPtr win = do
         pure
           newState
             { allWindows = M.adjust (\w -> w{isFullscreen = False}) win allWindows
-            , manageQueue = manageQueue >> riverWindowExitFullscreen win
+            , manageQueue = manageQueue >> riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
             , allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
             }
+
+hsWindowMaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
+hsWindowMaximizeRequested dataPtr win = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let newWindows = M.adjust (\w -> w{isMaximized = True}) win (allWindows state)
+    pure state{allWindows = newWindows, manageQueue = manageQueue state >> riverWindowInformMaximized win}
+
+hsWindowUnmaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
+hsWindowUnmaximizeRequested dataPtr win = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let newWindows = M.adjust (\w -> w{isMaximized = False}) win (allWindows state)
+    pure state{allWindows = newWindows, manageQueue = manageQueue state >> riverWindowInformUnmaximized win}
