@@ -13,6 +13,7 @@ module Utils.BiSeqMap (
   insertList,
   insertByIndex,
   lookUpNext,
+  fromList,
 ) where
 
 import Data.Foldable (foldr')
@@ -36,6 +37,9 @@ insert a b bimap@(BiSeqMap ab ba)
       let ab' = M.insertWith (S.><) a (S.singleton b) ab
           ba' = M.insert b a ba
        in BiSeqMap ab' ba'
+
+fromList :: (Ord a, Ord b) => [(a, [b])] -> BiSeqMap a b
+fromList list = foldl' (\oldmap (a, bs) -> insertList a bs oldmap) empty list
 
 insertByIndex :: (Ord a, Ord b) => a -> b -> Int -> BiSeqMap a b -> BiSeqMap a b
 insertByIndex a b index bimap@(BiSeqMap ab ba)

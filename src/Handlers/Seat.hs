@@ -30,13 +30,15 @@ hsSeatPointerEnter dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     let window = allWindows state M.! win
-        workspace
-          | isFullscreen window = BS.findA win (allWorkspacesFullscreen state)
-          | isFloating window = BS.findA win (allWorkspacesFloating state)
-          | otherwise = BS.findA win (allWorkspacesTiled state)
-        output = case B.lookupR workspace (allOutputWorkspaces state) of
+        maybeWorkspace
+          | isFullscreen window = BS.lookupA win (allWorkspacesFullscreen state)
+          | isFloating window = BS.lookupA win (allWorkspacesFloating state)
+          | otherwise = BS.lookupA win (allWorkspacesTiled state)
+        output = case maybeWorkspace of
           Nothing -> focusedOutput state
-          Just o -> o
+          Just workspace -> case B.lookupR workspace (allOutputWorkspaces state) of
+            Nothing -> focusedOutput state
+            Just o -> o
     pure
       state
         { manageQueue = manageQueue state >> riverSeatFocusWindow seat win

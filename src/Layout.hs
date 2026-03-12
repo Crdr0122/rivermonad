@@ -6,6 +6,7 @@ import Data.Bimap qualified as B
 import Data.Foldable
 import Data.List
 import Data.Map.Strict qualified as M
+import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
@@ -19,7 +20,7 @@ startLayout stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let
       newWindows = (allWindows state M.!) <$> newWindowQueue state
-      focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+      focusedWorkspace = fromMaybe 1 $ B.lookup (focusedOutput state) (allOutputWorkspaces state)
       checkWorkspaceRule window@Window{winTitle, winAppID} =
         case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (workspaceRules myConfig) of
           Nothing -> (window, focusedWorkspace)
@@ -76,6 +77,8 @@ startLayoutOutput output focusedWorkspace stateMVar = do
        , allWindows
        , focusedWindow
        } -> do
+        print allWorkspacesFloating
+        print allWorkspacesTiled
         let mOut = M.lookup output allOutputs
         case mOut of
           Nothing -> pure state
@@ -86,48 +89,53 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 floatingWindow = (allWindows M.!) <$> floatingWindowPtrs
                 floatingQueuedWindows = (allWindows M.!) <$> S.fromList (floatingQueue M.! focusedWorkspace)
                 nonFullscreen = tileable S.>< floatingWindow S.>< floatingQueuedWindows
+            let
+              geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
+              ratio = workspaceRatios M.! focusedWorkspace
 
-                geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
-                ratio = workspaceRatios M.! focusedWorkspace
+              indexFocusedWindow = case focusedWindow of
+                Nothing -> Nothing
+                Just focused -> S.elemIndexL focused tilingWindowPtrs
 
-                indexFocusedWindow = case focusedWindow of
-                  Nothing -> Nothing
-                  Just focused -> S.elemIndexL focused tilingWindowPtrs
+            print "Here? 3"
+            print $ allWorkspacesTiled
+            let
+              layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry (length tileable)
+              gappedLayout = shrinkWindows (gapPx myConfig) (zip (toList tileable) layout)
+              borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
 
-                layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry (length tileable)
-                gappedLayout = shrinkWindows (gapPx myConfig) (zip (toList tileable) layout)
-                borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
+              newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
+              (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-                newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
-                (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
+            print "Here? 4"
+            let
+              newFullscreenWindows =
+                (allWindows M.!) <$> (fullscreenQueue M.! focusedWorkspace)
+              newWorkspacesFloating =
+                BS.insertList focusedWorkspace (winPtr <$> newFloatingWindows) allWorkspacesFloating
+              newWorkspacesFullscreen =
+                BS.insertList focusedWorkspace (winPtr <$> newFullscreenWindows) allWorkspacesFullscreen
 
-                newFullscreenWindows =
-                  (allWindows M.!) <$> (fullscreenQueue M.! focusedWorkspace)
-                newWorkspacesFloating =
-                  BS.insertList focusedWorkspace (winPtr <$> newFloatingWindows) allWorkspacesFloating
-                newWorkspacesFullscreen =
-                  BS.insertList focusedWorkspace (winPtr <$> newFullscreenWindows) allWorkspacesFullscreen
-
-                newAllWindows =
-                  M.unions
-                    [ ( M.fromList $
-                          map
-                            (\(rect, w) -> (winPtr w, w{isFloating = True, floatingGeometry = Just rect}))
-                            (zip floatingPositions newFloatingWindows)
-                      )
-                    , ( M.fromList $
-                          map
-                            (\w -> (winPtr w, w{isFullscreen = True}))
-                            newFullscreenWindows
-                      )
-                    , ( M.fromList $
-                          toList $
-                            fmap
-                              (\(w, rect) -> (winPtr w, w{tilingGeometry = Just rect}))
-                              borderedLayout
-                      )
-                    , allWindows
-                    ]
+              newAllWindows =
+                M.unions
+                  [ ( M.fromList $
+                        map
+                          (\(rect, w) -> (winPtr w, w{isFloating = True, floatingGeometry = Just rect}))
+                          (zip floatingPositions newFloatingWindows)
+                    )
+                  , ( M.fromList $
+                        map
+                          (\w -> (winPtr w, w{isFullscreen = True}))
+                          newFullscreenWindows
+                    )
+                  , ( M.fromList $
+                        toList $
+                          fmap
+                            (\(w, rect) -> (winPtr w, w{tilingGeometry = Just rect}))
+                            borderedLayout
+                    )
+                  , allWindows
+                  ]
 
             -- All manage actions -> executed directly here
             -- 1. Resize tiling windows

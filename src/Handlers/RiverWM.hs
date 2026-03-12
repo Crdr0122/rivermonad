@@ -39,6 +39,7 @@ hsOnNewWindow dataPtr _ win = do
             , isFloating = False
             , isFullscreen = False
             , isPinned = False
+            , isMaximized = False
             , winIdentifier = ""
             , winTitle = ""
             , winAppID = ""

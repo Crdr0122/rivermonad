@@ -55,6 +55,7 @@ hsWindowIdentifier dataPtr win identifier = do
         i <- peekCString identifier
         case M.lookup i persistedState of
           Nothing -> do
+            print "No state"
             let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
             pure
               state

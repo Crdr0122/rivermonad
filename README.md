@@ -15,7 +15,7 @@ Everything will be hardcoded for personal use
   - [ ] Magnifier
   - [X] Workspace individual layouts
   - [ ] Combine layouts
-  - [ ] Adding deleting master windows (I dont need)
+  - [ ] Adding deleting master windows
 - [X] Floating, resize, dragging
   - [X] Floating resizing
   - [X] Tiling resizing
@@ -34,7 +34,7 @@ Everything will be hardcoded for personal use
   - [ ] Send out workspace information for bars
 - [ ] Multimonitor focus other outputs
 - [X] Window pinning (Only floating)
-- [ ] Directional window focus and swapping (Only tiling)
+- [X] Directional window focus and swapping (Only tiling)
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [ ] Libinput
