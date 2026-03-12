@@ -201,7 +201,7 @@ hsWindowFullscreenRequested dataPtr win output = do
        } -> do
         let window@Window{isFloating} = allWindows M.! win
             newWindows = M.insert win window{isFullscreen = True, isPinned = False} allWindows
-            currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
+            currentFocusedWorkspace = fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces
             targetWorkspace = fromMaybe currentFocusedWorkspace (B.lookup output allOutputWorkspaces)
             newState
               | isFloating = state{allWorkspacesFloating = BS.delete win allWorkspacesFloating}
@@ -228,7 +228,7 @@ hsWindowExitFullscreenRequested dataPtr win = do
        , allOutputWorkspaces
        } -> do
         let Window{isFloating} = allWindows M.! win
-            workspace = fromMaybe (allOutputWorkspaces B.! focusedOutput) (BS.lookupA win allWorkspacesFullscreen)
+            workspace = fromMaybe (fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces) (BS.lookupA win allWorkspacesFullscreen)
             newState
               | isFloating = state{allWorkspacesFloating = BS.insert workspace win allWorkspacesFloating}
               | otherwise = state{allWorkspacesTiled = BS.insert workspace win allWorkspacesTiled}
