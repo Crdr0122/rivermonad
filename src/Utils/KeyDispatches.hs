@@ -227,29 +227,66 @@ toggleMaximizeWindow stateMVar = do
 
 cycleWindows :: Bool -> MVar WMState -> IO ()
 cycleWindows forward stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let
-      work = allOutputWorkspaces state B.! focusedOutput state
-      cycleW _ S.Empty = S.empty
-      cycleW True (h S.:<| hs) = hs S.|> h
-      cycleW False (hs S.:|> h) = h S.<| hs
-    pure
-      state
-        { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) (allWorkspacesTiled state)
-        }
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allOutputWorkspaces
+       , focusedOutput
+       , allWorkspacesTiled
+       , focusedWindow
+       , manageQueue
+       , focusedSeat
+       } -> do
+        let
+          work = allOutputWorkspaces B.! focusedOutput
+          cycleW _ S.Empty = S.empty
+          cycleW True (h S.:<| hs) = hs S.|> h
+          cycleW False (hs S.:|> h) = h S.<| hs
+          (nextFocus, focusAction) = case focusedWindow of
+            Nothing -> (focusedWindow, pure ())
+            Just w -> case BS.lookupA w allWorkspacesTiled of
+              Nothing -> (focusedWindow, pure ())
+              Just workspace -> do
+                let win = BS.lookUpNext workspace forward w allWorkspacesTiled
+                (Just win, riverSeatFocusWindow focusedSeat win)
+        pure
+          state
+            { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) allWorkspacesTiled
+            , focusedWindow = nextFocus
+            , manageQueue = manageQueue >> focusAction
+            }
 
 cycleWindowSlaves :: Bool -> MVar WMState -> IO ()
 cycleWindowSlaves forward stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let
-      work = allOutputWorkspaces state B.! focusedOutput state
-      cycleW True (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
-      cycleW False (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
-      cycleW _ hs = hs
-    pure $
-      state
-        { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) (allWorkspacesTiled state)
-        }
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allOutputWorkspaces
+       , focusedOutput
+       , allWorkspacesTiled
+       , focusedWindow
+       , manageQueue
+       , focusedSeat
+       } -> do
+        let
+          work = allOutputWorkspaces B.! focusedOutput
+          cycleW True (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
+          cycleW False (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
+          cycleW _ hs = hs
+          (nextFocus, focusAction) = case focusedWindow of
+            Nothing -> (focusedWindow, pure ())
+            Just w -> do
+              let s = BS.lookupBs work allWorkspacesTiled
+              case S.elemIndexL w s of
+                Just 0 -> (focusedWindow, pure ())
+                Nothing -> (focusedWindow, pure ())
+                Just i ->
+                  let nextW = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
+                   in (Just nextW, riverSeatFocusWindow focusedSeat nextW)
+        pure $
+          state
+            { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) allWorkspacesTiled
+            , focusedWindow = nextFocus
+            , manageQueue = manageQueue >> focusAction
+            }
 
 zoomWindow :: MVar WMState -> IO ()
 zoomWindow stateMVar = do
@@ -320,7 +357,7 @@ switchWorkspace targetID stateMVar = do
 
                   (newFocusedWindow, focusAction) = case newWindows S.>< pinnedWindows of
                     w S.:<| _ -> (Just w, riverSeatFocusWindow focusedSeat w)
-                    S.Empty -> (Nothing, pure ())
+                    S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
 
                 pure
                   ( state
