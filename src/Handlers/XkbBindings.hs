@@ -5,6 +5,7 @@ import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
 import Types
+import Utils.KeyDispatches
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -32,13 +33,13 @@ instance Storable XkbBindingListener where
 foreign import ccall "wrapper"
   mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
 
-registerKeybind :: Ptr () -> Ptr RiverSeat -> ((CUInt, CUInt), (MVar WMState -> IO ())) -> IO ()
+registerKeybind :: Ptr () -> Ptr RiverSeat -> ((CUInt, CUInt), (Ptr RiverSeat -> MVar WMState -> IO ())) -> IO ()
 registerKeybind dataPtr seat ((key, modifier), (onPressed)) = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
-    pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed)
-    releasedPtr <- mkXkbCallback (\_ _ -> pure ())
-    stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
+    pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)
+    releasedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= stopRepeating seat)
+    stopRepeatPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= stopRepeating seat)
 
     let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
         bindingManager = currentXkbBindings state

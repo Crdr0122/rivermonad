@@ -34,23 +34,10 @@ main = do
   _ <- wlDisplayRoundtrip display
 
   let
-    comp = getCompositor
     river = getRiver
     xkbBindings = getXkbBindings
     layerShell = getLayerShell
     xkbConfig = getXkbConfig
-
-  if comp == nullPtr
-    then putStrLn "Compositor NOT bound"
-    else putStrLn "Compositor bound!"
-
-  if river == nullPtr
-    then putStrLn "River NOT bound"
-    else putStrLn "River bound!"
-
-  if xkbBindings == nullPtr
-    then putStrLn "XKb NOT bound"
-    else putStrLn "XKb bound!"
 
   exists <- doesFileExist (statePath myConfig)
   (ratios, oldWindows) <-
@@ -62,7 +49,7 @@ main = do
           Just PersistedState{persistedWorkspaceRatios, persistedWindows} -> do
             removeFile (statePath myConfig)
             pure (persistedWorkspaceRatios, persistedWindows)
-          Nothing -> pure (defaultRatios myConfig, M.empty)
+          _ -> pure (defaultRatios myConfig, M.empty)
 
   fd <- createKeymapFd (composeKeyMap myConfig)
   st <-
@@ -96,7 +83,8 @@ main = do
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
         , persistedState = oldWindows
-        , currentKeymap = fd
+        , currentKeymapFd = fd
+        , activeRepeater = Nothing
         }
   stPtr <- newStablePtr st
 
@@ -105,7 +93,7 @@ main = do
 
   _ <- wlDisplayRoundtrip display
 
-  mapM_ (flip exec st) (execOnStart myConfig)
+  mapM_ (\str -> exec str nullPtr st) (execOnStart myConfig)
 
   forever $ do
     _ <- wlDisplayDispatch display

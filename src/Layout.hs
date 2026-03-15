@@ -79,8 +79,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
        , allWindows
        , focusedWindow
        } -> do
-        print allWorkspacesFloating
-        print allWorkspacesTiled
         let mOut = M.lookup output allOutputs
         case mOut of
           Nothing -> pure state
@@ -99,8 +97,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 Nothing -> Nothing
                 Just focused -> S.elemIndexL focused tilingWindowPtrs
 
-            print "Here? 3"
-            print $ allWorkspacesTiled
             let
               layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry (length tileable)
               gappedLayout = shrinkWindows (gapPx myConfig) (zip (toList tileable) layout)
@@ -109,7 +105,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
               newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
               (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-            print "Here? 4"
             let
               newFullscreenWindows =
                 (allWindows M.!) <$> (fullscreenQueue M.! focusedWorkspace)

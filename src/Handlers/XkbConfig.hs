@@ -18,10 +18,10 @@ hsXkbConfigFinished _ config = riverXkbConfigDestroy config
 hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
 hsXkbConfigXkbKeyboard dataPtr config keyboard = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state@WMState{currentKeymap} -> do
+  modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
     riverXkbKeyboardNumlockEnable keyboard
-    keymap <- riverXkbConfigCreateKeymap config currentKeymap 1
+    keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
     _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
     pure state
 

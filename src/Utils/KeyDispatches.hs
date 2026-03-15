@@ -7,6 +7,7 @@ module Utils.KeyDispatches (
   cycleWindows,
   cycleWindowSlaves,
   cycleLayout,
+  setLayout,
   zoomWindow,
   exec,
   resizeWindow,
@@ -25,33 +26,37 @@ module Utils.KeyDispatches (
   swapWindow,
   reloadWindowManager,
   exitSession,
+  startRepeating,
+  stopRepeating,
 ) where
 
-import Control.Concurrent.MVar
-import Control.Monad (unless)
+import Control.Concurrent
+import Control.Monad (forever, unless)
 import Data.Aeson
+import System.IO
 import Data.Bimap qualified as B
 import Data.List (elemIndex)
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
+import Foreign
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
-doNothing :: MVar WMState -> IO ()
-doNothing _ = pure ()
+doNothing :: Ptr RiverSeat -> MVar WMState -> IO ()
+doNothing _ _ = pure ()
 
-exitSession :: MVar WMState -> IO ()
-exitSession stateMVar =
+exitSession :: Ptr RiverSeat -> MVar WMState -> IO ()
+exitSession _ stateMVar =
   modifyMVar_ stateMVar $ \state -> do
     riverWindowManagerExitSession (currentWmManager state)
     pure state
 
-closeCurrentWindow :: MVar WMState -> IO ()
-closeCurrentWindow stateMVar = do
+closeCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+closeCurrentWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state ->
     case focusedWindow state of
       Nothing -> pure state
@@ -61,8 +66,8 @@ closeCurrentWindow stateMVar = do
             { manageQueue = manageQueue state >> riverWindowClose w
             }
 
-toggleFocusFloating :: MVar WMState -> IO ()
-toggleFocusFloating stateMVar = do
+toggleFocusFloating :: Ptr RiverSeat -> MVar WMState -> IO ()
+toggleFocusFloating _ stateMVar = do
   modifyMVar_ stateMVar $ \state@WMState{allOutputWorkspaces, focusedOutput, focusedWindow} -> do
     case focusedWindow of
       Nothing -> pure state
@@ -80,45 +85,33 @@ toggleFocusFloating stateMVar = do
                 S.Empty -> pure state
                 h S.:<| _ -> pure state{focusedWindow = Just h}
 
-cycleWindowFocus :: Bool -> MVar WMState -> IO ()
-cycleWindowFocus forward stateMVar = do
+cycleWindowFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleWindowFocus forward seat stateMVar = do
   modifyMVar_ stateMVar $ \state@WMState{allOutputWorkspaces, focusedOutput, focusedWindow} -> do
     case focusedWindow of
       Nothing -> pure state
-      Just w -> do
-        let Window{isFullscreen, isFloating} = allWindows state M.! w
-            focusedWorkspace = allOutputWorkspaces B.! focusedOutput
-            nextWindow bm = BS.lookUpNext focusedWorkspace forward w bm
-        if
-          | isFullscreen -> do
-              let
-                next = nextWindow (allWorkspacesFullscreen state)
-                Window{nodePtr} = allWindows state M.! next
-              pure
-                state
-                  { focusedWindow = Just $ next
-                  , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
-                  }
-          | isFloating -> do
-              let
-                next = nextWindow (allWorkspacesFloating state)
-                Window{nodePtr} = allWindows state M.! next
-              pure
-                state
-                  { focusedWindow = Just $ next
-                  , renderQueue = renderQueue state >> riverNodePlaceTop nodePtr
-                  }
-          | otherwise -> do
-              let
-                next = nextWindow (allWorkspacesTiled state)
-              pure
-                state
-                  { focusedWindow = Just $ next
-                  , manageQueue = manageQueue state
-                  }
+      Just w ->
+        do
+          let Window{isFullscreen, isFloating} = allWindows state M.! w
+              focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+              nextWindow bm = BS.lookUpNext focusedWorkspace forward w bm
+              (next, renderAction)
+                | isFullscreen =
+                    let Window{nodePtr} = allWindows state M.! next
+                     in (nextWindow (allWorkspacesFullscreen state), riverNodePlaceTop nodePtr)
+                | isFloating =
+                    let Window{nodePtr} = allWindows state M.! next
+                     in (nextWindow (allWorkspacesFloating state), riverNodePlaceTop nodePtr)
+                | otherwise = (nextWindow (allWorkspacesTiled state), pure ())
+          pure
+            state
+              { focusedWindow = Just next
+              , renderQueue = renderQueue state >> renderAction
+              , manageQueue = manageQueue state >> riverSeatFocusWindow seat next
+              }
 
-toggleFullscreenCurrentWindow :: MVar WMState -> IO ()
-toggleFullscreenCurrentWindow stateMVar = do
+toggleFullscreenCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+toggleFullscreenCurrentWindow _ stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { focusedWindow
@@ -175,18 +168,18 @@ toggleFullscreenCurrentWindow stateMVar = do
                 riverWindowManagerManageDirty currentWmManager
                 pure newState{allWindows = newWindows}
 
-toggleFloatingCurrentWindow :: MVar WMState -> IO ()
-toggleFloatingCurrentWindow stateMVar = do
+toggleFloatingCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+toggleFloatingCurrentWindow seat stateMVar = do
   state <- readMVar stateMVar
   case focusedWindow state of
     Nothing -> pure ()
     Just win -> do
       let w = allWindows state M.! win
       unless (isFullscreen w || isPinned w) $
-        if isFloating w then tileCurrentWindow stateMVar else floatCurrentWindow stateMVar
+        if isFloating w then tileCurrentWindow seat stateMVar else floatCurrentWindow seat stateMVar
 
-floatCurrentWindow :: MVar WMState -> IO ()
-floatCurrentWindow stateMVar = do
+floatCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+floatCurrentWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -195,8 +188,8 @@ floatCurrentWindow stateMVar = do
             focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
         pure $ state{allWorkspacesTiled = newTiled, floatingQueue = M.adjust (win :) focusedWorkspace (floatingQueue state)}
 
-tileCurrentWindow :: MVar WMState -> IO ()
-tileCurrentWindow stateMVar = do
+tileCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+tileCurrentWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -207,8 +200,8 @@ tileCurrentWindow stateMVar = do
           newAllWindows = M.adjust (\w -> w{isFloating = False}) win (allWindows state)
         pure $ state{allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled, allWindows = newAllWindows}
 
-togglePinWindow :: MVar WMState -> IO ()
-togglePinWindow stateMVar = do
+togglePinWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+togglePinWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state ->
     case focusedWindow state of
       Nothing -> pure state
@@ -221,8 +214,8 @@ togglePinWindow stateMVar = do
             pure state{allWindows = newWindows}
           else pure state
 
-toggleMaximizeWindow :: MVar WMState -> IO ()
-toggleMaximizeWindow stateMVar = do
+toggleMaximizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+toggleMaximizeWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state ->
     case focusedWindow state of
       Nothing -> pure state
@@ -232,8 +225,8 @@ toggleMaximizeWindow stateMVar = do
             maximizeAction = if isMaximized then riverWindowInformUnmaximized win else riverWindowInformMaximized win
         pure state{allWindows = newWindows, manageQueue = manageQueue state >> maximizeAction}
 
-cycleWindows :: Bool -> MVar WMState -> IO ()
-cycleWindows forward stateMVar = do
+cycleWindows :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleWindows forward seat stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allOutputWorkspaces
@@ -241,7 +234,6 @@ cycleWindows forward stateMVar = do
        , allWorkspacesTiled
        , focusedWindow
        , manageQueue
-       , focusedSeat
        } -> do
         let
           work = allOutputWorkspaces B.! focusedOutput
@@ -254,7 +246,7 @@ cycleWindows forward stateMVar = do
               Nothing -> (focusedWindow, pure ())
               Just workspace -> do
                 let win = BS.lookUpNext workspace forward w allWorkspacesTiled
-                (Just win, riverSeatFocusWindow focusedSeat win)
+                (Just win, riverSeatFocusWindow seat win)
         pure
           state
             { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) allWorkspacesTiled
@@ -262,8 +254,8 @@ cycleWindows forward stateMVar = do
             , manageQueue = manageQueue >> focusAction
             }
 
-cycleWindowSlaves :: Bool -> MVar WMState -> IO ()
-cycleWindowSlaves forward stateMVar = do
+cycleWindowSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleWindowSlaves forward seat stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allOutputWorkspaces
@@ -271,7 +263,6 @@ cycleWindowSlaves forward stateMVar = do
        , allWorkspacesTiled
        , focusedWindow
        , manageQueue
-       , focusedSeat
        } -> do
         let
           work = allOutputWorkspaces B.! focusedOutput
@@ -286,7 +277,7 @@ cycleWindowSlaves forward stateMVar = do
                 Just i
                   | i /= 0 ->
                       let nextW = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
-                       in (Just nextW, riverSeatFocusWindow focusedSeat nextW)
+                       in (Just nextW, riverSeatFocusWindow seat nextW)
                 _ -> (focusedWindow, pure ())
         pure $
           state
@@ -295,8 +286,8 @@ cycleWindowSlaves forward stateMVar = do
             , manageQueue = manageQueue >> focusAction
             }
 
-zoomWindow :: MVar WMState -> IO ()
-zoomWindow stateMVar = do
+zoomWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+zoomWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Just currentWin ->
@@ -324,8 +315,8 @@ zoomWindow stateMVar = do
             pure $ state{allWorkspacesTiled = newWorkspacesTiled}
       Nothing -> pure state
 
-switchWorkspace :: WorkspaceID -> MVar WMState -> IO ()
-switchWorkspace targetID stateMVar = do
+switchWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
+switchWorkspace targetID seat stateMVar = do
   nextAction <-
     modifyMVar stateMVar $
       \state@WMState
@@ -334,13 +325,12 @@ switchWorkspace targetID stateMVar = do
          , allWindows
          , allWorkspacesFloating
          , lastFocusedWorkspace
-         , focusedSeat
          } -> do
           let
             currentFocusedWorkspace = allOutputWorkspaces B.! focusedOutput
           if
             | currentFocusedWorkspace == targetID && lastFocusedWorkspace == targetID -> pure (state, pure ())
-            | currentFocusedWorkspace == targetID -> pure (state, switchWorkspace lastFocusedWorkspace stateMVar)
+            | currentFocusedWorkspace == targetID -> pure (state, switchWorkspace lastFocusedWorkspace seat stateMVar)
             | otherwise -> do
                 let
                   alreadyShowing = B.lookupR targetID allOutputWorkspaces
@@ -363,8 +353,8 @@ switchWorkspace targetID stateMVar = do
                       )
 
                   (newFocusedWindow, focusAction) = case newWindows S.>< pinnedWindows of
-                    w S.:<| _ -> (Just w, riverSeatFocusWindow focusedSeat w)
-                    S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
+                    w S.:<| _ -> (Just w, riverSeatFocusWindow seat w)
+                    S.Empty -> (Nothing, riverSeatClearFocus seat)
 
                 pure
                   ( state
@@ -379,8 +369,8 @@ switchWorkspace targetID stateMVar = do
                   )
   nextAction
 
-focusWindow :: WindowDirection -> MVar WMState -> IO ()
-focusWindow direction stateMVar = do
+focusWindow :: WindowDirection -> Ptr RiverSeat -> MVar WMState -> IO ()
+focusWindow direction seat stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -397,11 +387,11 @@ focusWindow direction stateMVar = do
             pure
               state
                 { focusedWindow = Just closestWindow
-                , manageQueue = manageQueue state >> riverSeatFocusWindow (focusedSeat state) closestWindow >> riverSeatPointerWarp (focusedSeat state) (rx + rw `div` 2) (ry + rh `div` 2)
+                , manageQueue = manageQueue state >> riverSeatFocusWindow seat closestWindow >> riverSeatPointerWarp (focusedSeat state) (rx + rw `div` 2) (ry + rh `div` 2)
                 }
 
-swapWindow :: WindowDirection -> MVar WMState -> IO ()
-swapWindow direction stateMVar =
+swapWindow :: WindowDirection -> Ptr RiverSeat -> MVar WMState -> IO ()
+swapWindow direction seat stateMVar =
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -419,7 +409,7 @@ swapWindow direction stateMVar =
             pure
               state
                 { allWorkspacesTiled = BS.changeSeqOrder focusedWorkspace swapWindows (allWorkspacesTiled state)
-                , manageQueue = manageQueue state >> riverSeatFocusWindow (focusedSeat state) closestWindow >> riverSeatPointerWarp (focusedSeat state) (rx + rw `div` 2) (ry + rh `div` 2)
+                , manageQueue = manageQueue state >> riverSeatPointerWarp seat (rx + rw `div` 2) (ry + rh `div` 2)
                 }
 
 findClosestWindow :: S.Seq Rect -> WindowDirection -> Int -> Int
@@ -460,8 +450,8 @@ findClosestWindow ws direction index = res
                   then infinity
                   else (dx ** 2) + ((dy * 2) ** 2)
 
-moveWindowToWorkspace :: WorkspaceID -> MVar WMState -> IO ()
-moveWindowToWorkspace targetID stateMVar = do
+moveWindowToWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
+moveWindowToWorkspace targetID seat stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allWorkspacesFloating
@@ -472,7 +462,6 @@ moveWindowToWorkspace targetID stateMVar = do
        , allOutputWorkspaces
        , currentWmManager
        , renderQueue
-       , focusedSeat
        , manageQueue
        } -> do
         case focusedWindow state of
@@ -489,8 +478,8 @@ moveWindowToWorkspace targetID stateMVar = do
                     | otherwise = state{allWorkspacesTiled = BS.move w targetID allWorkspacesTiled}
                   remainingWindows = allWorkspaceWindows (allOutputWorkspaces B.! focusedOutput) newState
                   (nextFocus, focusAction) = case remainingWindows of
-                    h S.:<| _ -> (Just h, riverSeatFocusWindow focusedSeat h)
-                    S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
+                    h S.:<| _ -> (Just h, riverSeatFocusWindow seat h)
+                    S.Empty -> (Nothing, riverSeatClearFocus seat)
                 riverWindowManagerManageDirty currentWmManager
                 pure
                   newState
@@ -499,9 +488,9 @@ moveWindowToWorkspace targetID stateMVar = do
                     , manageQueue = manageQueue >> focusAction
                     }
 
-cycleLayout :: [LayoutType] -> MVar WMState -> IO ()
-cycleLayout [] _ = pure ()
-cycleLayout layouts stateMVar = do
+cycleLayout :: [LayoutType] -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleLayout [] _ _ = pure ()
+cycleLayout layouts _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let oldWorkspaceLayouts = workspaceLayouts state
         curr = allOutputWorkspaces state B.! focusedOutput state
@@ -515,23 +504,30 @@ cycleLayout layouts stateMVar = do
         riverWindowManagerManageDirty $ currentWmManager state
         pure state{workspaceLayouts = newWorkspaceLayouts}
 
-modifyLayoutRatio :: Double -> MVar WMState -> IO ()
-modifyLayoutRatio change stateMVar = do
+setLayout :: LayoutType -> Ptr RiverSeat -> MVar WMState -> IO ()
+setLayout l _ stateMVar = do
+  modifyMVar_ stateMVar $ \state -> do
+    let curr = allOutputWorkspaces state B.! focusedOutput state
+    riverWindowManagerManageDirty $ currentWmManager state
+    pure state{workspaceLayouts = M.insert curr l (workspaceLayouts state)}
+
+modifyLayoutRatio :: Double -> Ptr RiverSeat -> MVar WMState -> IO ()
+modifyLayoutRatio change _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let
       newWorkspaceRatios =
         M.insertWith
-          (\n o -> let m = n + o in if m > 0.20 && m < 0.80 then m else o)
+          (\n o -> let m = n + o in if m > 0.15 && m < 0.85 then m else o)
           (allOutputWorkspaces state B.! focusedOutput state)
           change
           (workspaceRatios state)
     pure state{workspaceRatios = newWorkspaceRatios}
 
-exec :: String -> MVar WMState -> IO ()
-exec command _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command) >> pure ()
+exec :: String -> Ptr RiverSeat -> MVar WMState -> IO ()
+exec command _ _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command) >> pure ()
 
-reloadWindowManager :: FilePath -> MVar WMState -> IO ()
-reloadWindowManager fp stateMVar = do
+reloadWindowManager :: FilePath -> Ptr RiverSeat -> MVar WMState -> IO ()
+reloadWindowManager fp _ stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allWorkspacesTiled
@@ -557,8 +553,8 @@ reloadWindowManager fp stateMVar = do
         _ <- spawnCommand ("systemd-run --user --scope --slice=app.slice Rivermonad-reload")
         pure state
 
-dragWindow :: MVar WMState -> IO ()
-dragWindow stateMVar = do
+dragWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+dragWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -575,10 +571,10 @@ dragWindow stateMVar = do
               riverSeatOpStartPointer (focusedSeat state)
               pure state{opDeltaState = DraggingTile w, currentOpDelta = (rx, ry, 0, 0), allWorkspacesTiled = newTiles}
 
-stopDragging :: MVar WMState -> IO ()
-stopDragging stateMVar = do
+stopDragging :: Ptr RiverSeat -> MVar WMState -> IO ()
+stopDragging seat stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
-    let stop = riverSeatOpEnd (focusedSeat state)
+    let stop = riverSeatOpEnd seat
     case opDeltaState state of
       Dragging ->
         case focusedWindow state of
@@ -616,7 +612,7 @@ stopDragging stateMVar = do
           index =
             case distances of
               S.Empty -> 0
-              h S.:<| t -> fst $ S.foldlWithIndex (\(oldI, old) i new -> if new < old then (i + 1, new) else (oldI, old)) (0, h) t
+              h S.:<| t -> fst $ S.foldlWithIndex (\(oldI, old) i newD -> if newD < old then (i + 1, newD) else (oldI, old)) (0, h) t
           newTiled = BS.insertByIndex focusedWorkspace w (fromIntegral index) (allWorkspacesTiled state)
         pure
           state
@@ -627,8 +623,8 @@ stopDragging stateMVar = do
             }
       _ -> pure state{manageQueue = manageQueue state >> stop}
 
-resizeWindow :: MVar WMState -> IO ()
-resizeWindow stateMVar = do
+resizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
+resizeWindow seat stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
@@ -665,29 +661,29 @@ resizeWindow stateMVar = do
                         firstY = ry + oneThirdH
                         secondY = firstY + oneThirdH
 
-                  riverSeatOpStartPointer (focusedSeat state)
+                  riverSeatOpStartPointer seat
                   pure
                     state
                       { opDeltaState = Resizing edge
                       , manageQueue = manageQueue state >> riverWindowInformResizeStart w
                       }
           | otherwise -> do
-              riverSeatOpStartPointer (focusedSeat state)
+              riverSeatOpStartPointer seat
               pure
                 state
                   { opDeltaState = ResizingTile
                   , manageQueue = manageQueue state >> riverWindowInformResizeStart w
                   }
 
-stopResizing :: MVar WMState -> IO ()
-stopResizing stateMVar = do
+stopResizing :: Ptr RiverSeat -> MVar WMState -> IO ()
+stopResizing seat stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     case focusedWindow state of
       Nothing -> pure state
       Just win -> do
         let
           window = allWindows state M.! win
-          stop = riverSeatOpEnd (focusedSeat state)
+          stop = riverSeatOpEnd seat
           newState = case (opDeltaState state, floatingGeometry window) of
             (Resizing _, Just r) -> do
               let (x, y, w, h) = currentOpDelta state
@@ -704,3 +700,34 @@ stopResizing stateMVar = do
             , opDeltaState = None
             , currentOpDelta = (0, 0, 0, 0)
             }
+
+startRepeating :: (Ptr RiverSeat -> MVar WMState -> IO ()) -> Ptr RiverSeat -> MVar WMState -> IO ()
+startRepeating action seat stateMVar =
+  modifyMVar_ stateMVar $ \state -> do
+    -- Ensure we don't start two repeaters for the same key
+    case activeRepeater state of
+      Just _ -> return state
+      Nothing -> do
+        print "Repeat"
+        hFlush stdout
+        tid <- forkIO $ do
+          print "hello"
+          action seat stateMVar -- Initial press
+          print "hello1"
+          threadDelay 500000 -- Initial delay (0.5s)
+          print "hello2"
+          hFlush stdout
+          forever $ do
+            action seat stateMVar
+            threadDelay 50000 -- Repeat rate (20Hz)
+            print "hello3"
+            riverWindowManagerManageDirty $ currentWmManager state
+        return state{activeRepeater = Just tid}
+
+stopRepeating :: Ptr RiverSeat -> MVar WMState -> IO ()
+stopRepeating _ stateMVar = modifyMVar_ stateMVar $ \state -> do
+  case activeRepeater state of
+    Nothing -> return state
+    Just tid -> do
+      killThread tid
+      return state{activeRepeater = Nothing}

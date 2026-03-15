@@ -59,7 +59,7 @@ executable rivermonad
   -- .hs or .lhs file containing the Main module.
   main-is: Main.hs
   -- Modules included in this executable, other than Main.
-  ghc-options: -O2
+  ghc-options: -O2 -threaded
   other-modules:
     Config
     Handlers.LayerShell

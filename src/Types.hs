@@ -2,7 +2,7 @@
 
 module Types where
 
-import Control.Concurrent.MVar
+import Control.Concurrent
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
@@ -43,7 +43,8 @@ data WMState = WMState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
   , persistedState :: Map String (WorkspaceID, WindowStatus)
-  , currentKeymap :: CInt
+  , currentKeymapFd :: CInt
+  , activeRepeater :: Maybe ThreadId
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
@@ -143,8 +144,8 @@ data RivermonadConfig = RivermonadConfig
   , xCursorTheme :: (String, CUInt)
   , workspaceRules :: [(String, String, WorkspaceID)]
   , floatingRules :: [(String, String, WindowStatus)]
-  , allPointerBindings :: Map (CUInt, CUInt) (MVar WMState -> IO (), MVar WMState -> IO ())
-  , allKeyBindings :: Map (CUInt, CUInt) (MVar WMState -> IO ())
+  , allPointerBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
+  , allKeyBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
   , composeKeyMap :: String
   }

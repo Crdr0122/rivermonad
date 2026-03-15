@@ -2,8 +2,8 @@ module Config (myConfig) where
 
 import Control.Concurrent.MVar
 import Data.Bimap qualified as B
-import Data.Bits ((.|.))
 import Data.Map.Strict qualified as M
+import Foreign
 import Types
 import Utils.DefaultConfig
 import Utils.KeyDispatches
@@ -56,7 +56,7 @@ myConfig =
           ( M.fromList
               [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus True))
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus False))
-              , ((keyGrave, modSuper), (cycleWindowFocus True))
+              , ((keyGrave, modSuper), (startRepeating $ cycleWindowFocus True))
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
               , ((keyW, modSuper), (cycleLayout [monocleLayout, twoPaneLayout, stackLayout]))
               , ((keyS, modSuper), (zoomWindow))
@@ -89,20 +89,20 @@ myConfig =
         \};\n"
     }
 
-cycleWindowsOrSlaves :: Bool -> MVar WMState -> IO ()
-cycleWindowsOrSlaves forward stateMVar = do
+cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleWindowsOrSlaves forward seat stateMVar = do
   state <- readMVar stateMVar
   case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
-    "TwoPane" -> cycleWindowSlaves forward stateMVar
-    _ -> cycleWindows forward stateMVar
+    "TwoPane" -> cycleWindowSlaves forward seat stateMVar
+    _ -> cycleWindows forward seat stateMVar
 
-cycleWindowsOrSlavesOrFocus :: Bool -> MVar WMState -> IO ()
-cycleWindowsOrSlavesOrFocus forward stateMVar = do
+cycleWindowsOrSlavesOrFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
+cycleWindowsOrSlavesOrFocus forward seat stateMVar = do
   state <- readMVar stateMVar
   case focusedWindow state of
     Nothing -> pure ()
     Just w -> do
       let Window{isFloating, isFullscreen} = (allWindows state M.! w)
       if isFloating || isFullscreen
-        then cycleWindowFocus forward stateMVar
-        else cycleWindowsOrSlaves forward stateMVar
+        then cycleWindowFocus forward seat stateMVar
+        else cycleWindowsOrSlaves forward seat stateMVar

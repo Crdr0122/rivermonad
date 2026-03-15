@@ -3,8 +3,8 @@ module Utils.Layouts (
   monocleLayout,
   twoPaneLayout,
   circleLayout,
-  layoutIfMax,
   roledexLayout,
+  layoutIfMax,
 ) where
 
 import Types
