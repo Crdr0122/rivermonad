@@ -15,9 +15,8 @@ extern void hs_seat_op_release(void *data, struct river_seat_v1 *seat);
 extern void hs_seat_pointer_position(void *data, struct river_seat_v1 *seat,
                                      int32_t x, int32_t y);
 
-static void handle_removed(void *data, struct river_seat_v1 *seat) {
-  river_seat_v1_destroy(seat);
-}
+extern void hs_seat_removed(void *data, struct river_seat_v1 *seat);
+
 static void handle_wl_seat(void *data, struct river_seat_v1 *seat,
                            uint32_t name) {}
 
@@ -29,7 +28,7 @@ handle_shell_surface_interaction(void *data, struct river_seat_v1 *seat,
 }
 
 static const struct river_seat_v1_listener seat_listener = {
-    .removed = handle_removed,
+    .removed = hs_seat_removed,
     .wl_seat = handle_wl_seat,
     .pointer_enter = hs_seat_pointer_enter,
     .pointer_leave = handle_pointer_leave,

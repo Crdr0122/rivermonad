@@ -1,6 +1,7 @@
 module Handlers.PointerBindings where
 
 import Control.Concurrent.MVar
+import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
 import Types
@@ -41,4 +42,8 @@ registerPointerbind dataPtr seat ((key, modifier), (onPressed, onReleased)) = do
     newBinding <- riverSeatGetPointerBinding seat key modifier
     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-    pure state{manageQueue = manageQueue state >> riverPointerBindingEnable newBinding}
+    pure
+      state
+        { manageQueue = manageQueue state >> riverPointerBindingEnable newBinding
+        , seatPointerBindings = adjust (newBinding :) seat (seatPointerBindings state)
+        }

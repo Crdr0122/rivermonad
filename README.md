@@ -43,3 +43,4 @@ Everything will be hardcoded for personal use
 - [ ] Hotkey repetition
 - [ ] Libinput
 - [ ] Multiseats (Not needed?)
+- [ ] Overview (Grid view?)

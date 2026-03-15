@@ -126,10 +126,10 @@ keyKPSeparator :: CUInt
 keyKPSubtract :: CUInt
 keyKPDecimal :: CUInt
 keyKPDivide :: CUInt
-keyKPSpace = 0xff80 -- /* Space */
+keyKPSpace = 0xff80
 keyKPTab = 0xff89
-keyKPEnter = 0xff8d --  /* Enter */
-keyKPF1 = 0xff91 -- /* PF1, KP_A, ... */
+keyKPEnter = 0xff8d
+keyKPF1 = 0xff91
 keyKPF2 = 0xff92
 keyKPF3 = 0xff93
 keyKPF4 = 0xff94
@@ -146,10 +146,10 @@ keyKPEnd = 0xff9c
 keyKPBegin = 0xff9d
 keyKPInsert = 0xff9e
 keyKPDelete = 0xff9f
-keyKPEqual = 0xffbd -- /* Equals */
+keyKPEqual = 0xffbd
 keyKPMultiply = 0xffaa
 keyKPAdd = 0xffab
-keyKPSeparator = 0xffac --  /* Separator, often comma */
+keyKPSeparator = 0xffac
 keyKPSubtract = 0xffad
 keyKPDecimal = 0xffae
 keyKPDivide = 0xffaf
@@ -195,6 +195,9 @@ keyEqual = 0x003d
 keyGrave :: CUInt
 keyGrave = 0x0060
 
+keyDelete :: CUInt
+keyDelete = 0xff9f
+
 -- Pointer
 btnLeft, btnRight, btnMiddle, btnSide, btnExtra :: CUInt
 btnLeft = 0x110
@@ -221,5 +224,8 @@ modSuper = 0x40
 
 modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
+
+modSuperAlt :: CUInt
+modSuperAlt = modSuper .|. modAlt
 
 -- modSuper = 0x08

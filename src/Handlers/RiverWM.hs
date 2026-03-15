@@ -66,7 +66,12 @@ hsOnNewSeat dataPtr _ seat = do
     _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
     theme <- newCString (fst (xCursorTheme myConfig))
     riverSeatSetXcursorTheme seat theme (snd (xCursorTheme myConfig))
-    pure state{focusedSeat = seat}
+    pure
+      state
+        { focusedSeat = seat
+        , seatXkbBindings = M.insert seat [] (seatXkbBindings state)
+        , seatPointerBindings = M.insert seat [] (seatPointerBindings state)
+        }
   mapM_ (registerKeybind dataPtr seat) (M.toList $ allKeyBindings myConfig)
   mapM_ (registerPointerbind dataPtr seat) (M.toList $ allPointerBindings myConfig)
 

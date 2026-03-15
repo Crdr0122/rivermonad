@@ -31,10 +31,9 @@ myConfig =
           ]
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
-        [ ("Thunar", "", 2)
-        , ("", "Slack", 2)
+        [ ("", "Slack", 2)
         , ("QQ", "QQ", 2)
-        , ("", "wechat", 2)
+        , ("Weixin", "wechat", 2)
         , ("", "vesktop", 2)
         ]
     , floatingRules =

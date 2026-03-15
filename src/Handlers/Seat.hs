@@ -25,8 +25,27 @@ foreign export ccall "hs_seat_op_release"
 foreign export ccall "hs_seat_pointer_position"
   hsSeatPointerPosition :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 
+foreign export ccall "hs_seat_removed"
+  hsSeatRemoved :: Ptr () -> Ptr RiverSeat -> IO ()
+
+hsSeatRemoved :: Ptr () -> Ptr RiverSeat -> IO ()
+hsSeatRemoved dataPtr seat = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let newSeat = if focusedSeat state == seat then nullPtr else focusedSeat state
+        newXkbBindings = M.delete seat $ seatXkbBindings state
+        newPointerBindings = M.delete seat $ seatPointerBindings state
+    mapM_ riverXkbBindingDestroy $ M.findWithDefault [] seat $ seatXkbBindings state
+    mapM_ riverPointerBindingDestroy $ M.findWithDefault [] seat $ seatPointerBindings state
+    pure
+      state
+        { focusedSeat = newSeat
+        , seatPointerBindings = newPointerBindings
+        , seatXkbBindings = newXkbBindings
+        }
+
 hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsSeatPointerEnter dataPtr seat win = do
+hsSeatPointerEnter dataPtr _ _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     pure state
@@ -34,23 +53,25 @@ hsSeatPointerEnter dataPtr seat win = do
 hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatWindowInteraction dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let Window{nodePtr, isFloating, isFullscreen} = allWindows state M.! win
-        maybeWorkspace
-          | isFullscreen = BS.lookupA win (allWorkspacesFullscreen state)
-          | isFloating = BS.lookupA win (allWorkspacesFloating state)
-          | otherwise = BS.lookupA win (allWorkspacesTiled state)
-        output = case maybeWorkspace of
-          Nothing -> focusedOutput state
-          Just workspace -> case B.lookupR workspace (allOutputWorkspaces state) of
+  modifyMVar_ stateMVar $ \state -> case focusedWindow state of
+    Just w | w == win -> pure state
+    _ -> do
+      let Window{nodePtr, isFloating, isFullscreen} = allWindows state M.! win
+          maybeWorkspace
+            | isFullscreen = BS.lookupA win (allWorkspacesFullscreen state)
+            | isFloating = BS.lookupA win (allWorkspacesFloating state)
+            | otherwise = BS.lookupA win (allWorkspacesTiled state)
+          output = case maybeWorkspace of
             Nothing -> focusedOutput state
-            Just o -> o
-    pure
-      state
-        { focusedWindow = Just (win)
-        , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr) >> riverSeatFocusWindow seat win
-        , focusedOutput = output
-        }
+            Just workspace -> case B.lookupR workspace (allOutputWorkspaces state) of
+              Nothing -> focusedOutput state
+              Just o -> o
+      pure
+        state
+          { focusedWindow = Just (win)
+          , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr) >> riverSeatFocusWindow seat win
+          , focusedOutput = output
+          }
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 hsSeatOpDelta dataPtr _ dx dy = do

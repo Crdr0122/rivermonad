@@ -101,6 +101,7 @@ defaultConfig =
           , ((keyRight, modSuperShift), (swapWindow WindowRight))
           , ((keyUp, modSuperShift), (swapWindow WindowUp))
           , ((keyDown, modSuperShift), (swapWindow WindowDown))
+          , ((keyDelete, modControl .|. modAlt), (exitSession))
           ]
     , composeKeyMap =
         "xkb_keymap {\

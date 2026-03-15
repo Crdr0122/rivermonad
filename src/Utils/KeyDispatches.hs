@@ -24,6 +24,7 @@ module Utils.KeyDispatches (
   focusWindow,
   swapWindow,
   reloadWindowManager,
+  exitSession,
 ) where
 
 import Control.Concurrent.MVar
@@ -42,6 +43,12 @@ import Wayland.ImportedFunctions
 
 doNothing :: MVar WMState -> IO ()
 doNothing _ = pure ()
+
+exitSession :: MVar WMState -> IO ()
+exitSession stateMVar =
+  modifyMVar_ stateMVar $ \state -> do
+    riverWindowManagerExitSession (currentWmManager state)
+    pure state
 
 closeCurrentWindow :: MVar WMState -> IO ()
 closeCurrentWindow stateMVar = do
@@ -276,11 +283,11 @@ cycleWindowSlaves forward stateMVar = do
             Just w -> do
               let s = BS.lookupBs work allWorkspacesTiled
               case S.elemIndexL w s of
-                Just 0 -> (focusedWindow, pure ())
-                Nothing -> (focusedWindow, pure ())
-                Just i ->
-                  let nextW = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
-                   in (Just nextW, riverSeatFocusWindow focusedSeat nextW)
+                Just i
+                  | i /= 0 ->
+                      let nextW = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
+                       in (Just nextW, riverSeatFocusWindow focusedSeat nextW)
+                _ -> (focusedWindow, pure ())
         pure $
           state
             { allWorkspacesTiled = BS.changeSeqOrder work (cycleW forward) allWorkspacesTiled

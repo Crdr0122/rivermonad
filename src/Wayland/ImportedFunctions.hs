@@ -125,12 +125,21 @@ foreign import capi "river-window-management.h river_pointer_binding_v1_enable"
 foreign import capi "river-window-management.h river_pointer_binding_v1_disable"
   riverPointerBindingDisable :: Ptr RiverPointerBinding -> IO ()
 
-foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_get_xkb_binding"
-  riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)
 foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_destroy"
   riverXkbBindingsDestroy :: Ptr RiverXkbBindings -> IO ()
+foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_get_xkb_binding"
+  riverXkbBindingsGetXkbBinding :: Ptr RiverXkbBindings -> Ptr RiverSeat -> CUInt -> CUInt -> IO (Ptr RiverXkbBinding)
+foreign import capi "river-xkb-bindings.h river_xkb_bindings_v1_get_seat"
+  riverXkbBindingsGetSeat :: Ptr RiverXkbBindings -> Ptr RiverSeat -> IO (Ptr RiverXkbBindingsSeat)
+
 foreign import capi "river-xkb-bindings.h river_xkb_binding_v1_enable"
   riverXkbBindingEnable :: Ptr RiverXkbBinding -> IO ()
+foreign import capi "river-xkb-bindings.h river_xkb_binding_v1_disable"
+  riverXkbBindingDisable :: Ptr RiverXkbBinding -> IO ()
+foreign import capi "river-xkb-bindings.h river_xkb_binding_v1_destroy"
+  riverXkbBindingDestroy :: Ptr RiverXkbBinding -> IO ()
+foreign import capi "river-xkb-bindings.h river_xkb_binding_v1_set_layout_override"
+  riverXkbBindingSetLayoutOverride :: Ptr RiverXkbBinding -> CUInt -> IO ()
 
 foreign import capi "river-layer-shell.h river_layer_shell_v1_destroy"
   riverLayerShellDestroy :: Ptr RiverLayerShell -> IO ()

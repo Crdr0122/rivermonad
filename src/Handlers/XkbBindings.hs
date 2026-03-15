@@ -1,6 +1,7 @@
 module Handlers.XkbBindings where
 
 import Control.Concurrent.MVar
+import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
 import Types
@@ -46,4 +47,8 @@ registerKeybind dataPtr seat ((key, modifier), (onPressed)) = do
     newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-    pure state{manageQueue = manageQueue state >> riverXkbBindingEnable newBinding}
+    pure
+      state
+        { manageQueue = manageQueue state >> riverXkbBindingEnable newBinding
+        , seatXkbBindings = adjust (newBinding :) seat (seatXkbBindings state)
+        }
