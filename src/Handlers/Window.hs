@@ -7,6 +7,7 @@ import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
 import Data.Map.Strict qualified as M
 import Data.Maybe
+import Data.Sequence qualified as S
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TEE
@@ -14,6 +15,7 @@ import Foreign
 import Foreign.C
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.Helpers
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_window_closed"
@@ -96,19 +98,39 @@ hsWindowIdentifier dataPtr win identifier = do
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let newWindows = M.delete win (allWindows state)
-        newWorkspacesTiled = BS.delete win (allWorkspacesTiled state)
-        newWorkspacesFloating = BS.delete win (allWorkspacesFloating state)
-        newWorkspacesFullscreen = BS.delete win (allWorkspacesFullscreen state)
-    riverWindowDestroy win
-    pure
-      state
-        { allWindows = newWindows
-        , allWorkspacesTiled = newWorkspacesTiled
-        , allWorkspacesFullscreen = newWorkspacesFullscreen
-        , allWorkspacesFloating = newWorkspacesFloating
-        }
+  modifyMVar_ stateMVar $
+    \state@WMState
+       { allWindows
+       , allWorkspacesFloating
+       , allWorkspacesFullscreen
+       , allWorkspacesTiled
+       , focusedOutput
+       , allOutputWorkspaces
+       , focusedSeat
+       , focusedWindow
+       , manageQueue
+       } -> do
+        let newState =
+              state
+                { allWindows = M.delete win allWindows
+                , allWorkspacesTiled = BS.delete win allWorkspacesTiled
+                , allWorkspacesFullscreen = BS.delete win allWorkspacesFloating
+                , allWorkspacesFloating = BS.delete win allWorkspacesFullscreen
+                }
+
+            (nextFocus, fAction) = case focusedWindow of
+              Nothing -> (Nothing, pure ())
+              Just w | w /= win -> (Just w, pure ())
+              _ -> case allWorkspaceWindows (fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces) newState of
+                S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
+                h S.:<| _ -> (Just h, riverSeatFocusWindow focusedSeat h)
+
+        riverWindowDestroy win
+        pure
+          newState
+            { focusedWindow = nextFocus
+            , manageQueue = manageQueue >> fAction
+            }
 
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
 hsWindowDimensions dataPtr winP width height = do

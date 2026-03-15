@@ -32,12 +32,13 @@ Everything will be hardcoded for personal use
 - [ ] Ipc
   - [ ] Receive ipc keydispatches
   - [ ] Send out workspace information for bars
+  - [ ] Copy swayipc
 - [X] Window pinning (Only floating)
 - [X] Directional window focus and swapping (Only tiling)
 - [X] Xkb Keymap (Needs manually writing keymap string but works)
 - [ ] Ext-workspace (wait for river)
 - [ ] Cursor shape (wait for river)
-- [ ] Multimonitor focus other outputs
+- [X] Multimonitor focus other outputs
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [ ] Libinput

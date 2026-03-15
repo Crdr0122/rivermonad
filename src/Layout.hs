@@ -45,9 +45,11 @@ startLayout stateMVar = do
           (allWorkspacesTiled state, floatingQueue state, fullscreenQueue state)
           divided
 
-      newFocused = case find (\(_, i, _) -> i == focusedWorkspace) divided of
-        Nothing -> focusedWindow state
-        Just (w, _, _) -> Just $ winPtr w
+      (newFocused, seatFocus) = case find (\(_, i, _) -> i == focusedWorkspace) divided of
+        Nothing -> (focusedWindow state, pure ())
+        Just (Window{winPtr}, _, _) -> (Just winPtr, riverSeatFocusWindow (focusedSeat state) winPtr)
+
+    seatFocus
 
     pure
       state

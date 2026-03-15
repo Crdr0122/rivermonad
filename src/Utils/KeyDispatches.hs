@@ -48,19 +48,10 @@ closeCurrentWindow stateMVar = do
   modifyMVar_ stateMVar $ \state ->
     case focusedWindow state of
       Nothing -> pure state
-      Just w -> do
-        let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
-            remainingWindows = allWorkspaceWindows focusedWorkspace state
-            nextFocus = case remainingWindows of
-              h S.:<| _ | h /= w -> h
-              _ S.:<| S.Empty -> w
-              _ S.:<| h S.:<| _ -> h
-              S.Empty -> w
-
-        pure $
+      Just w ->
+        pure
           state
-            { manageQueue = manageQueue state >> riverWindowClose w >> riverSeatFocusWindow (focusedSeat state) nextFocus
-            , focusedWindow = Just nextFocus
+            { manageQueue = manageQueue state >> riverWindowClose w
             }
 
 toggleFocusFloating :: MVar WMState -> IO ()
@@ -437,6 +428,8 @@ moveWindowToWorkspace targetID stateMVar = do
        , allOutputWorkspaces
        , currentWmManager
        , renderQueue
+       , focusedSeat
+       , manageQueue
        } -> do
         case focusedWindow state of
           Nothing -> pure state
@@ -450,8 +443,17 @@ moveWindowToWorkspace targetID stateMVar = do
                     | isFullscreen = state{allWorkspacesFullscreen = BS.move w targetID allWorkspacesFullscreen}
                     | isFloating = state{allWorkspacesFloating = BS.move w targetID allWorkspacesFloating}
                     | otherwise = state{allWorkspacesTiled = BS.move w targetID allWorkspacesTiled}
+                  remainingWindows = allWorkspaceWindows (allOutputWorkspaces B.! focusedOutput) newState
+                  (nextFocus, focusAction) = case remainingWindows of
+                    h S.:<| _ -> (Just h, riverSeatFocusWindow focusedSeat h)
+                    S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
                 riverWindowManagerManageDirty currentWmManager
-                pure newState{renderQueue = renderQueue >> riverWindowHide w}
+                pure
+                  newState
+                    { renderQueue = renderQueue >> riverWindowHide w
+                    , focusedWindow = nextFocus
+                    , manageQueue = manageQueue >> focusAction
+                    }
 
 cycleLayout :: [LayoutType] -> MVar WMState -> IO ()
 cycleLayout [] _ = pure ()

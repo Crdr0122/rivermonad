@@ -29,10 +29,16 @@ hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatPointerEnter dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
-    let window = allWindows state M.! win
+    pure state
+
+hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
+hsSeatWindowInteraction dataPtr seat win = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let Window{nodePtr, isFloating, isFullscreen} = allWindows state M.! win
         maybeWorkspace
-          | isFullscreen window = BS.lookupA win (allWorkspacesFullscreen state)
-          | isFloating window = BS.lookupA win (allWorkspacesFloating state)
+          | isFullscreen = BS.lookupA win (allWorkspacesFullscreen state)
+          | isFloating = BS.lookupA win (allWorkspacesFloating state)
           | otherwise = BS.lookupA win (allWorkspacesTiled state)
         output = case maybeWorkspace of
           Nothing -> focusedOutput state
@@ -41,20 +47,9 @@ hsSeatPointerEnter dataPtr seat win = do
             Just o -> o
     pure
       state
-        { manageQueue = manageQueue state >> riverSeatFocusWindow seat win
-        , focusedWindow = Just (win)
-        , focusedOutput = output
-        }
-
-hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsSeatWindowInteraction dataPtr seat win = do
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let Window{nodePtr, isFloating} = (allWindows state) M.! win
-    pure
-      state
         { focusedWindow = Just (win)
         , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr) >> riverSeatFocusWindow seat win
+        , focusedOutput = output
         }
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
