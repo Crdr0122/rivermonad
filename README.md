@@ -34,7 +34,7 @@ Everything will be hardcoded for personal use
   - [ ] Send out workspace information for bars
   - [ ] Copy swayipc
 - [X] Window pinning (Only floating)
-- [X] Directional window focus and swapping (Only tiling)
+- [X] Directional window focus and swapping
 - [X] Xkb Keymap (Needs manually writing keymap string but works)
 - [ ] Ext-workspace (wait for river)
 - [ ] Cursor shape (wait for river)

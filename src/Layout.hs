@@ -83,13 +83,13 @@ startLayoutOutput output focusedWorkspace stateMVar = do
         case mOut of
           Nothing -> pure state
           Just o@Output{outX, outY, outHeight, outWidth} -> do
-            let tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
-                floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
-                tileable = (allWindows M.!) <$> tilingWindowPtrs
-                floatingWindow = (allWindows M.!) <$> floatingWindowPtrs
-                floatingQueuedWindows = (allWindows M.!) <$> S.fromList (floatingQueue M.! focusedWorkspace)
-                nonFullscreen = tileable S.>< floatingWindow S.>< floatingQueuedWindows
             let
+              tilingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesTiled)
+              floatingWindowPtrs = (BS.lookupBs focusedWorkspace allWorkspacesFloating)
+              tileable = (allWindows M.!) <$> tilingWindowPtrs
+              floatingWindow = (allWindows M.!) <$> floatingWindowPtrs
+              floatingQueuedWindows = (allWindows M.!) <$> S.fromList (floatingQueue M.! focusedWorkspace)
+              nonFullscreen = tileable S.>< floatingWindow S.>< floatingQueuedWindows
               geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
               ratio = workspaceRatios M.! focusedWorkspace
 
@@ -97,15 +97,13 @@ startLayoutOutput output focusedWorkspace stateMVar = do
                 Nothing -> Nothing
                 Just focused -> S.elemIndexL focused tilingWindowPtrs
 
-            let
-              layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry (length tileable)
-              gappedLayout = shrinkWindows (gapPx myConfig) (zip (toList tileable) layout)
+              layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry tileable
+              gappedLayout = shrinkWindows (gapPx myConfig) (toList layout)
               borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
 
               newFloatingWindows = (allWindows M.!) <$> (floatingQueue M.! focusedWorkspace)
               (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions o newFloatingWindows
 
-            let
               newFullscreenWindows =
                 (allWindows M.!) <$> (fullscreenQueue M.! focusedWorkspace)
               newWorkspacesFloating =
@@ -147,7 +145,9 @@ startLayoutOutput output focusedWorkspace stateMVar = do
             -- All render actions
             let renderTileActions =
                   mapM_
-                    (\(Window{nodePtr, winPtr}, Rect{rx, ry, rw, rh}) -> riverNodeSetPosition nodePtr rx ry >> riverWindowSetContentClipBox winPtr 0 0 rw rh)
+                    ( \(Window{nodePtr, winPtr}, Rect{rx, ry, rw, rh}) ->
+                        riverNodeSetPosition nodePtr rx ry >> riverWindowSetContentClipBox winPtr 0 0 rw rh >> riverNodePlaceBottom nodePtr
+                    )
                     borderedLayout
 
                 renderBorderActions =
@@ -160,7 +160,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
 
                 renderActions =
                   renderTileActions
-                    >> lowerAllWindows tileable
                     >> floatRAction
                     >> freeFloatingClipbox
                     >> renderBorderActions
@@ -180,8 +179,8 @@ startLayoutOutput output focusedWorkspace stateMVar = do
 raiseAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
 raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
 
-lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
-lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
+-- lowerAllWindows :: (Functor f, Foldable f) => f Window -> IO ()
+-- lowerAllWindows = mapM_ (riverNodePlaceBottom . nodePtr)
 
 shrinkWindows :: CInt -> [(Window, Rect)] -> [(Window, Rect)]
 shrinkWindows b =

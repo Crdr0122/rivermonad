@@ -6,6 +6,7 @@ import Control.Concurrent
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
+import Data.Sequence
 import Foreign
 import Foreign.C
 import GHC.Generics
@@ -103,8 +104,38 @@ data Output = Output
 
 data LayoutType = LayoutType
   { layoutName :: String
-  , layoutFun :: Maybe Int -> Double -> Rect -> Int -> [Rect]
+  , layoutFun :: Maybe Int -> Double -> Rect -> Seq Window -> Seq (Window, Rect)
   }
+
+data LayoutMsg
+  = IncMasterN Int -- +1 / -1
+  | IncMasterFrac Double -- e.g. +0.05 or -0.05
+  | SetMasterFrac Double
+  | ToggleMirror Bool Bool
+  | SetZoomed (Maybe Int)
+  | Next -- for layout choosers (||| style)
+  deriving (Show, Eq)
+
+class Layout l where
+  -- Core: produce window placements
+  doLayout
+    :: l
+    -> Maybe Int          -- index of focused window, or Nothing
+    -> Rect               -- available geometry
+    -> Seq Window         -- all windows on this workspace
+    -> Seq (Window, Rect)
+
+  -- Human readable name (shown in status bar, etc.)
+  layoutN:: l -> String
+
+  -- Handle messages → possibly produce new layout value
+  -- Returns Nothing if message not understood → no change, no refresh
+  handleMsg :: l -> LayoutMsg -> Maybe l
+
+  -- Optional: default description if you derive Show
+  description :: l -> String
+  description = show
+
 
 type RiverEdge = CUInt
 
