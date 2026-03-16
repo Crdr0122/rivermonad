@@ -40,16 +40,16 @@ main = do
     xkbConfig = getXkbConfig
 
   exists <- doesFileExist (statePath myConfig)
-  (ratios, oldWindows) <-
+  oldWindows <-
     if not exists
-      then pure (defaultRatios myConfig, M.empty)
+      then pure M.empty
       else do
         content <- Byte.readFile (statePath myConfig)
         case decode content of
-          Just PersistedState{persistedWorkspaceRatios, persistedWindows} -> do
+          Just PersistedState{persistedWindows} -> do
             removeFile (statePath myConfig)
-            pure (persistedWorkspaceRatios, persistedWindows)
-          _ -> pure (defaultRatios myConfig, M.empty)
+            pure persistedWindows
+          _ -> pure M.empty
 
   fd <- createKeymapFd (composeKeyMap myConfig)
   st <-
@@ -74,7 +74,6 @@ main = do
         , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts myConfig
-        , workspaceRatios = ratios
         , currentWmManager = river
         , currentXkbBindings = xkbBindings
         , currentLayerShell = layerShell

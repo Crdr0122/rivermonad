@@ -69,7 +69,6 @@ startLayoutOutput output focusedWorkspace stateMVar = do
   modifyMVar_ stateMVar $
     \state@WMState
        { allOutputs
-       , workspaceRatios
        , floatingQueue
        , fullscreenQueue
        , workspaceLayouts
@@ -91,13 +90,12 @@ startLayoutOutput output focusedWorkspace stateMVar = do
               floatingQueuedWindows = (allWindows M.!) <$> S.fromList (floatingQueue M.! focusedWorkspace)
               nonFullscreen = tileable S.>< floatingWindow S.>< floatingQueuedWindows
               geometry = Rect{rx = outX, ry = outY, rh = outHeight, rw = outWidth}
-              ratio = workspaceRatios M.! focusedWorkspace
 
               indexFocusedWindow = case focusedWindow of
                 Nothing -> Nothing
                 Just focused -> S.elemIndexL focused tilingWindowPtrs
 
-              layout = layoutFun (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow ratio geometry tileable
+              layout = applySomeLayout (workspaceLayouts M.! focusedWorkspace) indexFocusedWindow geometry tileable
               gappedLayout = shrinkWindows (gapPx myConfig) (toList layout)
               borderedLayout = shrinkWindows (borderPx myConfig) gappedLayout
 

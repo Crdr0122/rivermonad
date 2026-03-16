@@ -83,6 +83,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
        , focusedWindow
        , allWindows
        , allOutputWorkspaces
+       , workspaceLayouts
        } -> do
         case focusedWindow of
           Nothing -> pure state
@@ -139,17 +140,10 @@ hsSeatOpDelta dataPtr _ dx dy = do
                 let
                   Output{outWidth} = allOutputs M.! focusedOutput
                   (oldDx, _, _, _) = currentOpDelta state
-                  newWorkspaceRatios =
-                    M.insertWith
-                      (\n o -> let m = o + n in if m > 0.20 && m < 0.80 then m else o)
-                      (allOutputWorkspaces B.! focusedOutput)
-                      (fromIntegral (dx - oldDx) / fromIntegral outWidth)
-                      (workspaceRatios state)
-                pure
-                  state
-                    { workspaceRatios = newWorkspaceRatios
-                    , currentOpDelta = (dx, 0, 0, 0)
-                    }
+                  focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+                case handleSomeMsg (workspaceLayouts M.! focusedWorkspace) (IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outWidth)) of
+                  Nothing -> pure state{currentOpDelta = (dx, 0, 0, 0)}
+                  Just layout -> pure state{workspaceLayouts = M.insert focusedWorkspace layout workspaceLayouts, currentOpDelta = (dx, 0, 0, 0)}
               DraggingTile w -> do
                 let Window{tilingGeometry, nodePtr} = (allWindows M.! w)
                 case tilingGeometry of

@@ -10,6 +10,8 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 import Utils.Layouts
 
+myLayout i = SomeLayout $ ChooseLayout i [SomeLayout MonocleLayout, SomeLayout (TallLayout 0.6 1), SomeLayout (TwoPaneLayout 0.6 1)]
+
 myConfig :: RivermonadConfig
 myConfig =
   defaultConfig
@@ -19,15 +21,15 @@ myConfig =
           (allPointerBindings defaultConfig)
     , defaultLayouts =
         M.fromList
-          [ (1, monocleLayout)
-          , (2, stackLayout)
-          , (3, twoPaneLayout)
-          , (4, monocleLayout)
-          , (5, monocleLayout)
-          , (6, monocleLayout)
-          , (7, monocleLayout)
-          , (8, monocleLayout)
-          , (9, roledexLayout)
+          [ (1, myLayout 0)
+          , (2, myLayout 1)
+          , (3, myLayout 2)
+          , (4, myLayout 0)
+          , (5, myLayout 0)
+          , (6, myLayout 0)
+          , (7, myLayout 0)
+          , (8, myLayout 0)
+          , (9, myLayout 0)
           ]
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
@@ -48,6 +50,7 @@ myConfig =
         , ("", "fiji-Main", Floating)
         , ("SnapGene", "", Floating)
         , ("", "beatoraja", Floating)
+        , ("Photos and Videos", "wechat", Floating)
         , ("QQ", "QQ", Tiled)
         , ("", "QQ", Floating)
         ]
@@ -58,7 +61,7 @@ myConfig =
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus False))
               , ((keyGrave, modSuper), (startRepeating $ cycleWindowFocus True))
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
-              , ((keyW, modSuper), (cycleLayout [monocleLayout, twoPaneLayout, stackLayout]))
+              , ((keyW, modSuper), (sendMessage Next))
               , ((keyS, modSuper), (zoomWindow))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))
               , ((keyP, modSuper), (togglePinWindow))
@@ -76,6 +79,10 @@ myConfig =
               , ((keyO, modSuper), (exec "~/.config/rofi/password/password.sh"))
               , ((keyI, modSuper), (exec "~/.config/rofi/mirror/mirror.sh"))
               , ((keyC, modSuper), (exec "~/.config/rofi/powermenu/powermenu.sh"))
+              , ((keyU, modSuper), (exec "screenrecorder toggle fullscreen"))
+              , ((keyU, modSuperShift), (exec "screenrecorder toggle region"))
+              , ((keyXF86Calculator, modSuper), (exec "~/.config/river/screenshot fullscreen"))
+              , ((keyXF86Calculator, modSuperShift), (exec "~/.config/river/screenshot region"))
               ]
           )
           (allKeyBindings defaultConfig)
@@ -92,7 +99,7 @@ myConfig =
 cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowsOrSlaves forward seat stateMVar = do
   state <- readMVar stateMVar
-  case layoutName (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
+  case layoutName' (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
     "TwoPane" -> cycleWindowSlaves forward seat stateMVar
     _ -> cycleWindows forward seat stateMVar
 

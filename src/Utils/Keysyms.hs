@@ -1,7 +1,7 @@
 module Utils.Keysyms where
 
-import Foreign.C
 import Data.Bits ((.|.))
+import Foreign.C
 
 -- Keysyms
 keyA :: CUInt
@@ -197,6 +197,9 @@ keyGrave = 0x0060
 
 keyDelete :: CUInt
 keyDelete = 0xff9f
+
+keyXF86Calculator :: CUInt
+keyXF86Calculator = 0x1008FF1D
 
 -- Pointer
 btnLeft, btnRight, btnMiddle, btnSide, btnExtra :: CUInt

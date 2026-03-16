@@ -18,17 +18,16 @@ defaultConfig =
           ]
     , defaultLayouts =
         M.fromList
-          [ (1, monocleLayout)
-          , (2, monocleLayout)
-          , (3, monocleLayout)
-          , (4, monocleLayout)
-          , (5, monocleLayout)
-          , (6, monocleLayout)
-          , (7, monocleLayout)
-          , (8, monocleLayout)
-          , (9, monocleLayout)
+          [ (1, SomeLayout MonocleLayout)
+          , (2, SomeLayout MonocleLayout)
+          , (3, SomeLayout MonocleLayout)
+          , (4, SomeLayout MonocleLayout)
+          , (5, SomeLayout MonocleLayout)
+          , (6, SomeLayout MonocleLayout)
+          , (7, SomeLayout MonocleLayout)
+          , (8, SomeLayout MonocleLayout)
+          , (9, SomeLayout MonocleLayout)
           ]
-    , defaultRatios = M.fromList $ zip [1 .. 9] (repeat 0.6)
     , statePath = "/tmp/rivermonad-state.json"
     , floatingRules = []
     , workspaceRules = []
@@ -91,8 +90,8 @@ defaultConfig =
           , ((keyKPHome, modSuper), (switchWorkspace 7))
           , ((keyKPUp, modSuper), (switchWorkspace 8))
           , ((keyKPPageUp, modSuper), (switchWorkspace 9))
-          , ((keyEqual, modSuper), (modifyLayoutRatio 0.04))
-          , ((keyMinus, modSuper), (modifyLayoutRatio (-0.04)))
+          , ((keyEqual, modSuper), (sendMessage (IncMasterFrac 0.04)))
+          , ((keyMinus, modSuper), (sendMessage (IncMasterFrac (-0.04))))
           , ((keyLeft, modSuper), (focusWindow WindowLeft))
           , ((keyRight, modSuper), (focusWindow WindowRight))
           , ((keyUp, modSuper), (focusWindow WindowUp))

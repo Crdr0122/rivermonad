@@ -6,15 +6,13 @@ module Utils.KeyDispatches (
   toggleFloatingCurrentWindow,
   cycleWindows,
   cycleWindowSlaves,
-  cycleLayout,
-  setLayout,
+  sendMessage,
   zoomWindow,
   exec,
   resizeWindow,
   stopResizing,
   dragWindow,
   stopDragging,
-  modifyLayoutRatio,
   moveWindowToWorkspace,
   switchWorkspace,
   doNothing,
@@ -34,7 +32,6 @@ import Control.Concurrent
 import Control.Monad (forever, unless)
 import Data.Aeson
 import Data.Bimap qualified as B
-import Data.List (elemIndex)
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
@@ -48,6 +45,16 @@ import Wayland.ImportedFunctions
 
 doNothing :: Ptr RiverSeat -> MVar WMState -> IO ()
 doNothing _ _ = pure ()
+
+sendMessage :: LayoutMsg -> Ptr RiverSeat -> MVar WMState -> IO ()
+sendMessage msg _ stateMVar = do
+  modifyMVar_ stateMVar $ \state -> do
+    let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
+    case handleSomeMsg (workspaceLayouts state M.! focusedWorkspace) msg of
+      Nothing -> pure state
+      Just layout -> do
+        riverWindowManagerManageDirty (currentWmManager state)
+        pure state{workspaceLayouts = M.insert focusedWorkspace layout (workspaceLayouts state)}
 
 exitSession :: Ptr RiverSeat -> MVar WMState -> IO ()
 exitSession _ stateMVar =
@@ -506,41 +513,6 @@ moveWindowToWorkspace targetID seat stateMVar = do
                     , manageQueue = manageQueue >> focusAction
                     }
 
-cycleLayout :: [LayoutType] -> Ptr RiverSeat -> MVar WMState -> IO ()
-cycleLayout [] _ _ = pure ()
-cycleLayout layouts _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let oldWorkspaceLayouts = workspaceLayouts state
-        curr = allOutputWorkspaces state B.! focusedOutput state
-        currentLayout = layoutName $ oldWorkspaceLayouts M.! curr
-    case elemIndex currentLayout (map layoutName layouts) of
-      Nothing -> pure state
-      Just i -> do
-        let
-          nextLayout = layouts !! ((i + 1) `mod` length layouts)
-          newWorkspaceLayouts = M.insert curr nextLayout oldWorkspaceLayouts
-        riverWindowManagerManageDirty $ currentWmManager state
-        pure state{workspaceLayouts = newWorkspaceLayouts}
-
-setLayout :: LayoutType -> Ptr RiverSeat -> MVar WMState -> IO ()
-setLayout l _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let curr = allOutputWorkspaces state B.! focusedOutput state
-    riverWindowManagerManageDirty $ currentWmManager state
-    pure state{workspaceLayouts = M.insert curr l (workspaceLayouts state)}
-
-modifyLayoutRatio :: Double -> Ptr RiverSeat -> MVar WMState -> IO ()
-modifyLayoutRatio change _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    let
-      newWorkspaceRatios =
-        M.insertWith
-          (\n o -> let m = n + o in if m > 0.15 && m < 0.85 then m else o)
-          (allOutputWorkspaces state B.! focusedOutput state)
-          change
-          (workspaceRatios state)
-    pure state{workspaceRatios = newWorkspaceRatios}
-
 exec :: String -> Ptr RiverSeat -> MVar WMState -> IO ()
 exec command _ _ = spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command) >> pure ()
 
@@ -552,7 +524,6 @@ reloadWindowManager fp _ stateMVar = do
        , allWorkspacesFloating
        , allWorkspacesFullscreen
        , allWindows
-       , workspaceRatios
        } -> do
         let
           windowsToRecord =
@@ -566,7 +537,7 @@ reloadWindowManager fp _ stateMVar = do
                       | otherwise -> (winIdentifier, (fromMaybe 1 (BS.lookupA winPtr allWorkspacesTiled), Tiled))
                 )
                 (M.elems allWindows)
-          newPersisted = PersistedState{persistedWorkspaceRatios = workspaceRatios, persistedWindows = windowsToRecord}
+          newPersisted = PersistedState{persistedWindows = windowsToRecord}
         encodeFile fp newPersisted
         _ <- spawnCommand ("systemd-run --user --scope --slice=app.slice Rivermonad-reload")
         pure state

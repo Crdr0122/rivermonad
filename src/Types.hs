@@ -1,4 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Types where
 
@@ -28,8 +31,7 @@ data WMState = WMState
   , allLayerShellOutputs :: Map (Ptr RiverLayerShellOutput) (Ptr RiverOutput)
   , allOutputWorkspaces :: Bimap (Ptr RiverOutput) WorkspaceID
   , lastFocusedWorkspace :: WorkspaceID
-  , workspaceLayouts :: Map WorkspaceID LayoutType
-  , workspaceRatios :: Map WorkspaceID Double
+  , workspaceLayouts :: Map WorkspaceID SomeLayout
   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
@@ -102,40 +104,56 @@ data Output = Output
   }
   deriving (Generic, Eq)
 
-data LayoutType = LayoutType
-  { layoutName :: String
-  , layoutFun :: Maybe Int -> Double -> Rect -> Seq Window -> Seq (Window, Rect)
-  }
+-- data LayoutType = LayoutType
+--   { layoutName :: String
+--   , layoutFun :: Maybe Int -> Double -> Rect -> Seq Window -> Seq (Window, Rect)
+--   }
 
 data LayoutMsg
   = IncMasterN Int -- +1 / -1
   | IncMasterFrac Double -- e.g. +0.05 or -0.05
   | SetMasterFrac Double
-  | ToggleMirror Bool Bool
-  | SetZoomed (Maybe Int)
   | Next -- for layout choosers (||| style)
   deriving (Show, Eq)
 
-class Layout l where
+data SomeLayout = forall l. (Layout l, Show l) => SomeLayout l
+
+class (Show l) => Layout l where
   -- Core: produce window placements
-  doLayout
-    :: l
-    -> Maybe Int          -- index of focused window, or Nothing
-    -> Rect               -- available geometry
-    -> Seq Window         -- all windows on this workspace
-    -> Seq (Window, Rect)
+  doLayout ::
+    l ->
+    Maybe Int -> -- index of focused window, or Nothing
+    Rect -> -- available geometry
+    Seq Window -> -- all windows on this workspace
+    Seq (Window, Rect)
 
   -- Human readable name (shown in status bar, etc.)
-  layoutN:: l -> String
+  layoutName :: l -> String
+  layoutName = show
 
   -- Handle messages → possibly produce new layout value
   -- Returns Nothing if message not understood → no change, no refresh
   handleMsg :: l -> LayoutMsg -> Maybe l
 
-  -- Optional: default description if you derive Show
-  description :: l -> String
-  description = show
+-- Helper to unwrap name
+layoutName' :: SomeLayout -> String
+layoutName' (SomeLayout l) = layoutName l
 
+-- Apply layout through the wrapper
+applySomeLayout ::
+  SomeLayout ->
+  Maybe Int ->
+  Rect ->
+  Seq Window ->
+  Seq (Window, Rect)
+applySomeLayout (SomeLayout l) foc rect ws = doLayout l foc rect ws
+
+-- Handle message through wrapper
+handleSomeMsg :: SomeLayout -> LayoutMsg -> Maybe SomeLayout
+handleSomeMsg (SomeLayout l) msg =
+  case handleMsg l msg of
+    Nothing -> Nothing
+    Just new_l -> Just (SomeLayout new_l)
 
 type RiverEdge = CUInt
 
@@ -164,7 +182,7 @@ edgeRight = 8
 data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
 
 data RivermonadConfig = RivermonadConfig
-  { defaultLayouts :: Map WorkspaceID LayoutType
+  { defaultLayouts :: Map WorkspaceID SomeLayout
   , defaultRatios :: Map WorkspaceID Double
   , execOnStart :: [String]
   , gapPx :: CInt
@@ -183,7 +201,6 @@ data RivermonadConfig = RivermonadConfig
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)
-  , persistedWorkspaceRatios :: Map WorkspaceID Double
   }
   deriving (Generic)
 
