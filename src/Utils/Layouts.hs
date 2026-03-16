@@ -10,6 +10,7 @@ module Utils.Layouts (
   IfMaxLayout (..),
   MirrorLayout (..),
   ChooseLayout (..),
+  MagnifierLayout (..),
 ) where
 
 import Data.Sequence as S
@@ -155,15 +156,15 @@ instance Layout IfMaxLayout where
 data MirrorLayout = MirrorLayout
   { horizontal :: Bool
   , vertical :: Bool
-  , childLayout :: SomeLayout
+  , mirrorChildLayout :: SomeLayout
   }
 
 instance Show MirrorLayout where
-  show l = "Mirroring " ++ layoutName' (childLayout l)
+  show l = "Mirrored " ++ layoutName' (mirrorChildLayout l)
 
 instance Layout MirrorLayout where
   doLayout MirrorLayout{..} focused total@Rect{rx, ry, rh, rw} xs =
-    let before = applySomeLayout childLayout focused total xs
+    let before = applySomeLayout mirrorChildLayout focused total xs
         mirror rect@Rect{rx = x, ry = y, rh = h, rw = w}
           | horizontal && vertical = rect{rx = rx + rw - x - w + rx, ry = ry + rh - y - h + ry}
           | horizontal = rect{rx = rx + rw - x - w + rx}
@@ -171,7 +172,9 @@ instance Layout MirrorLayout where
           | otherwise = rect
      in fmap (\(win, rect) -> (win, mirror rect)) before
 
-  handleMsg _ _ = Nothing
+  handleMsg l msg = case handleSomeMsg (mirrorChildLayout l) msg of
+    Nothing -> Nothing
+    Just layout -> Just l{mirrorChildLayout = layout}
 
 data ChooseLayout = ChooseLayout
   { currentLayout :: Int
@@ -195,3 +198,27 @@ instance Layout ChooseLayout where
             let (before, after) = Prelude.splitAt i opts
                 rest = Prelude.drop 1 after
              in Just $ c{layoutOptions = before ++ [newInner] ++ rest}
+
+data MagnifierLayout = MagnifierLayout
+  { magnifierRatio :: Double
+  , mChildLayout :: SomeLayout
+  }
+
+instance Show MagnifierLayout where
+  show l = "Magnified " ++ layoutName' (mChildLayout l)
+
+instance Layout MagnifierLayout where
+  handleMsg l msg = case handleSomeMsg (mChildLayout l) msg of
+    Nothing -> Nothing
+    Just layout -> Just l{mChildLayout = layout}
+  doLayout l focused total@Rect{rx, ry, rh, rw} ws = case focused of
+    Nothing -> applySomeLayout (mChildLayout l) focused total ws
+    Just i ->
+      let res = applySomeLayout (mChildLayout l) focused total ws
+          deleted = S.deleteAt i res
+          (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
+          newW = min rw (truncate (fromIntegral w * magnifierRatio l))
+          newH = min rh (truncate (fromIntegral h * magnifierRatio l))
+          newX = min (rx + rw) (max (x - ((newW - w) `div` 2)) rx)
+          newY = min (ry + rh) (max (y - ((newH - h) `div` 2)) ry)
+       in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| deleted

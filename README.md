@@ -12,7 +12,7 @@ Everything will be hardcoded for personal use
   - [X] Circle
   - [X] Roledex
   - [X] Ifmax of two layouts
-  - [ ] Magnifier
+  - [X] Magnifier
   - [X] Workspace individual layouts
   - [ ] Combine layouts
   - [ ] Adding deleting master windows

@@ -459,19 +459,19 @@ findClosestWindow ws direction index = res
             dx = fromIntegral $ (rx + rw `div` 2) - (x + w `div` 2)
          in case direction of
               WindowLeft ->
-                if x + w >= rx + rw || dx < 0
+                if dx < 0
                   then infinity
                   else (dx ** 2) + ((dy * 2) ** 2)
               WindowDown ->
-                if y + h <= ry + rh || dy > 0
+                if dy > 0
                   then infinity
                   else (dy ** 2) + ((dx * 2) ** 2)
               WindowUp ->
-                if y + h >= ry + rh || dy < 0
+                if dy < 0
                   then infinity
                   else (dy ** 2) + ((dx * 2) ** 2)
               WindowRight ->
-                if x + w <= rx + rw || dx > 0
+                if dx > 0
                   then infinity
                   else (dx ** 2) + ((dy * 2) ** 2)
 

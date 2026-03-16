@@ -10,6 +10,7 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 import Utils.Layouts
 
+myLayout :: Int -> SomeLayout
 myLayout i = SomeLayout $ ChooseLayout i [SomeLayout MonocleLayout, SomeLayout (TallLayout 0.6 1), SomeLayout (TwoPaneLayout 0.6 1)]
 
 myConfig :: RivermonadConfig
