@@ -53,7 +53,6 @@ sendMessage msg _ stateMVar = do
     case handleSomeMsg (workspaceLayouts state M.! focusedWorkspace) (SomeMessage msg) of
       Nothing -> pure state
       Just layout -> do
-        riverWindowManagerManageDirty (currentWmManager state)
         pure state{workspaceLayouts = M.insert focusedWorkspace layout (workspaceLayouts state)}
 
 exitSession :: Ptr RiverSeat -> MVar WMState -> IO ()
@@ -130,7 +129,6 @@ toggleFullscreenCurrentWindow _ stateMVar = do
        , fullscreenQueue
        , allOutputWorkspaces
        , focusedOutput
-       , currentWmManager
        } -> do
         case focusedWindow of
           Nothing -> pure state
@@ -172,7 +170,6 @@ toggleFullscreenCurrentWindow _ stateMVar = do
                     newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
                     newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
 
-                riverWindowManagerManageDirty currentWmManager
                 pure newState{allWindows = newWindows}
 
 toggleFloatingCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
@@ -318,7 +315,6 @@ zoomWindow _ stateMVar = do
                       Just i -> currentWin S.<| (S.update i w ws)
 
             let newWorkspacesTiled = BS.changeSeqOrder workspace zoom bimap
-            riverWindowManagerManageDirty (currentWmManager state)
             pure $ state{allWorkspacesTiled = newWorkspacesTiled}
       Nothing -> pure state
 
@@ -372,7 +368,7 @@ switchWorkspace targetID seat stateMVar = do
                       , allWorkspacesFloating = newWorkspacesFloating
                       , focusedWindow = newFocusedWindow
                       }
-                  , riverWindowManagerManageDirty (currentWmManager state)
+                  , pure ()
                   )
   nextAction
 
@@ -485,7 +481,6 @@ moveWindowToWorkspace targetID seat stateMVar = do
        , allWindows
        , focusedOutput
        , allOutputWorkspaces
-       , currentWmManager
        , renderQueue
        , manageQueue
        } -> do
@@ -505,7 +500,6 @@ moveWindowToWorkspace targetID seat stateMVar = do
                   (nextFocus, focusAction) = case remainingWindows of
                     h S.:<| _ -> (Just h, riverSeatFocusWindow seat h)
                     S.Empty -> (Nothing, riverSeatClearFocus seat)
-                riverWindowManagerManageDirty currentWmManager
                 pure
                   newState
                     { renderQueue = renderQueue >> riverWindowHide w
@@ -710,7 +704,6 @@ startRepeating action seat stateMVar =
             action seat stateMVar
             threadDelay 50000 -- Repeat rate (20Hz)
             print "hello3"
-            riverWindowManagerManageDirty $ currentWmManager state
         return state{activeRepeater = Just tid}
 
 stopRepeating :: Ptr RiverSeat -> MVar WMState -> IO ()

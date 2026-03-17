@@ -37,6 +37,7 @@ hsSeatRemoved dataPtr seat = do
         newPointerBindings = M.delete seat $ seatPointerBindings state
     mapM_ riverXkbBindingDestroy $ M.findWithDefault [] seat $ seatXkbBindings state
     mapM_ riverPointerBindingDestroy $ M.findWithDefault [] seat $ seatPointerBindings state
+    riverSeatDestroy seat
     pure
       state
         { focusedSeat = newSeat
