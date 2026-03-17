@@ -18,15 +18,15 @@ defaultConfig =
           ]
     , defaultLayouts =
         M.fromList
-          [ (1, SomeLayout MonocleLayout)
-          , (2, SomeLayout MonocleLayout)
-          , (3, SomeLayout MonocleLayout)
-          , (4, SomeLayout MonocleLayout)
-          , (5, SomeLayout MonocleLayout)
-          , (6, SomeLayout MonocleLayout)
-          , (7, SomeLayout MonocleLayout)
-          , (8, SomeLayout MonocleLayout)
-          , (9, SomeLayout MonocleLayout)
+          [ (1, monocle)
+          , (2, monocle)
+          , (3, monocle)
+          , (4, monocle)
+          , (5, monocle)
+          , (6, monocle)
+          , (7, monocle)
+          , (8, monocle)
+          , (9, monocle)
           ]
     , statePath = "/tmp/rivermonad-state.json"
     , floatingRules = []

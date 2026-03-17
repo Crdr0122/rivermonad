@@ -10,6 +10,7 @@ import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
 import Data.Sequence
+import Data.Typeable
 import Foreign
 import Foreign.C
 import GHC.Generics
@@ -104,22 +105,23 @@ data Output = Output
   }
   deriving (Generic, Eq)
 
--- data LayoutType = LayoutType
---   { layoutName :: String
---   , layoutFun :: Maybe Int -> Double -> Rect -> Seq Window -> Seq (Window, Rect)
---   }
+class (Typeable m) => Message m
+data SomeMessage = forall m. (Message m) => SomeMessage m
+fromMessage :: (Message m) => SomeMessage -> Maybe m
+fromMessage (SomeMessage m) = cast m
 
-data LayoutMsg
-  = IncMasterN Int -- +1 / -1
-  | IncMasterFrac Double -- e.g. +0.05 or -0.05
-  | SetMasterFrac Double
-  | Next -- for layout choosers (||| style)
-  deriving (Show, Eq)
+data IncMasterFrac = IncMasterFrac Double deriving (Typeable)
+data IncMasterN = IncMasterN Int deriving (Typeable)
+data SetMasterFrac = SetMasterFrac Double deriving (Typeable)
+data Next = Next deriving (Typeable)
+instance Message Next
+instance Message IncMasterFrac
+instance Message IncMasterN
+instance Message SetMasterFrac
 
-data SomeLayout = forall l. (Layout l, Show l) => SomeLayout l
+data SomeLayout = forall l. (Layout l) => SomeLayout l
 
-class (Show l) => Layout l where
-  -- Core: produce window placements
+class Layout l where
   doLayout ::
     l ->
     Maybe Int -> -- index of focused window, or Nothing
@@ -129,17 +131,14 @@ class (Show l) => Layout l where
 
   -- Human readable name (shown in status bar, etc.)
   layoutName :: l -> String
-  layoutName = show
 
   -- Handle messages → possibly produce new layout value
   -- Returns Nothing if message not understood → no change, no refresh
-  handleMsg :: l -> LayoutMsg -> Maybe l
+  handleMsg :: l -> SomeMessage -> Maybe l
 
--- Helper to unwrap name
 layoutName' :: SomeLayout -> String
 layoutName' (SomeLayout l) = layoutName l
 
--- Apply layout through the wrapper
 applySomeLayout ::
   SomeLayout ->
   Maybe Int ->
@@ -148,8 +147,7 @@ applySomeLayout ::
   Seq (Window, Rect)
 applySomeLayout (SomeLayout l) foc rect ws = doLayout l foc rect ws
 
--- Handle message through wrapper
-handleSomeMsg :: SomeLayout -> LayoutMsg -> Maybe SomeLayout
+handleSomeMsg :: SomeLayout -> SomeMessage -> Maybe SomeLayout
 handleSomeMsg (SomeLayout l) msg =
   case handleMsg l msg of
     Nothing -> Nothing
@@ -183,7 +181,6 @@ data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
 
 data RivermonadConfig = RivermonadConfig
   { defaultLayouts :: Map WorkspaceID SomeLayout
-  , defaultRatios :: Map WorkspaceID Double
   , execOnStart :: [String]
   , gapPx :: CInt
   , borderPx :: CInt

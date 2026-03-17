@@ -141,7 +141,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
                   Output{outWidth} = allOutputs M.! focusedOutput
                   (oldDx, _, _, _) = currentOpDelta state
                   focusedWorkspace = allOutputWorkspaces B.! focusedOutput
-                case handleSomeMsg (workspaceLayouts M.! focusedWorkspace) (IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outWidth)) of
+                case handleSomeMsg (workspaceLayouts M.! focusedWorkspace) (SomeMessage $ IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outWidth)) of
                   Nothing -> pure state{currentOpDelta = (dx, 0, 0, 0)}
                   Just layout -> pure state{workspaceLayouts = M.insert focusedWorkspace layout workspaceLayouts, currentOpDelta = (dx, 0, 0, 0)}
               DraggingTile w -> do

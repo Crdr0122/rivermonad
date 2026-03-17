@@ -2,27 +2,29 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Utils.Layouts (
-  TallLayout (..),
-  MonocleLayout (..),
-  TwoPaneLayout (..),
-  CircleLayout (..),
-  RoledexLayout (..),
-  IfMaxLayout (..),
-  MirrorLayout (..),
-  ChooseLayout (..),
-  MagnifierLayout (..),
+  tall,
+  monocle,
+  twoPane,
+  circle,
+  roledex,
+  ifMax,
+  mirror,
+  choose,
+  magnifier,
 ) where
 
+import Control.Monad (msum)
 import Data.Sequence as S
 import Types
 
+tall :: Double -> Int -> SomeLayout
+tall frac n = SomeLayout $ TallLayout frac n
 data TallLayout = TallLayout
   { masterWindowRatio :: Double
   , masterWindowNum :: Int
   }
-  deriving (Show)
-
 instance Layout TallLayout where
+  layoutName _ = "Tall"
   doLayout _ _ _ Empty = empty
   doLayout _ _ total (w :<| Empty) = singleton (w, total)
   doLayout TallLayout{masterWindowRatio = r} _ total (master :<| slaves@(slaveHead :<| slavesTail)) =
@@ -32,35 +34,45 @@ instance Layout TallLayout where
         slaveHeight = rh stackRect `div` (fromIntegral $ S.length slaves)
         leftOverHeight = rh stackRect `mod` (fromIntegral $ S.length slaves)
 
-        -- First slave window gets the leftover height
         slaveHeadGeo = (slaveHead, stackRect{rh = slaveHeight + leftOverHeight})
 
-        -- Map over slaves to give them each a slice of the stack height
         slaveGeos =
           mapWithIndex
             (\i w -> (w, stackRect{ry = ry stackRect + (fromIntegral (i + 1) * slaveHeight) + leftOverHeight, rh = slaveHeight}))
             slavesTail
      in (master, masterRect) <| slaveHeadGeo <| slaveGeos
 
-  layoutName _ = "Tall"
+  handleMsg TallLayout{..} m =
+    msum
+      [ fmap increaseFrac (fromMessage m)
+      , fmap setFrac (fromMessage m)
+      , fmap increaseN (fromMessage m)
+      , Nothing
+      ]
+   where
+    setFrac (SetMasterFrac d) = TallLayout{masterWindowRatio = d, masterWindowNum = masterWindowNum}
+    increaseN (IncMasterN i) = TallLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 0 (masterWindowNum + i)}
+    increaseFrac (IncMasterFrac d) =
+      TallLayout
+        { masterWindowRatio =
+            let clamp = masterWindowRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else masterWindowRatio
+        , masterWindowNum = masterWindowNum
+        }
 
-  handleMsg TallLayout{..} msg = case msg of
-    IncMasterFrac d -> Just TallLayout{masterWindowRatio = let m = masterWindowRatio + d in if m > 0.15 && m < 0.85 then m else masterWindowRatio, masterWindowNum = masterWindowNum}
-    _ -> Nothing
-
-data MonocleLayout = MonocleLayout deriving (Show)
-
+monocle :: SomeLayout
+monocle = SomeLayout MonocleLayout
+data MonocleLayout = MonocleLayout
 instance Layout MonocleLayout where
   doLayout _ _ total ws = fmap (\w -> (w, total)) ws
   layoutName _ = "Monocle"
   handleMsg _ _ = Nothing
 
+twoPane :: Double -> Int -> SomeLayout
+twoPane frac n = SomeLayout $ TwoPaneLayout frac n
 data TwoPaneLayout = TwoPaneLayout
   { masterWindowRatio :: Double
   , masterWindowNum :: Int
   }
-  deriving (Show)
-
 instance Layout TwoPaneLayout where
   doLayout _ _ _ Empty = empty
   doLayout _ _ total (w :<| Empty) = singleton (w, total)
@@ -70,13 +82,27 @@ instance Layout TwoPaneLayout where
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveGeos = fmap (\w -> (w, stackRect)) slaves
      in (master, masterRect) <| slaveGeos
-  layoutName _ = "Two Pane"
-  handleMsg TwoPaneLayout{..} msg = case msg of
-    IncMasterFrac d -> Just TwoPaneLayout{masterWindowRatio = let m = masterWindowRatio + d in if m > 0.15 && m < 0.85 then m else masterWindowRatio, masterWindowNum = masterWindowNum}
-    _ -> Nothing
+  layoutName _ = "TwoPane"
+  handleMsg TwoPaneLayout{..} m =
+    msum
+      [ fmap increaseFrac (fromMessage m)
+      , fmap setFrac (fromMessage m)
+      , fmap increaseN (fromMessage m)
+      , Nothing
+      ]
+   where
+    setFrac (SetMasterFrac d) = TwoPaneLayout{masterWindowRatio = d, masterWindowNum = masterWindowNum}
+    increaseN (IncMasterN i) = TwoPaneLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 0 (masterWindowNum + i)}
+    increaseFrac (IncMasterFrac d) =
+      TwoPaneLayout
+        { masterWindowRatio =
+            let clamp = masterWindowRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else masterWindowRatio
+        , masterWindowNum = masterWindowNum
+        }
 
-data CircleLayout = CircleLayout deriving (Show)
-
+circle :: SomeLayout
+circle = SomeLayout CircleLayout
+data CircleLayout = CircleLayout
 instance Layout CircleLayout where
   doLayout _ _ _ Empty = empty
   doLayout _ _ Rect{rx, ry, rw, rh} (master :<| slaves) =
@@ -107,8 +133,9 @@ instance Layout CircleLayout where
   layoutName _ = "Circle"
   handleMsg _ _ = Nothing
 
-data RoledexLayout = RoledexLayout deriving (Show)
-
+roledex :: SomeLayout
+roledex = SomeLayout RoledexLayout
+data RoledexLayout = RoledexLayout
 instance Layout RoledexLayout where
   doLayout _ _ _ Empty = empty
   doLayout _ _ Rect{rx, ry, rw, rh} (w :<| Empty) =
@@ -138,76 +165,87 @@ instance Layout RoledexLayout where
   layoutName _ = "Roledex"
   handleMsg _ _ = Nothing
 
+ifMax :: SomeLayout -> SomeLayout -> Int -> SomeLayout
+ifMax l1 l2 n = SomeLayout $ IfMaxLayout l1 l2 n
 data IfMaxLayout = IfMaxLayout
   { firstChildLayout :: SomeLayout
   , secondChildLayout :: SomeLayout
   , windowThreshold :: Int
   }
-
-instance Show IfMaxLayout where
-  show i = "Either " ++ layoutName' (firstChildLayout i) ++ " or " ++ layoutName' (secondChildLayout i)
-
 instance Layout IfMaxLayout where
   doLayout IfMaxLayout{..} focused total xs
     | S.length xs <= windowThreshold = applySomeLayout firstChildLayout focused total xs
     | otherwise = applySomeLayout secondChildLayout focused total xs
-  handleMsg _ _ = Nothing
+  layoutName i = "Either " ++ layoutName' (firstChildLayout i) ++ " or " ++ layoutName' (secondChildLayout i)
+  handleMsg l m = Just $ l{firstChildLayout = l1, secondChildLayout = l2}
+   where
+    l1 = case handleSomeMsg (firstChildLayout l) m of
+      Nothing -> firstChildLayout l
+      Just layout -> layout
+    l2 = case handleSomeMsg (secondChildLayout l) m of
+      Nothing -> secondChildLayout l
+      Just layout -> layout
 
+mirror :: Bool -> Bool -> SomeLayout -> SomeLayout
+mirror hori vert child = SomeLayout $ MirrorLayout hori vert child
 data MirrorLayout = MirrorLayout
   { horizontal :: Bool
   , vertical :: Bool
   , mirrorChildLayout :: SomeLayout
   }
-
-instance Show MirrorLayout where
-  show l = "Mirrored " ++ layoutName' (mirrorChildLayout l)
-
 instance Layout MirrorLayout where
   doLayout MirrorLayout{..} focused total@Rect{rx, ry, rh, rw} xs =
     let before = applySomeLayout mirrorChildLayout focused total xs
-        mirror rect@Rect{rx = x, ry = y, rh = h, rw = w}
+        calc rect@Rect{rx = x, ry = y, rh = h, rw = w}
           | horizontal && vertical = rect{rx = rx + rw - x - w + rx, ry = ry + rh - y - h + ry}
           | horizontal = rect{rx = rx + rw - x - w + rx}
           | vertical = rect{ry = ry + rh - y - h + ry}
           | otherwise = rect
-     in fmap (\(win, rect) -> (win, mirror rect)) before
+     in fmap (\(win, rect) -> (win, calc rect)) before
 
+  layoutName l = "Mirrored " ++ layoutName' (mirrorChildLayout l)
   handleMsg l msg = case handleSomeMsg (mirrorChildLayout l) msg of
     Nothing -> Nothing
     Just layout -> Just l{mirrorChildLayout = layout}
 
+choose :: Int -> [SomeLayout] -> SomeLayout
+choose i opts = SomeLayout $ ChooseLayout i opts
 data ChooseLayout = ChooseLayout
   { currentLayout :: Int
   , layoutOptions :: [SomeLayout]
   }
-
-instance Show ChooseLayout where
-  show c = layoutName' (layoutOptions c !! currentLayout c)
-
 instance Layout ChooseLayout where
   doLayout c foc rect ws =
     applySomeLayout (layoutOptions c !! currentLayout c) foc rect ws
 
-  handleMsg c@(ChooseLayout i opts) Next =
-    Just $ c{currentLayout = (i + 1) `mod` Prelude.length opts}
-  handleMsg c@(ChooseLayout i opts) msg =
-    let inner = opts !! currentLayout c
-     in case handleSomeMsg inner msg of
-          Nothing -> Nothing
-          Just newInner ->
-            let (before, after) = Prelude.splitAt i opts
-                rest = Prelude.drop 1 after
-             in Just $ c{layoutOptions = before ++ [newInner] ++ rest}
+  layoutName c = layoutName' (layoutOptions c !! currentLayout c)
 
+  handleMsg c@(ChooseLayout i opts) m =
+    msum
+      [ fmap changeIndex (fromMessage m)
+      , goInner
+      , Nothing
+      ]
+   where
+    changeIndex Next =
+      c{currentLayout = (i + 1) `mod` Prelude.length opts}
+    goInner =
+      let inner = opts !! currentLayout c
+       in case handleSomeMsg inner m of
+            Nothing -> Nothing
+            Just newInner ->
+              let (before, after) = Prelude.splitAt i opts
+                  rest = Prelude.drop 1 after
+               in Just $ c{layoutOptions = before ++ [newInner] ++ rest}
+
+magnifier :: Double -> SomeLayout -> SomeLayout
+magnifier ratio child = SomeLayout $ MagnifierLayout ratio child
 data MagnifierLayout = MagnifierLayout
   { magnifierRatio :: Double
   , mChildLayout :: SomeLayout
   }
-
-instance Show MagnifierLayout where
-  show l = "Magnified " ++ layoutName' (mChildLayout l)
-
 instance Layout MagnifierLayout where
+  layoutName l = "Magnified " ++ layoutName' (mChildLayout l)
   handleMsg l msg = case handleSomeMsg (mChildLayout l) msg of
     Nothing -> Nothing
     Just layout -> Just l{mChildLayout = layout}

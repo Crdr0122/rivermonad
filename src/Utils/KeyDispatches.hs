@@ -46,11 +46,11 @@ import Wayland.ImportedFunctions
 doNothing :: Ptr RiverSeat -> MVar WMState -> IO ()
 doNothing _ _ = pure ()
 
-sendMessage :: LayoutMsg -> Ptr RiverSeat -> MVar WMState -> IO ()
+sendMessage :: (Message m) => m -> Ptr RiverSeat -> MVar WMState -> IO ()
 sendMessage msg _ stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
-    case handleSomeMsg (workspaceLayouts state M.! focusedWorkspace) msg of
+    case handleSomeMsg (workspaceLayouts state M.! focusedWorkspace) (SomeMessage msg) of
       Nothing -> pure state
       Just layout -> do
         riverWindowManagerManageDirty (currentWmManager state)
