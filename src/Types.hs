@@ -56,6 +56,8 @@ data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEd
 data WlDisplay
 data WlRegistry
 data WlProxy
+data WlSurface
+data WlArray
 data RiverNode
 data RiverWindow
 data RiverOutput
@@ -75,9 +77,12 @@ data RiverXkbConfig
 data RiverXkbKeyboard
 data RiverXkbKeymap
 data RiverInputManager
+data RiverInputDevice
 data RiverLibinputConfig
-
-data WlSurface
+data RiverLibinputAccelConfig
+data RiverLibinputDevice
+data RiverLibinputResult
+type WlFixedT = CInt
 
 data Window = Window
   { winPtr :: Ptr RiverWindow

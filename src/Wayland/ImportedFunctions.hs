@@ -6,7 +6,6 @@ import Foreign
 import Foreign.C
 import Types
 
-foreign import ccall unsafe "get_river" getRiver :: Ptr RiverWMManager
 foreign import ccall unsafe "get_river_wm_listener" getRiverWmListener :: Ptr ()
 foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :: Ptr ()
 foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()
@@ -16,6 +15,10 @@ foreign import ccall unsafe "get_river_layer_shell_seat_listener" getRiverLayerS
 foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
 foreign import ccall unsafe "get_river_xkb_keymap_listener" getRiverXkbKeymapListener :: Ptr ()
+foreign import ccall unsafe "get_river_libinput_config_listener" getRiverLibinputConfigListener :: Ptr ()
+foreign import ccall unsafe "get_river_libinput_device_listener" getRiverLibinputDeviceListener :: Ptr ()
+foreign import ccall unsafe "get_river_input_manager_listener" getRiverInputManagerListener :: Ptr ()
+foreign import ccall unsafe "get_river_input_device_listener" getRiverInputDeviceListener :: Ptr ()
 
 foreign import capi "river-window-management.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()
@@ -179,3 +182,82 @@ foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_numlock_enable"
   riverXkbKeyboardNumlockEnable :: Ptr RiverXkbKeyboard -> IO ()
 foreign import capi "river-xkb-config.h river_xkb_keyboard_v1_numlock_disable"
   riverXkbKeyboardNumlockDisable :: Ptr RiverXkbKeyboard -> IO ()
+
+foreign import capi "river-input-management.h river_input_manager_v1_stop"
+  riverInputManagerStop :: Ptr RiverInputManager -> IO ()
+foreign import capi "river-input-management.h river_input_manager_v1_destroy"
+  riverInputManagerDestroy :: Ptr RiverInputManager -> IO ()
+foreign import capi "river-input-management.h river_input_manager_v1_create_seat"
+  riverInputManagerCreateSeat :: Ptr RiverInputManager -> CString -> IO ()
+foreign import capi "river-input-management.h river_input_manager_v1_destroy_seat"
+  riverInputManagerDestroySeat :: Ptr RiverInputManager -> CString -> IO ()
+
+foreign import capi "river-input-management.h river_input_device_v1_destroy"
+  riverInputDeviceDestroy :: Ptr RiverInputDevice -> IO ()
+foreign import capi "river-input-management.h river_input_device_v1_assign_to_seat"
+  riverInputDeviceAssignToSeat :: Ptr RiverInputDevice -> CString -> IO ()
+foreign import capi "river-input-management.h river_input_device_v1_set_repeat_info"
+  riverInputDeviceSetRepeatInfo :: Ptr RiverInputDevice -> CInt -> CInt -> IO ()
+foreign import capi "river-input-management.h river_input_device_v1_set_scroll_factor"
+  riverInputDeviceSetScrollFactor :: Ptr RiverInputDevice -> WlFixedT -> IO ()
+foreign import capi "river-input-management.h river_input_device_v1_map_to_output"
+  riverInputDeviceMapToOutput :: Ptr RiverInputDevice -> Ptr RiverOutput -> IO ()
+foreign import capi "river-input-management.h river_input_device_v1_map_to_rectangle"
+  riverInputDeviceMapToRectangle :: Ptr RiverInputDevice -> CInt -> CInt -> CInt -> CInt -> IO ()
+
+foreign import capi "river-libinput-config.h river_libinput_config_v1_stop"
+  riverLibinputConfigStop :: Ptr RiverLibinputConfig -> IO ()
+foreign import capi "river-libinput-config.h river_libinput_config_v1_destroy"
+  riverLibinputConfigDestroy :: Ptr RiverLibinputConfig -> IO ()
+foreign import capi "river-libinput-config.h river_libinput_config_v1_create_accel_config"
+  riverLibinputConfigCreateAccelConfig :: Ptr RiverLibinputConfig -> CUInt -> IO (Ptr RiverLibinputAccelConfig)
+
+foreign import capi "river-libinput-config.h river_libinput_device_v1_destroy"
+  riverLibinputDeviceDestroy :: Ptr RiverLibinputDevice -> IO ()
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_send_events"
+  riverLibinputDeviceSetSendEvents :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_tap"
+  riverLibinputDeviceSetTap :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_tap_button_map"
+  riverLibinputDeviceSetTapButtontMap :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_drag"
+  riverLibinputDeviceSetDrag :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_drag_lock"
+  riverLibinputDeviceSetDragLock :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_three_finger_drag"
+  riverLibinputDeviceSetThreeFingerDrag :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_calibration_matrix"
+  riverLibinputDeviceSetCalibrationMatrix :: Ptr RiverLibinputDevice -> Ptr WlArray -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_accel_profile"
+  riverLibinputDeviceSetAccelProfile :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_accel_speed"
+  riverLibinputDeviceSetAccelSpeed :: Ptr RiverLibinputDevice -> Ptr WlArray -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_apply_accel_config"
+  riverLibinputDeviceApplyAccelConfig :: Ptr RiverLibinputDevice -> Ptr RiverLibinputAccelConfig -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_natural_scroll"
+  riverLibinputDeviceSetNaturalScroll :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_left_handed"
+  riverLibinputDeviceSetLeftHanded :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_click_method"
+  riverLibinputDeviceSetClickMethod :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_clickfinger_button_map"
+  riverLibinputDeviceSetClickfingerButtonMap :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_middle_emulation"
+  riverLibinputDeviceSetMiddleEmulation :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_scroll_method"
+  riverLibinputDeviceSetScrollMethod :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_scroll_button"
+  riverLibinputDeviceSetScrollButton :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_scroll_button_lock"
+  riverLibinputDeviceSetScrollButtonLock :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_dwt"
+  riverLibinputDeviceSetDwt :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_dwtp"
+  riverLibinputDeviceSetDwtp :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+foreign import capi "river-libinput-config.h river_libinput_device_v1_set_rotation"
+  riverLibinputDeviceSetRotation :: Ptr RiverLibinputDevice -> CUInt -> IO (Ptr RiverLibinputResult)
+
+foreign import capi "river-libinput-config.h river_libinput_accel_config_v1_destroy"
+  riverLibinputAccelConfigDestroy :: Ptr RiverLibinputAccelConfig -> IO ()
+foreign import capi "river-libinput-config.h river_libinput_accel_config_v1_set_points"
+  riverLibinputAccelConfigSetPoints :: Ptr RiverLibinputAccelConfig -> CUInt -> Ptr WlArray -> Ptr WlArray -> IO ()

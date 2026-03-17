@@ -2,6 +2,7 @@ module Layout (startLayout) where
 
 import Config
 import Control.Concurrent.MVar
+import Control.Monad (unless)
 import Data.Bimap qualified as B
 import Data.Foldable
 import Data.List
@@ -24,12 +25,12 @@ startLayout stateMVar = do
       checkWorkspaceRule window@Window{winTitle, winAppID} =
         case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (workspaceRules myConfig) of
           Nothing -> (window, focusedWorkspace)
-          Just (_, _, w) -> (window, w)
+          Just (_, _, workspace) -> (window, workspace)
 
-      checkTilingRule (window@Window{winTitle, winAppID}, w) =
+      checkTilingRule (window@Window{winTitle, winAppID}, workspace) =
         case find (\(t, a, _) -> t `isInfixOf` winTitle && a `isInfixOf` winAppID) (floatingRules myConfig) of
-          Nothing -> (window, w, Tiled)
-          Just (_, _, s) -> (window, w, s)
+          Nothing -> (window, workspace, Tiled)
+          Just (_, _, s) -> (window, workspace, s)
 
       divided = checkTilingRule <$> (checkWorkspaceRule <$> newWindows)
 
@@ -49,6 +50,8 @@ startLayout stateMVar = do
         Nothing -> (focusedWindow state, pure ())
         Just (Window{winPtr}, _, _) -> (Just winPtr, riverSeatFocusWindow (focusedSeat state) winPtr)
 
+      hideWindows = mapM_ (\(Window{winPtr}, workspace, _) -> unless (workspace `elem` B.keysR (allOutputWorkspaces state)) (riverWindowHide winPtr)) divided
+
     seatFocus
 
     pure
@@ -58,6 +61,7 @@ startLayout stateMVar = do
         , fullscreenQueue = newFullscreen
         , newWindowQueue = []
         , focusedWindow = newFocused
+        , renderQueue = renderQueue state >> hideWindows
         }
 
   state <- readMVar stateMVar

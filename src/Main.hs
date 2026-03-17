@@ -38,6 +38,8 @@ main = do
     xkbBindings = getXkbBindings
     layerShell = getLayerShell
     xkbConfig = getXkbConfig
+    libinputConfig = getLibinputConfig
+    inputManager = getInputManager
 
   exists <- doesFileExist (statePath myConfig)
   oldWindows <-
@@ -89,6 +91,8 @@ main = do
 
   _ <- wlProxyAddListener (castPtr river) getRiverWmListener (castStablePtrToPtr stPtr)
   _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener (castStablePtrToPtr stPtr)
+  _ <- wlProxyAddListener (castPtr libinputConfig) getRiverLibinputConfigListener (castStablePtrToPtr stPtr)
+  _ <- wlProxyAddListener (castPtr inputManager) getRiverInputManagerListener (castStablePtrToPtr stPtr)
 
   _ <- wlDisplayRoundtrip display
 
