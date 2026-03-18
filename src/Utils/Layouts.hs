@@ -27,20 +27,27 @@ instance Layout TallLayout where
   layoutName _ = "Tall"
   doLayout _ _ _ Empty = empty
   doLayout _ _ total (w :<| Empty) = singleton (w, total)
-  doLayout TallLayout{masterWindowRatio = r} _ total (master :<| slaves@(slaveHead :<| slavesTail)) =
-    let masterWidth = truncate $ fromIntegral (rw total) * r
-        masterRect = total{rw = masterWidth}
-        stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
-        slaveHeight = rh stackRect `div` (fromIntegral $ S.length slaves)
-        leftOverHeight = rh stackRect `mod` (fromIntegral $ S.length slaves)
-
-        slaveHeadGeo = (slaveHead, stackRect{rh = slaveHeight + leftOverHeight})
-
-        slaveGeos =
-          mapWithIndex
-            (\i w -> (w, stackRect{ry = ry stackRect + (fromIntegral (i + 1) * slaveHeight) + leftOverHeight, rh = slaveHeight}))
-            slavesTail
-     in (master, masterRect) <| slaveHeadGeo <| slaveGeos
+  doLayout TallLayout{masterWindowRatio = r, masterWindowNum = n} _ total wins
+    | S.length wins <= n = splitRect total wins
+    | otherwise =
+        let masterWidth = truncate $ fromIntegral (rw total) * r
+            masterRect = total{rw = masterWidth}
+            slaveRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
+            (masters, slaves) = S.splitAt n wins
+            masterGeos = splitRect masterRect masters
+            slaveGeos = splitRect slaveRect slaves
+         in masterGeos >< slaveGeos
+   where
+    splitRect _ S.Empty = S.empty
+    splitRect rect ws@(w :<| rest) =
+      let height = rh rect `div` (fromIntegral $ S.length ws)
+          leftOverHeight = rh rect `mod` (fromIntegral $ S.length ws)
+          headGeo = (w, rect{rh = height + leftOverHeight})
+          slaveGeos =
+            mapWithIndex
+              (\i win -> (win, rect{ry = ry rect + (fromIntegral (i + 1) * height) + leftOverHeight, rh = height}))
+              rest
+       in headGeo <| slaveGeos
 
   handleMsg TallLayout{..} m =
     msum
@@ -51,7 +58,7 @@ instance Layout TallLayout where
       ]
    where
     setFrac (SetMasterFrac d) = TallLayout{masterWindowRatio = d, masterWindowNum = masterWindowNum}
-    increaseN (IncMasterN i) = TallLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 0 (masterWindowNum + i)}
+    increaseN (IncMasterN i) = TallLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 1 (masterWindowNum + i)}
     increaseFrac (IncMasterFrac d) =
       TallLayout
         { masterWindowRatio =
@@ -67,11 +74,10 @@ instance Layout MonocleLayout where
   layoutName _ = "Monocle"
   handleMsg _ _ = Nothing
 
-twoPane :: Double -> Int -> SomeLayout
-twoPane frac n = SomeLayout $ TwoPaneLayout frac n
+twoPane :: Double -> SomeLayout
+twoPane frac = SomeLayout $ TwoPaneLayout frac
 data TwoPaneLayout = TwoPaneLayout
   { masterWindowRatio :: Double
-  , masterWindowNum :: Int
   }
 instance Layout TwoPaneLayout where
   doLayout _ _ _ Empty = empty
@@ -87,17 +93,14 @@ instance Layout TwoPaneLayout where
     msum
       [ fmap increaseFrac (fromMessage m)
       , fmap setFrac (fromMessage m)
-      , fmap increaseN (fromMessage m)
       , Nothing
       ]
    where
-    setFrac (SetMasterFrac d) = TwoPaneLayout{masterWindowRatio = d, masterWindowNum = masterWindowNum}
-    increaseN (IncMasterN i) = TwoPaneLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 0 (masterWindowNum + i)}
+    setFrac (SetMasterFrac d) = TwoPaneLayout{masterWindowRatio = d}
     increaseFrac (IncMasterFrac d) =
       TwoPaneLayout
         { masterWindowRatio =
             let clamp = masterWindowRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else masterWindowRatio
-        , masterWindowNum = masterWindowNum
         }
 
 circle :: SomeLayout

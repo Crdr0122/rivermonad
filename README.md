@@ -14,8 +14,8 @@ Everything will be hardcoded for personal use
   - [X] Ifmax of two layouts
   - [X] Magnifier
   - [X] Workspace individual layouts
+  - [X] Adding deleting master windows
   - [ ] Combine layouts
-  - [ ] Adding deleting master windows
 - [X] Floating, resize, dragging
   - [X] Floating resizing
   - [X] Tiling resizing
