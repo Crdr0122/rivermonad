@@ -11,7 +11,7 @@ import Utils.Keysyms
 import Utils.Layouts
 
 myLayout :: Int -> SomeLayout
-myLayout i = choose i [monocle, tall 0.6 1, twoPane 0.6 1]
+myLayout i = choose i [monocle, tall 0.6 1, twoPane 0.6]
 
 myConfig :: RivermonadConfig
 myConfig =
@@ -60,13 +60,15 @@ myConfig =
           ( M.fromList
               [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus True))
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus False))
-              , ((keyGrave, modSuper), (startRepeating $ cycleWindowFocus True))
+              , ((keyGrave, modSuper), (cycleWindowFocus True))
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
               , ((keyW, modSuper), (sendMessage Next))
               , ((keyS, modSuper), (zoomWindow))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))
               , ((keyP, modSuper), (togglePinWindow))
               , ((keyF, modSuperShift), (toggleMaximizeWindow))
+              , ((keyEqual, modSuperShift), (sendMessage (IncMasterN 1)))
+              , ((keyMinus, modSuperShift), (sendMessage (IncMasterN (-1))))
               , ((keyEnter, modSuper), (exec "foot"))
               , ((keyZ, modSuper), (exec "foot -e yazi"))
               , ((keyX, modSuper), (exec "foot -e nvim"))

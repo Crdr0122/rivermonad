@@ -702,6 +702,7 @@ startRepeating action seat stateMVar =
           hFlush stdout
           forever $ do
             action seat stateMVar
+            riverWindowManagerManageDirty $ currentWmManager state
             threadDelay 50000 -- Repeat rate (20Hz)
             print "hello3"
         return state{activeRepeater = Just tid}
