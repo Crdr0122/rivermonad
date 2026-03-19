@@ -6,6 +6,7 @@
 module Types where
 
 import Control.Concurrent
+import Control.Concurrent.STM.TQueue
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
@@ -18,7 +19,6 @@ import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
 type WorkspaceID = Int
-type WMStateRef = MVar WMState
 data WMState = WMState
   { manageQueue :: IO ()
   , renderQueue :: IO ()
@@ -49,9 +49,12 @@ data WMState = WMState
   , persistedState :: Map String (WorkspaceID, WindowStatus)
   , currentKeymapFd :: CInt
   , activeRepeater :: Maybe ThreadId
+  , tQueue :: TQueue WMEvent
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
+
+data WMEvent = WlEvent | RepeatKey (IO ())
 
 data WlDisplay
 data WlRegistry

@@ -1,8 +1,10 @@
 module Main where
 
 import Config
-import Control.Concurrent.MVar
-import Control.Monad (forever)
+import Control.Concurrent
+import Control.Concurrent.STM.TQueue
+import Control.Monad (forever, void)
+import Control.Monad.STM (atomically)
 import Data.Aeson
 import Data.Bimap qualified as B
 import Data.ByteString.Lazy qualified as Byte
@@ -10,12 +12,12 @@ import Data.Map.Strict qualified as M
 import Foreign.Ptr
 import Foreign.StablePtr
 import System.Directory
+import System.Posix.Types (Fd (..))
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Utils.KeyDispatches
 import Wayland.Client
-import Wayland.ImportedFunctions
 
 main :: IO ()
 main = do
@@ -54,6 +56,7 @@ main = do
           _ -> pure M.empty
 
   fd <- createKeymapFd (composeKeyMap myConfig)
+  q <- atomically $ newTQueue
   st <-
     newMVar
       WMState
@@ -86,6 +89,7 @@ main = do
         , persistedState = oldWindows
         , currentKeymapFd = fd
         , activeRepeater = Nothing
+        , tQueue = q
         }
   stPtr <- newStablePtr st
 
@@ -98,6 +102,25 @@ main = do
 
   mapM_ (\str -> exec str nullPtr st) (execOnStart myConfig)
 
+  wlFd <- wlDisplayGetFd display
+  void $ forkIO $ forever $ do
+    threadWaitRead (Fd wlFd)
+    atomically $ writeTQueue q WlEvent
+
   forever $ do
-    _ <- wlDisplayDispatch display
-    pure ()
+    event <- atomically $ readTQueue q
+    case event of
+      WlEvent -> do
+        void $ wlDisplayDispatchPending display
+        pure ()
+
+      -- IPCCommand payload -> do
+      --     -- Safely handle IPC without thread-affinity issues
+      --     modifyMVar_ stateMVar $ \state -> do
+      --         processIPC payload state
+
+      RepeatKey action -> do
+        action
+
+-- _ <- wlDisplayDispatch display
+-- pure ()

@@ -6,19 +6,6 @@ import Foreign
 import Foreign.C
 import Types
 
-foreign import ccall unsafe "get_river_wm_listener" getRiverWmListener :: Ptr ()
-foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :: Ptr ()
-foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()
-foreign import ccall unsafe "get_river_seat_listener" getRiverSeatListener :: Ptr ()
-foreign import ccall unsafe "get_river_layer_shell_output_listener" getRiverLayerShellOutputListener :: Ptr ()
-foreign import ccall unsafe "get_river_layer_shell_seat_listener" getRiverLayerShellSeatListener :: Ptr ()
-foreign import ccall unsafe "get_river_xkb_config_listener" getRiverXkbConfigListener :: Ptr ()
-foreign import ccall unsafe "get_river_xkb_keyboard_listener" getRiverXkbKeyboardListener :: Ptr ()
-foreign import ccall unsafe "get_river_xkb_keymap_listener" getRiverXkbKeymapListener :: Ptr ()
-foreign import ccall unsafe "get_river_libinput_config_listener" getRiverLibinputConfigListener :: Ptr ()
-foreign import ccall unsafe "get_river_libinput_device_listener" getRiverLibinputDeviceListener :: Ptr ()
-foreign import ccall unsafe "get_river_input_manager_listener" getRiverInputManagerListener :: Ptr ()
-foreign import ccall unsafe "get_river_input_device_listener" getRiverInputDeviceListener :: Ptr ()
 
 foreign import capi "river-window-management.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()
