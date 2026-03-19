@@ -56,7 +56,7 @@ main = do
           _ -> pure M.empty
 
   fd <- createKeymapFd (composeKeyMap myConfig)
-  q <- atomically $ newTQueue
+  -- q <- atomically $ newTQueue
   st <-
     newMVar
       WMState
@@ -89,7 +89,7 @@ main = do
         , persistedState = oldWindows
         , currentKeymapFd = fd
         , activeRepeater = Nothing
-        , tQueue = q
+        -- , tQueue = q
         }
   stPtr <- newStablePtr st
 
@@ -102,25 +102,25 @@ main = do
 
   mapM_ (\str -> exec str nullPtr st) (execOnStart myConfig)
 
-  wlFd <- wlDisplayGetFd display
-  void $ forkIO $ forever $ do
-    threadWaitRead (Fd wlFd)
-    atomically $ writeTQueue q WlEvent
-
+  -- wlFd <- wlDisplayGetFd display
+  -- void $ forkIO $ forever $ do
+  --   threadWaitRead (Fd wlFd)
+  --   atomically $ writeTQueue q WlEvent
+  --
+  -- forever $ do
+  --   event <- atomically $ readTQueue q
+  --   case event of
+  --     WlEvent -> do
+  --       _ <- wlDisplayDispatch display
+  --       pure ()
+  --
+  --     -- IPCCommand payload -> do
+  --     --     -- Safely handle IPC without thread-affinity issues
+  --     --     modifyMVar_ stateMVar $ \state -> do
+  --     --         processIPC payload state
+  --
+  --     RepeatKey action -> do
+  --       action
   forever $ do
-    event <- atomically $ readTQueue q
-    case event of
-      WlEvent -> do
-        void $ wlDisplayDispatchPending display
-        pure ()
-
-      -- IPCCommand payload -> do
-      --     -- Safely handle IPC without thread-affinity issues
-      --     modifyMVar_ stateMVar $ \state -> do
-      --         processIPC payload state
-
-      RepeatKey action -> do
-        action
-
--- _ <- wlDisplayDispatch display
--- pure ()
+    _ <- wlDisplayDispatch display
+    pure ()

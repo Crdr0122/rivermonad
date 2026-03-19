@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <wayland-client.h>
 
-/* Haskell callback */
-
 extern void hs_seat_pointer_enter(void *data, struct river_seat_v1 *seat,
                                   struct river_window_v1 *window);
 extern void hs_seat_window_interaction(void *data, struct river_seat_v1 *seat,

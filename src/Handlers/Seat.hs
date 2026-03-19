@@ -55,7 +55,7 @@ hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatWindowInteraction dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> case focusedWindow state of
-    Just w | w == win -> pure state
+    Just w | w == win -> pure state{manageQueue = manageQueue state >> riverSeatFocusWindow seat win}
     _ -> do
       let Window{nodePtr, isFloating, isFullscreen} = allWindows state M.! win
           maybeWorkspace

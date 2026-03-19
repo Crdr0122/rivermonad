@@ -16,19 +16,23 @@ import Types
 import Wayland.Client
 import Wayland.ImportedFunctions
 
-foreign export ccall "hs_on_new_window"
-  hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
-foreign export ccall "hs_on_new_output"
-  hsOnNewOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
-foreign export ccall "hs_on_new_seat"
-  hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
+foreign export ccall "hs_wm_window"
+  hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
+foreign export ccall "hs_wm_output"
+  hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
+foreign export ccall "hs_wm_seat"
+  hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
 foreign export ccall "hs_wm_manage_start"
-  hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
+  hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 foreign export ccall "hs_wm_render_start"
-  hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
+  hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
+foreign export ccall "hs_wm_session_locked"
+  hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
+foreign export ccall "hs_wm_session_unlocked"
+  hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 
-hsOnNewWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
-hsOnNewWindow dataPtr _ win = do
+hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
+hsWmWindow dataPtr _ win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     node <- riverWindowGetNode win
@@ -56,8 +60,8 @@ hsOnNewWindow dataPtr _ win = do
         , manageQueue = manageQueue state >> (startupApplyManage win)
         }
 
-hsOnNewSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
-hsOnNewSeat dataPtr _ seat = do
+hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
+hsWmSeat dataPtr _ seat = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
@@ -75,8 +79,8 @@ hsOnNewSeat dataPtr _ seat = do
   mapM_ (registerKeybind dataPtr seat) (M.toList $ allKeyBindings myConfig)
   mapM_ (registerPointerbind dataPtr seat) (M.toList $ allPointerBindings myConfig)
 
-hsOnNewOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
-hsOnNewOutput dataPtr _ output = do
+hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
+hsWmOutput dataPtr _ output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
@@ -96,21 +100,41 @@ hsOnNewOutput dataPtr _ output = do
         , allOutputWorkspaces = newOutputsWorkspaces
         }
 
-hsManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
-hsManageStart dataPtr wmManager = do
+hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
+hsWmManageStart dataPtr wmManager = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   state <- readMVar stateMVar
   manageQueue state
   startLayout stateMVar
   riverWindowManagerManageFinish wmManager
 
-hsRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
-hsRenderStart dataPtr wmManager = do
+hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
+hsWmRenderStart dataPtr wmManager = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     renderQueue state
     riverWindowManagerRenderFinish wmManager
     pure state{renderQueue = pure ()}
+
+hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
+hsWmSessionLocked dataPtr _ = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let deActivateX = mapM_ riverXkbBindingDisable (concat $ M.elems $ seatXkbBindings state)
+        deActivateP = mapM_ riverPointerBindingDisable (concat $ M.elems $ seatPointerBindings state)
+    pure state{manageQueue = manageQueue state >> deActivateX >> deActivateP}
+
+hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
+hsWmSessionUnlocked dataPtr wm = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    let activateX = mapM_ riverXkbBindingEnable (concat $ M.elems $ seatXkbBindings state)
+        activateP = mapM_ riverPointerBindingEnable (concat $ M.elems $ seatPointerBindings state)
+        focus = case focusedWindow state of
+          Nothing -> pure ()
+          Just w -> riverSeatFocusWindow (focusedSeat state) w
+    riverWindowManagerManageDirty wm
+    pure state{manageQueue = manageQueue state >> activateX >> activateP >> focus}
 
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do

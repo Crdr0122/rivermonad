@@ -49,7 +49,7 @@ data WMState = WMState
   , persistedState :: Map String (WorkspaceID, WindowStatus)
   , currentKeymapFd :: CInt
   , activeRepeater :: Maybe ThreadId
-  , tQueue :: TQueue WMEvent
+  -- , tQueue :: TQueue WMEvent
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
