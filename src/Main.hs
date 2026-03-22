@@ -3,7 +3,7 @@ module Main where
 import Config
 import Control.Concurrent
 import Control.Concurrent.STM.TQueue
-import Control.Monad (forever, void)
+import Control.Monad (forever)
 import Control.Monad.STM (atomically)
 import Data.Aeson
 import Data.Bimap qualified as B
@@ -11,8 +11,9 @@ import Data.ByteString.Lazy qualified as Byte
 import Data.Map.Strict qualified as M
 import Foreign.Ptr
 import Foreign.StablePtr
+import IPC
 import System.Directory
-import System.Posix.Types (Fd (..))
+import System.IO
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
@@ -56,7 +57,7 @@ main = do
           _ -> pure M.empty
 
   fd <- createKeymapFd (composeKeyMap myConfig)
-  -- q <- atomically $ newTQueue
+  queue <- atomically $ newTQueue
   st <-
     newMVar
       WMState
@@ -89,7 +90,8 @@ main = do
         , persistedState = oldWindows
         , currentKeymapFd = fd
         , activeRepeater = Nothing
-        -- , tQueue = q
+        , tQueue = queue
+        , subscribers = []
         }
   stPtr <- newStablePtr st
 
@@ -102,25 +104,16 @@ main = do
 
   mapM_ (\str -> exec str nullPtr st) (execOnStart myConfig)
 
-  -- wlFd <- wlDisplayGetFd display
-  -- void $ forkIO $ forever $ do
-  --   threadWaitRead (Fd wlFd)
-  --   atomically $ writeTQueue q WlEvent
-  --
-  -- forever $ do
-  --   event <- atomically $ readTQueue q
-  --   case event of
-  --     WlEvent -> do
-  --       _ <- wlDisplayDispatch display
-  --       pure ()
-  --
-  --     -- IPCCommand payload -> do
-  --     --     -- Safely handle IPC without thread-affinity issues
-  --     --     modifyMVar_ stateMVar $ \state -> do
-  --     --         processIPC payload state
-  --
-  --     RepeatKey action -> do
-  --       action
+  startIPCListener "/tmp/rivermonad.sock" queue
+
   forever $ do
-    _ <- wlDisplayDispatch display
-    pure ()
+    event <- atomically $ tryReadTQueue queue
+    case event of
+      Just (IPCEvent s conn) -> do
+        case s of
+          "Subscribe" -> do
+            modifyMVar_ st $ \state -> return state{subscribers = conn : subscribers state}
+          _ -> pure ()
+      Nothing -> do
+        _ <- wlDisplayDispatch display
+        hFlush stdout

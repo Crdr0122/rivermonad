@@ -224,6 +224,7 @@ modAlt = 0x08
 
 modSuper :: CUInt
 modSuper = 0x40
+-- modSuper = 0x08
 
 modSuperShift :: CUInt
 modSuperShift = modSuper .|. modShift
@@ -231,4 +232,3 @@ modSuperShift = modSuper .|. modShift
 modSuperAlt :: CUInt
 modSuperAlt = modSuper .|. modAlt
 
--- modSuper = 0x08

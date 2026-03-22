@@ -73,6 +73,7 @@ executable rivermonad
     Handlers.Window
     Handlers.XkbBindings
     Handlers.XkbConfig
+    IPC
     Layout
     Types
     Utils.BiSeqMap
@@ -98,6 +99,7 @@ executable rivermonad
     stm,
     text,
     unix,
+    network,
     unordered-containers,
 
   -- Directories containing source files.

@@ -14,9 +14,7 @@ module Utils.KeyDispatches (
   reloadWindowManager,
   resizeWindow,
   sendMessage,
-  startRepeating,
   stopDragging,
-  stopRepeating,
   stopResizing,
   swapWindow,
   switchWorkspace,
@@ -29,14 +27,15 @@ module Utils.KeyDispatches (
 ) where
 
 import Control.Concurrent
-import Control.Monad (forever, unless)
+import Control.Monad (unless)
 import Data.Aeson
 import Data.Bimap qualified as B
+import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
-import System.IO
+import IPC
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -359,8 +358,10 @@ switchWorkspace targetID seat stateMVar = do
                     w S.:<| _ -> (Just w, riverSeatFocusWindow seat w)
                     S.Empty -> (Nothing, riverSeatClearFocus seat)
 
+                newState <- broadcastState state (formatStatus state targetID)
+
                 pure
-                  ( state
+                  ( newState
                       { renderQueue = renderQueue state >> hidingActions >> showingActions
                       , manageQueue = manageQueue state >> focusAction
                       , allOutputWorkspaces = newOutputWorkspaces
@@ -371,6 +372,14 @@ switchWorkspace targetID seat stateMVar = do
                   , pure ()
                   )
   nextAction
+
+formatStatus :: WMState -> WorkspaceID -> String
+formatStatus state target =
+  let
+    windows = fmap (\i -> (i, allWorkspaceWindows i state)) [1 .. 9]
+    str = concat $ L.intersperse "," $ fmap (\(i, s) -> if i == target then "1" else if S.length s > 0 then "2" else "0") windows
+   in
+    "tags:" ++ str
 
 focusWindow :: WindowDirection -> Ptr RiverSeat -> MVar WMState -> IO ()
 focusWindow direction seat stateMVar = do
@@ -683,34 +692,3 @@ stopResizing seat stateMVar = do
             , opDeltaState = None
             , currentOpDelta = (0, 0, 0, 0)
             }
-
-startRepeating :: (Ptr RiverSeat -> MVar WMState -> IO ()) -> Ptr RiverSeat -> MVar WMState -> IO ()
-startRepeating action seat stateMVar =
-  modifyMVar_ stateMVar $ \state -> do
-    -- Ensure we don't start two repeaters for the same key
-    case activeRepeater state of
-      Just _ -> return state
-      Nothing -> do
-        print "Repeat"
-        hFlush stdout
-        tid <- forkIO $ do
-          print "hello"
-          action seat stateMVar -- Initial press
-          print "hello1"
-          threadDelay 500000 -- Initial delay (0.5s)
-          print "hello2"
-          hFlush stdout
-          forever $ do
-            action seat stateMVar
-            riverWindowManagerManageDirty $ currentWmManager state
-            threadDelay 50000 -- Repeat rate (20Hz)
-            print "hello3"
-        return state{activeRepeater = Just tid}
-
-stopRepeating :: Ptr RiverSeat -> MVar WMState -> IO ()
-stopRepeating _ stateMVar = modifyMVar_ stateMVar $ \state -> do
-  case activeRepeater state of
-    Nothing -> return state
-    Just tid -> do
-      killThread tid
-      return state{activeRepeater = Nothing}

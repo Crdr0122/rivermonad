@@ -5,7 +5,6 @@ import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
 import Types
-import Utils.KeyDispatches
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -38,8 +37,8 @@ registerKeybind dataPtr seat ((key, modifier), (onPressed)) = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)
-    releasedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= stopRepeating seat)
-    stopRepeatPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= stopRepeating seat)
+    releasedPtr <- mkXkbCallback (\_ _ -> pure ())
+    stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
 
     let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
         bindingManager = currentXkbBindings state

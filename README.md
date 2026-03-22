@@ -36,7 +36,7 @@ Everything will be hardcoded for personal use
 - [X] Directional window focus and swapping
 - [X] Xkb Keymap (Needs manually writing keymap string but works)
 - [ ] Ext-workspace (wait for river)
-- [ ] Cursor shape (wait for river)
+- [ ] Cursor shape
 - [X] Multimonitor focus other outputs
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition

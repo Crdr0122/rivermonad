@@ -16,6 +16,12 @@ foreign import capi "wayland-client.h wl_display_dispatch"
 foreign import capi "wayland-client.h wl_display_dispatch_pending"
   wlDisplayDispatchPending :: Ptr WlDisplay -> IO CInt
 
+foreign import capi "wayland-client.h wl_display_prepare_read"
+  wlDisplayPrepareRead :: Ptr WlDisplay -> IO CInt
+
+foreign import capi "wayland-client.h wl_display_read_events"
+  wlDisplayReadEvents :: Ptr WlDisplay -> IO CInt
+
 foreign import capi "wayland-client.h wl_display_flush"
   wlDisplayFlush :: Ptr WlDisplay -> IO ()
 

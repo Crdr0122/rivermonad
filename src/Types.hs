@@ -15,6 +15,7 @@ import Data.Typeable
 import Foreign
 import Foreign.C
 import GHC.Generics
+import Network.Socket
 import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
@@ -49,12 +50,13 @@ data WMState = WMState
   , persistedState :: Map String (WorkspaceID, WindowStatus)
   , currentKeymapFd :: CInt
   , activeRepeater :: Maybe ThreadId
-  -- , tQueue :: TQueue WMEvent
+  , tQueue :: TQueue WMEvent
+  , subscribers :: [Socket]
   }
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
 
-data WMEvent = WlEvent | RepeatKey (IO ())
+data WMEvent = IPCEvent String Socket
 
 data WlDisplay
 data WlRegistry
