@@ -28,7 +28,7 @@ module Utils.KeyDispatches (
 
 import Control.Concurrent
 import Control.Monad (unless)
-import Data.Aeson
+import Data.Aeson (encodeFile)
 import Data.Bimap qualified as B
 import Data.List qualified as L
 import Data.Map.Strict qualified as M

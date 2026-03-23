@@ -18,7 +18,7 @@ import GHC.Generics
 import Network.Socket
 import Utils.BiSeqMap
 
-data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq)
+data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq, Generic)
 type WorkspaceID = Int
 data WMState = WMState
   { manageQueue :: IO ()
@@ -49,7 +49,6 @@ data WMState = WMState
   , cursorPosition :: (CInt, CInt)
   , persistedState :: Map String (WorkspaceID, WindowStatus)
   , currentKeymapFd :: CInt
-  , activeRepeater :: Maybe ThreadId
   , tQueue :: TQueue WMEvent
   , subscribers :: [Socket]
   }

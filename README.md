@@ -28,9 +28,9 @@ Everything will be hardcoded for personal use
   - [X] Open fullscreen (?)
   - [X] Open on workspace
   - [ ] Open with set size
-- [ ] Ipc
+- [-] Ipc
   - [ ] Receive ipc keydispatches
-  - [ ] Send out workspace information for bars
+  - [X] Send out workspace information for bars
   - [ ] Copy swayipc
 - [X] Window pinning (Only floating)
 - [X] Directional window focus and swapping

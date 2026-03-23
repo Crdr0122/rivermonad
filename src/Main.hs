@@ -89,7 +89,6 @@ main = do
         , cursorPosition = (0, 0)
         , persistedState = oldWindows
         , currentKeymapFd = fd
-        , activeRepeater = Nothing
         , tQueue = queue
         , subscribers = []
         }
