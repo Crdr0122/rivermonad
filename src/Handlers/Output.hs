@@ -5,6 +5,7 @@ import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
+import Optics.Core
 import Types
 import Wayland.ImportedFunctions
 
@@ -20,26 +21,14 @@ foreign export ccall "hs_output_wl_output"
 hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputDimensions dataPtr output width height = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let oldOutputs = allOutputs state
-    case M.lookup output oldOutputs of
-      Nothing -> pure state
-      Just o -> do
-        let updatedOutput = o{outWidth = width, outHeight = height}
-            newOutputs = M.insert output updatedOutput oldOutputs
-        pure state{allOutputs = newOutputs}
+  modifyMVar_ stateMVar $ \(s :: WMState) ->
+    pure $ s & #allOutputs % at output % _Just % #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height
 
 hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputPosition dataPtr output x y = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let oldOutputs = allOutputs state
-    case M.lookup output oldOutputs of
-      Nothing -> pure state
-      Just o -> do
-        let updatedOutput = o{outX = x, outY = y}
-            newOutputs = M.insert output updatedOutput oldOutputs
-        pure state{allOutputs = newOutputs}
+  modifyMVar_ stateMVar $ \(s :: WMState) ->
+    pure $ s & #allOutputs % at output % _Just % #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y
 
 hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput _ _ _ = pure ()

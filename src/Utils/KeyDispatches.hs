@@ -28,6 +28,7 @@ module Utils.KeyDispatches (
 
 import Control.Concurrent
 import Control.Monad (unless)
+import Control.Monad.State hiding (state)
 import Data.Aeson (encodeFile)
 import Data.Bimap qualified as B
 import Data.List qualified as L
@@ -36,6 +37,9 @@ import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import IPC
+import Optics.Core
+import Optics.State
+import Optics.State.Operators
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
@@ -63,13 +67,10 @@ exitSession _ stateMVar =
 closeCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 closeCurrentWindow _ stateMVar = do
   modifyMVar_ stateMVar $ \state ->
-    case focusedWindow state of
+    case state ^. #focusedWindow of
       Nothing -> pure state
       Just w ->
-        pure
-          state
-            { manageQueue = manageQueue state >> riverWindowClose w
-            }
+        pure $ state & #manageQueue %~ (>> riverWindowClose w)
 
 toggleFocusFloating :: Ptr RiverSeat -> MVar WMState -> IO ()
 toggleFocusFloating _ stateMVar = do
@@ -91,142 +92,126 @@ toggleFocusFloating _ stateMVar = do
                 h S.:<| _ -> pure state{focusedWindow = Just h}
 
 cycleWindowFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
-cycleWindowFocus forward seat stateMVar = do
-  modifyMVar_ stateMVar $ \state@WMState{allOutputWorkspaces, focusedOutput, focusedWindow} -> do
-    case focusedWindow of
-      Nothing -> pure state
-      Just w ->
-        do
-          let Window{isFullscreen, isFloating} = allWindows state M.! w
-              focusedWorkspace = allOutputWorkspaces B.! focusedOutput
-              nextWindow bm = BS.lookUpNext focusedWorkspace forward w bm
-              (next, renderAction)
-                | isFullscreen =
-                    let Window{nodePtr} = allWindows state M.! next
-                     in (nextWindow (allWorkspacesFullscreen state), riverNodePlaceTop nodePtr)
-                | isFloating =
-                    let Window{nodePtr} = allWindows state M.! next
-                     in (nextWindow (allWorkspacesFloating state), riverNodePlaceTop nodePtr)
-                | otherwise = (nextWindow (allWorkspacesTiled state), pure ())
-          pure
-            state
-              { focusedWindow = Just next
-              , renderQueue = renderQueue state >> renderAction
-              , manageQueue = manageQueue state >> riverSeatFocusWindow seat next
-              }
+cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ \state -> do
+  let newState = execState transform state
+  pure newState
+ where
+  transform = do
+    maybeFocused <- use #focusedWindow
+    case maybeFocused of
+      Nothing -> pure ()
+      Just w -> do
+        maybeWinData <- preuse (#allWindows % at w % _Just)
+        fOutput <- use #focusedOutput
+        outWorkmaps <- use #allOutputWorkspaces
+
+        case (maybeWinData, B.lookup fOutput outWorkmaps) of
+          (Just win, Just focusedWorkspace) -> do
+            let targetMapOptic
+                  | view #isFullscreen win = #allWorkspacesFullscreen
+                  | view #isFloating win = #allWorkspacesFloating
+                  | otherwise = #allWorkspacesTiled
+
+            targetMap <- use targetMapOptic
+
+            let next = BS.lookUpNext focusedWorkspace forward w targetMap
+
+            nextWinData <- preuse (#allWindows % at next % _Just)
+            let renderAction = case nextWinData of
+                  Just nData
+                    | view #isFullscreen win || view #isFloating win ->
+                        riverNodePlaceTop (view #nodePtr nData)
+                  _ -> pure ()
+
+            #focusedWindow .= Just next
+            #renderQueue %= (>> renderAction)
+            #manageQueue %= (>> riverSeatFocusWindow seat next)
+          _ -> pure ()
 
 toggleFullscreenCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-toggleFullscreenCurrentWindow _ stateMVar = do
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { focusedWindow
-       , allWindows
-       , allWorkspacesFloating
-       , allWorkspacesFullscreen
-       , allWorkspacesTiled
-       , floatingQueue
-       , fullscreenQueue
-       , allOutputWorkspaces
-       , focusedOutput
-       } -> do
-        case focusedWindow of
-          Nothing -> pure state
-          Just win -> do
-            let window@Window{isFloating, isFullscreen, isPinned} = allWindows M.! win
-            if isPinned
-              then pure state
-              else do
-                let focusedWorkspace = allOutputWorkspaces B.! focusedOutput
+toggleFullscreenCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ \state ->
+  pure $ execState transform state
+ where
+  transform = do
+    mWinPtr <- use #focusedWindow
+    fOutput <- use #focusedOutput
+    workmaps <- use #allOutputWorkspaces
+    case (mWinPtr, B.lookup fOutput workmaps) of
+      (Just win, Just ws) -> do
+        mWin <- preuse (#allWindows % at win % _Just)
+        case mWin of
+          Just winRec | not (winRec ^. #isPinned) -> do
+            let currentlyFullscreen = view #isFullscreen winRec
+                currentlyFloating = view #isFloating winRec
+            if currentlyFullscreen
+              then exitFullscreen win currentlyFloating ws
+              else enterFullscreen win currentlyFloating ws
+            #allWindows % at win % _Just % #isFullscreen %= not
+          _ -> pure ()
+      _ -> pure ()
 
-                    fullscreenWindow f
-                      | f =
-                          state
-                            { allWorkspacesFloating = BS.delete win allWorkspacesFloating
-                            , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
-                            }
-                      | otherwise =
-                          state
-                            { allWorkspacesTiled = BS.delete win allWorkspacesTiled
-                            , fullscreenQueue = M.adjust (win :) focusedWorkspace fullscreenQueue
-                            }
+  enterFullscreen win isFloating ws = do
+    if isFloating
+      then #allWorkspacesFloating %= BS.delete win
+      else #allWorkspacesTiled %= BS.delete win
+    #fullscreenQueue % at ws % _Just %= (win :)
 
-                    exitFullscreenWindow f
-                      | f =
-                          state
-                            { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-                            , floatingQueue = M.adjust (win :) focusedWorkspace floatingQueue
-                            , manageQueue = manageQueue state >> fA
-                            }
-                      | otherwise =
-                          state
-                            { allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-                            , allWorkspacesTiled = BS.insert focusedWorkspace win allWorkspacesTiled
-                            , manageQueue = manageQueue state >> fA
-                            }
-                     where
-                      fA = riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
-
-                    newState = if isFullscreen then exitFullscreenWindow isFloating else fullscreenWindow isFloating
-                    newWindows = M.insert win window{isFullscreen = not isFullscreen} allWindows
-
-                pure newState{allWindows = newWindows}
+  exitFullscreen win isFloating ws = do
+    #allWorkspacesFullscreen %= BS.delete win
+    if isFloating
+      then #floatingQueue % at ws % _Just %= (win :)
+      else #allWorkspacesTiled %= BS.insert ws win
+    #manageQueue %= (>> (riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win))
 
 toggleFloatingCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-toggleFloatingCurrentWindow seat stateMVar = do
-  state <- readMVar stateMVar
-  case focusedWindow state of
-    Nothing -> pure ()
-    Just win -> do
-      let w = allWindows state M.! win
-      unless (isFullscreen w || isPinned w) $
-        if isFloating w then tileCurrentWindow seat stateMVar else floatCurrentWindow seat stateMVar
+toggleFloatingCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ \state ->
+  pure $ execState transform state
+ where
+  transform = do
+    mWinPtr <- use #focusedWindow
+    fOutput <- use #focusedOutput
+    workmaps <- use #allOutputWorkspaces
+    case (mWinPtr, B.lookup fOutput workmaps) of
+      (Just win, Just ws) -> do
+        mWin <- preuse (#allWindows % at win % _Just)
+        case mWin of
+          Just winRec | not (winRec ^. #isPinned || winRec ^. #isFullscreen) -> do
+            if view #isFloating winRec
+              then exitFloating win ws
+              else enterFloating win ws
+            #allWindows % at win % _Just % #isFloating %= not
+          _ -> pure ()
+      _ -> pure ()
 
-floatCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-floatCurrentWindow _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    case focusedWindow state of
-      Nothing -> pure state
-      Just win -> do
-        let newTiled = BS.delete win (allWorkspacesTiled state)
-            focusedWorkspace = allOutputWorkspaces state B.! focusedOutput state
-        pure $ state{allWorkspacesTiled = newTiled, floatingQueue = M.adjust (win :) focusedWorkspace (floatingQueue state)}
+  enterFloating win ws = do
+    #allWorkspacesTiled %= BS.delete win
+    #floatingQueue % at ws % _Just %= (win :)
 
-tileCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-tileCurrentWindow _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    case focusedWindow state of
-      Nothing -> pure state
-      Just win -> do
-        let
-          newFloating = BS.delete win (allWorkspacesFloating state)
-          newTiled = BS.insert (allOutputWorkspaces state B.! focusedOutput state) win (allWorkspacesTiled state)
-          newAllWindows = M.adjust (\w -> w{isFloating = False}) win (allWindows state)
-        pure $ state{allWorkspacesFloating = newFloating, allWorkspacesTiled = newTiled, allWindows = newAllWindows}
+  exitFloating win ws = do
+    #allWorkspacesFloating %= BS.delete win
+    #allWorkspacesTiled %= BS.insert ws win
 
 togglePinWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 togglePinWindow _ stateMVar = do
-  modifyMVar_ stateMVar $ \state ->
-    case focusedWindow state of
-      Nothing -> pure state
-      Just win -> do
-        let
-          Window{isFullscreen, isFloating} = allWindows state M.! win
-        if isFloating && not isFullscreen
-          then do
-            let newWindows = M.adjust (\w -> w{isPinned = not (isPinned w)}) win (allWindows state)
-            pure state{allWindows = newWindows}
-          else pure state
+  modifyMVar_ stateMVar $ \s ->
+    case s ^. #focusedWindow of
+      Nothing -> pure s
+      Just w -> case s ^? #allWindows % at w % _Just of
+        Just win | win ^. #isFloating && not (win ^. #isFullscreen) -> pure $ s & #allWindows % at w % _Just % #isPinned %~ not
+        _ -> pure s
 
 toggleMaximizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 toggleMaximizeWindow _ stateMVar = do
-  modifyMVar_ stateMVar $ \state ->
-    case focusedWindow state of
-      Nothing -> pure state
-      Just win -> do
-        let Window{isMaximized} = allWindows state M.! win
-            newWindows = M.adjust (\w -> w{isMaximized = not isMaximized}) win (allWindows state)
-            maximizeAction = if isMaximized then riverWindowInformUnmaximized win else riverWindowInformMaximized win
-        pure state{allWindows = newWindows, manageQueue = manageQueue state >> maximizeAction}
+  modifyMVar_ stateMVar $ \s ->
+    case s ^. #focusedWindow of
+      Nothing -> pure s
+      Just w -> case s ^? #allWindows % at w % _Just of
+        Nothing -> pure s
+        Just win@Window{isMaximized} ->
+          pure $
+            s
+              & (#allWindows % at w ?~ (win & #isMaximized %~ not))
+              & (#manageQueue %~ (>> if isMaximized then riverWindowInformUnmaximized w else riverWindowInformMaximized w))
 
 cycleWindows :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindows forward seat stateMVar = do
@@ -290,32 +275,30 @@ cycleWindowSlaves forward seat stateMVar = do
             }
 
 zoomWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-zoomWindow _ stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    case focusedWindow state of
-      Just currentWin ->
-        if (\w -> isFloating w || isFullscreen w) (allWindows state M.! currentWin)
-          then pure state
-          else do
-            let
-              workspace = allOutputWorkspaces state B.! focusedOutput state
-              bimap = allWorkspacesTiled state
-              zoom s = case s of
-                S.Empty -> s
-                w S.:<| ws ->
-                  if w == currentWin
-                    then
-                      ( case ws of
-                          S.Empty -> s
-                          w2 S.:<| wss -> w2 S.<| (w S.<| wss)
-                      )
-                    else case S.elemIndexL currentWin ws of
-                      Nothing -> s
-                      Just i -> currentWin S.<| (S.update i w ws)
-
-            let newWorkspacesTiled = BS.changeSeqOrder workspace zoom bimap
-            pure $ state{allWorkspacesTiled = newWorkspacesTiled}
-      Nothing -> pure state
+zoomWindow _ stateMVar = modifyMVar_ stateMVar $ \state ->
+  pure $ execState transform state
+ where
+  transform = do
+    mFocusedWin <- use #focusedWindow
+    fOutput <- use #focusedOutput
+    outWorkmaps <- use #allOutputWorkspaces
+    case (mFocusedWin, B.lookup fOutput outWorkmaps) of
+      (Just currentWin, Just workspace) -> do
+        mWin <- preuse (#allWindows % at currentWin % _Just)
+        let shouldSkip = case mWin of
+              Just w -> view #isFloating w || view #isFullscreen w
+              Nothing -> True
+        unless shouldSkip $ #allWorkspacesTiled %= BS.changeSeqOrder workspace (zoom currentWin)
+      _ -> pure ()
+  zoom currentWin s = case s of
+    S.Empty -> s
+    w S.:<| ws
+      | w == currentWin -> case ws of
+          S.Empty -> s
+          w2 S.:<| wss -> w2 S.<| (w S.<| wss)
+      | otherwise -> case S.elemIndexL currentWin ws of
+          Nothing -> s
+          Just i -> currentWin S.<| S.update i w ws
 
 switchWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
 switchWorkspace targetID seat stateMVar = do

@@ -12,6 +12,7 @@ import Foreign.C
 import Handlers.PointerBindings
 import Handlers.XkbBindings
 import Layout
+import Optics.Core
 import Types
 import Wayland.Client
 import Wayland.ImportedFunctions
@@ -34,8 +35,9 @@ foreign export ccall "hs_wm_session_unlocked"
 hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 hsWmWindow dataPtr _ win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
+  modifyMVar_ stateMVar $ \(s :: WMState) -> do
     node <- riverWindowGetNode win
+    _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
     let w =
           Window
             { winPtr = win
@@ -52,69 +54,53 @@ hsWmWindow dataPtr _ win = do
             , dimensionsHint = (0, 0, 0, 0)
             , parentWindow = Nothing
             }
-    _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
-
-    pure
-      state
-        { allWindows = M.insert win w (allWindows state)
-        , manageQueue = manageQueue state >> (startupApplyManage win)
-        }
+    pure $ s & #allWindows % at win ?~ w & #manageQueue %~ (>> startupApplyManage win)
 
 hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
 hsWmSeat dataPtr _ seat = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
     _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
-
-    newLayerShellSeatPtr <- riverLayerShellGetSeat (currentLayerShell state) seat
+    newLayerShellSeatPtr <- riverLayerShellGetSeat (state ^. #currentLayerShell) seat
     _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
-    theme <- newCString (fst (xCursorTheme myConfig))
-    riverSeatSetXcursorTheme seat theme (snd (xCursorTheme myConfig))
-    pure
-      state
-        { focusedSeat = seat
-        , seatXkbBindings = M.insert seat [] (seatXkbBindings state)
-        , seatPointerBindings = M.insert seat [] (seatPointerBindings state)
-        }
-  mapM_ (registerKeybind dataPtr seat) (M.toList $ allKeyBindings myConfig)
-  mapM_ (registerPointerbind dataPtr seat) (M.toList $ allPointerBindings myConfig)
+    theme <- newCString (myConfig ^. #xCursorTheme % _1)
+    riverSeatSetXcursorTheme seat theme (myConfig ^. #xCursorTheme % _2)
+    pure $ state & #focusedSeat .~ seat & #seatXkbBindings % at' seat ?~ [] & #seatPointerBindings % at' seat ?~ []
+
+  mapM_ (registerKeybind dataPtr seat) (myConfig ^. #allKeyBindings % to M.toList)
+  mapM_ (registerPointerbind dataPtr seat) (myConfig ^. #allPointerBindings % to M.toList)
 
 hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
 hsWmOutput dataPtr _ output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
     newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
-    let o = Output output newLayerShellOutputPtr 0 0 0 0
-        newOutputsList = M.insert output o (allOutputs state)
-        newLayerShellOutputs = M.insert newLayerShellOutputPtr output (allLayerShellOutputs state)
-        remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ allOutputWorkspaces state) [1 ..]
-        newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
-    pure
+    let o = Output output newLayerShellOutputPtr (Rect 0 0 0 0)
+        remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ state ^. #allOutputWorkspaces) [1 ..]
+        newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
+    pure $
       state
-        { allOutputs = newOutputsList
-        , focusedOutput = output
-        , allLayerShellOutputs = newLayerShellOutputs
-        , manageQueue = manageQueue state >> riverLayerShellOutputSetDefault newLayerShellOutputPtr
-        , allOutputWorkspaces = newOutputsWorkspaces
-        }
+        & (#allOutputs % at' output ?~ o)
+        & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
+        & (#focusedOutput .~ output)
+        & (#manageQueue %~ (>> riverLayerShellOutputSetDefault newLayerShellOutputPtr))
+        & (#allOutputWorkspaces .~ newOutputsWorkspaces)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmManageStart dataPtr wmManager = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  state <- readMVar stateMVar
-  manageQueue state
   startLayout stateMVar
   riverWindowManagerManageFinish wmManager
 
 hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmRenderStart dataPtr wmManager = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    renderQueue state
+  modifyMVar_ stateMVar $ \(s :: WMState) -> do
+    s ^. #renderQueue
     riverWindowManagerRenderFinish wmManager
-    pure state{renderQueue = pure ()}
+    pure $ s & #renderQueue .~ pure ()
 
 hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmSessionLocked dataPtr _ = do

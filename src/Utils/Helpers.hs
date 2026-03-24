@@ -8,15 +8,15 @@ module Utils.Helpers (
 import Data.Maybe
 import Data.Sequence as S
 import Foreign
-import Types
-import System.Posix.IO
-import System.IO
-import System.Posix.Types (Fd (..))
 import Foreign.C
+import System.IO
+import System.Posix.IO
+import System.Posix.Types (Fd (..))
+import Types
 import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
 
-calculateFloatingPositions :: (Functor f, Foldable f) => Output -> f Window -> ([Rect], IO (), IO ())
+calculateFloatingPositions :: (Functor f, Foldable f) => Rect -> f Window -> ([Rect], IO (), IO ())
 calculateFloatingPositions o windows = res
  where
   resInter = fmap (\win -> calculateFloatingPosition (winPtr win) win o) windows
@@ -26,11 +26,11 @@ calculateFloatingPositions o windows = res
       ([], pure (), pure ())
       resInter
 
-calculateFloatingPosition :: Ptr RiverWindow -> Window -> Output -> (Rect, IO (), IO ())
+calculateFloatingPosition :: Ptr RiverWindow -> Window -> Rect -> (Rect, IO (), IO ())
 calculateFloatingPosition
   win
   Window{floatingGeometry, nodePtr, dimensionsHint, parentWindow}
-  Output{outHeight, outWidth, outX, outY} = case floatingGeometry of
+  Rect{rh = outHeight, rw = outWidth, rx = outX, ry = outY} = case floatingGeometry of
     Nothing -> case dimensionsHint of
       (0, 0, _, _) ->
         ( Rect{rx = offsetX, ry = offsetY, rw = w, rh = h}
@@ -66,7 +66,6 @@ allWorkspaceWindows w WMState{allWorkspacesFloating, allWorkspacesFullscreen, al
   let look a = BS.lookupBs w a
    in look allWorkspacesFullscreen S.>< look allWorkspacesTiled >< look allWorkspacesFloating
 
-
 -- You'll need to import these from a library like 'unix' or bind them via FFI
 foreign import ccall unsafe "memfd_create"
   c_memfd_create :: CString -> CUInt -> IO CInt
@@ -101,6 +100,3 @@ createKeymapFd content = do
       _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
 
       return fd
-
-
-

@@ -6,6 +6,7 @@ import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
+import Optics.Core
 import Types
 import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
@@ -97,7 +98,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
                   Nothing -> pure state
                   Just Rect{rx, ry} -> do
                     let
-                      Output{outX, outY} = allOutputs M.! focusedOutput
+                      Rect{rx = outX, ry = outY} = (allOutputs M.! focusedOutput) ^. #outGeometry
                       (newX, newY) = (rx + dx, ry + dy)
                       reposition =
                         riverNodeSetPosition nodePtr (newX + outX) (newY + outY)
@@ -139,7 +140,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
                         }
               ResizingTile -> do
                 let
-                  Output{outWidth} = allOutputs M.! focusedOutput
+                  outWidth = (allOutputs M.! focusedOutput) ^. #outGeometry % #rw
                   (oldDx, _, _, _) = currentOpDelta state
                   focusedWorkspace = allOutputWorkspaces B.! focusedOutput
                 case handleSomeMsg (workspaceLayouts M.! focusedWorkspace) (SomeMessage $ IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outWidth)) of

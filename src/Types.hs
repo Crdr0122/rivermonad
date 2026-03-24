@@ -52,6 +52,7 @@ data WMState = WMState
   , tQueue :: TQueue WMEvent
   , subscribers :: [Socket]
   }
+  deriving (Generic)
 
 data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
 
@@ -103,14 +104,12 @@ data Window = Window
   , dimensionsHint :: (CInt, CInt, CInt, CInt)
   , parentWindow :: Maybe (Ptr RiverWindow)
   }
+  deriving (Generic)
 
 data Output = Output
   { outPtr :: Ptr RiverOutput
   , outLayerShell :: Ptr RiverLayerShellOutput
-  , outWidth :: CInt
-  , outHeight :: CInt
-  , outX :: CInt
-  , outY :: CInt
+  , outGeometry :: Rect
   }
   deriving (Generic, Eq)
 
@@ -204,6 +203,7 @@ data RivermonadConfig = RivermonadConfig
   , statePath :: FilePath
   , composeKeyMap :: String
   }
+  deriving (Generic)
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)

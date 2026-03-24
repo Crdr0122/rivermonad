@@ -1,9 +1,9 @@
 module Handlers.LayerShell where
 
 import Control.Concurrent.MVar
-import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
+import Optics.Core
 import Types
 import Wayland.ImportedFunctions
 
@@ -13,17 +13,10 @@ foreign export ccall "hs_layer_shell_output_non_exclusive_area"
 hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let oldOutputs = allOutputs state
-    case M.lookup lsOutput (allLayerShellOutputs state) of
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
+    case state ^. #allLayerShellOutputs % at lsOutput of
       Nothing -> pure state
-      Just oPtr -> do
-        case M.lookup oPtr oldOutputs of
-          Nothing -> pure state
-          Just o -> do
-            let updatedOutput = o{outX = x, outY = y, outWidth = width, outHeight = height}
-                newOutputs = M.insert oPtr updatedOutput oldOutputs
-            pure state{allOutputs = newOutputs}
+      Just oPtr -> pure $ state & #allOutputs % at oPtr % _Just % #outGeometry .~ Rect x y width height
 
 foreign export ccall "hs_layer_shell_seat_focus_none"
   hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
@@ -31,8 +24,5 @@ foreign export ccall "hs_layer_shell_seat_focus_none"
 hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 hsLayerShellSeatFocusNone dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let mAction = case focusedWindow state of
-          Nothing -> pure ()
-          Just w -> riverSeatFocusWindow (focusedSeat state) w
-    pure state{manageQueue = manageQueue state >> mAction}
+  modifyMVar_ stateMVar $ \(s :: WMState) ->
+    pure $ s & #manageQueue %~ (>> mapM_ (riverSeatFocusWindow (s ^. #focusedSeat)) (s ^? #focusedWindow % _Just))

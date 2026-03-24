@@ -20,7 +20,6 @@ hsXkbConfigXkbKeyboard dataPtr config keyboard = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
-    riverXkbKeyboardNumlockEnable keyboard
     keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
     _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
     pure state
@@ -31,7 +30,7 @@ foreign export ccall "hs_xkb_keymap_failure"
   hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 
 hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
-hsXkbKeymapSuccess keyboard keymap = riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
+hsXkbKeymapSuccess keyboard keymap = riverXkbKeyboardSetKeymap (castPtr keyboard) keymap >> riverXkbKeyboardNumlockEnable (castPtr keyboard)
 
 hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 hsXkbKeymapFailure _ _ errorMsg = do

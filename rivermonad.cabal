@@ -86,21 +86,26 @@ executable rivermonad
     Wayland.ImportedFunctions
 
   -- LANGUAGE extensions used by modules in this package.
-  -- other-extensions:
+  -- other-extensions: OverloadedLabels
+  default-extensions: OverloadedLabels
   -- Other library packages from which modules are imported.
   build-depends:
-    base ^>=4.20.2.0,
     aeson,
+    base ^>=4.20.2.0,
     bimap,
     bytestring,
     containers,
     directory,
+    generic-optics,
+    mtl,
+    network,
+    optics-core,
+    optics-extra,
     process,
     stm,
     text,
     unix,
-    network,
-    unordered-containers,
+    unordered-containers
 
   -- Directories containing source files.
   hs-source-dirs:
