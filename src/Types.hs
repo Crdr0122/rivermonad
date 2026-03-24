@@ -50,6 +50,7 @@ data WMState = WMState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
   , persistedState :: Map String (WorkspaceID, WindowStatus)
+  , workspaceFocusHistory :: Map WorkspaceID (Ptr RiverWindow)
   , currentKeymapFd :: CInt
   , subscribers :: [Socket]
   }

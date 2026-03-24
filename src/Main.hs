@@ -88,6 +88,7 @@ main = do
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
         , persistedState = oldWindows
+        , workspaceFocusHistory = M.empty
         , currentKeymapFd = fd
         , subscribers = []
         }

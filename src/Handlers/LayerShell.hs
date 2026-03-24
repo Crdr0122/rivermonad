@@ -25,4 +25,4 @@ hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 hsLayerShellSeatFocusNone dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(s :: WMState) ->
-    pure $ s & #manageQueue %~ (>> mapM_ (riverSeatFocusWindow (s ^. #focusedSeat)) (s ^? #focusedWindow % _Just))
+    pure $ s & #manageQueue <>~ mapM_ (riverSeatFocusWindow (s ^. #focusedSeat)) (s ^? #focusedWindow % _Just)

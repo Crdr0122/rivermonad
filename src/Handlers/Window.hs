@@ -3,6 +3,7 @@
 module Handlers.Window where
 
 import Control.Concurrent.MVar
+import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
 import Data.Map.Strict qualified as M
@@ -13,6 +14,8 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TEE
 import Foreign
 import Foreign.C
+import Optics.State
+import Optics.State.Operators
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
@@ -97,39 +100,31 @@ hsWindowIdentifier dataPtr win identifier = do
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { allWindows
-       , allWorkspacesFloating
-       , allWorkspacesFullscreen
-       , allWorkspacesTiled
-       , focusedOutput
-       , allOutputWorkspaces
-       , focusedSeat
-       , focusedWindow
-       , manageQueue
-       } -> do
-        let newState =
-              state
-                { allWindows = M.delete win allWindows
-                , allWorkspacesTiled = BS.delete win allWorkspacesTiled
-                , allWorkspacesFullscreen = BS.delete win allWorkspacesFloating
-                , allWorkspacesFloating = BS.delete win allWorkspacesFullscreen
-                }
-
-            (nextFocus, fAction) = case focusedWindow of
-              Nothing -> (Nothing, pure ())
-              Just w | w /= win -> (Just w, pure ())
-              _ -> case allWorkspaceWindows (fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces) newState of
-                S.Empty -> (Nothing, riverSeatClearFocus focusedSeat)
-                h S.:<| _ -> (Just h, riverSeatFocusWindow focusedSeat h)
-
-        riverWindowDestroy win
-        pure
-          newState
-            { focusedWindow = nextFocus
-            , manageQueue = manageQueue >> fAction
-            }
+  modifyMVar_ (stateMVar :: MVar WMState) $ \s -> do
+    riverWindowDestroy win
+    pure $ execState transform s
+ where
+  transform = do
+    #allWindows %= M.delete win
+    #allWorkspacesFloating %= BS.delete win
+    #allWorkspacesTiled %= BS.delete win
+    #allWorkspacesFullscreen %= BS.delete win
+    fWinM <- use #focusedWindow
+    fOutput <- use #focusedOutput
+    outWorkmaps <- use #allOutputWorkspaces
+    case (fWinM, B.lookup fOutput outWorkmaps) of
+      (Just fWin, Just fWs) | fWin == win -> do
+        seat <- use #focusedSeat
+        use (workspaceWindows fWs) >>= \case
+          S.Empty -> do
+            #focusedWindow .= Nothing
+            #workspaceFocusHistory %= M.delete fWs
+            #manageQueue <>= riverSeatClearFocus seat
+          h S.:<| _ -> do
+            #focusedWindow ?= h
+            #workspaceFocusHistory %= M.insert fWs h
+            #manageQueue <>= riverSeatFocusWindow seat h
+      _ -> pure ()
 
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
 hsWindowDimensions dataPtr winP width height = do

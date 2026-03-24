@@ -15,6 +15,7 @@ import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Optics.Core
+import Optics.Extra
 import Optics.State
 import Optics.State.Operators
 import Types
@@ -54,9 +55,10 @@ startLayout stateMVar = do
             _ -> #fullscreenQueue %= M.adjust (winPtr :) targetWS
 
           when (targetWS == focusedWS) $ do
-            #focusedWindow .= Just winPtr
-            #manageQueue %= (>> riverSeatFocusWindow seat winPtr)
-          unless (targetWS `elem` B.keysR workmaps) $ #renderQueue %= (>> riverWindowHide winPtr)
+            #focusedWindow ?= winPtr
+            #workspaceFocusHistory % at focusedWS ?= winPtr
+            #manageQueue <>= riverSeatFocusWindow seat winPtr
+          unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr
 
 startLayoutOutput :: Ptr RiverOutput -> WorkspaceID -> MVar WMState -> IO ()
 startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMState) ->
@@ -68,7 +70,7 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
       pure $ newState & #manageQueue .~ pure ()
  where
   raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
-  shrinkWindows b = fmap (& _2 %~ \r -> r & #rx %~ (+ b) & #ry %~ (+ b) & #rh %~ ((-) (2 * b)) & #rw %~ ((-) (2 * b)))
+  shrinkWindows b = fmap (& _2 %~ \r -> r & #rx %~ (+ b) & #ry %~ (+ b) & #rh %~ subtract (2 * b) & #rw %~ subtract (2 * b))
   layoutEngine geom = do
     allWindows <- use #allWindows
     tilingPtrs <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
@@ -86,21 +88,21 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
         forM_ bordered $ \(win, rect@Rect{..}) -> do
           let ptr = win ^. #winPtr
               node = win ^. #nodePtr
-          #allWindows % at ptr %? #tilingGeometry .= Just rect
-          #manageQueue %= (>> riverWindowProposeDimensions ptr rw rh)
-          #renderQueue %= (>> (riverNodeSetPosition node rx ry >> riverWindowSetContentClipBox ptr 0 0 rw rh >> riverNodePlaceBottom node))
+          #allWindows % at ptr %? #tilingGeometry ?= rect
+          #manageQueue <>= riverWindowProposeDimensions ptr rw rh
+          #renderQueue <>= (riverNodeSetPosition node rx ry >> riverWindowSetContentClipBox ptr 0 0 rw rh >> riverNodePlaceBottom node)
 
         -- Floating
         queuedFloatingPtrs <- use (#floatingQueue % at ws % non [])
         let newFloatingWindows = (allWindows M.!) <$> queuedFloatingPtrs
             (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions geom newFloatingWindows
         #allWorkspacesFloating %= BS.insertList ws queuedFloatingPtrs
-        #manageQueue %= (>> floatMAction)
-        #renderQueue %= (>> floatRAction)
+        #manageQueue <>= floatMAction
+        #renderQueue <>= floatRAction
         forM_ (zip newFloatingWindows floatingPositions) $ \(win, rect) -> do
           let ptr = win ^. #winPtr
           #allWindows % at ptr % _Just %= \w -> w & #floatingGeometry ?~ rect & #isFloating .~ True
-          #renderQueue %= (>> (riverWindowSetContentClipBox ptr 0 0 0 0))
+          #renderQueue <>= riverWindowSetContentClipBox ptr 0 0 0 0
 
         -- Fullscreen
         newFullscreenPtrs <- use (#fullscreenQueue % at ws % non [])
@@ -108,17 +110,17 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
         #allWorkspacesFullscreen %= BS.insertList ws newFullscreenPtrs
         forM_ newFullscreenPtrs $ \ptr -> do
           #allWindows % at ptr %? #isFullscreen .= True
-          #manageQueue %= (>> (riverWindowFullscreen ptr output >> riverWindowInformFullscreen ptr))
-        #renderQueue %= (>> raiseAllWindows (reverse newFullscreenWindows))
+          #manageQueue <>= (riverWindowFullscreen ptr output >> riverWindowInformFullscreen ptr)
+        #renderQueue <>= raiseAllWindows (reverse newFullscreenWindows)
 
         -- Borders
         floatingPtrs <- use (#allWorkspacesFloating % to (BS.lookupBs ws))
-        #manageQueue %= (>> mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) tileable)
-        #manageQueue %= (>> mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) ((allWindows M.!) <$> floatingPtrs))
+        #manageQueue <>= mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) tileable
+        #manageQueue <>= mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) ((allWindows M.!) <$> floatingPtrs)
 
         -- Cleanup Queues
-        #floatingQueue % at ws .= Just []
-        #fullscreenQueue % at ws .= Just []
+        #floatingQueue % at ws ?= []
+        #fullscreenQueue % at ws ?= []
 
 renderBorder :: Maybe (Ptr RiverWindow) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> (CUInt, CUInt, CUInt, CUInt) -> CInt -> Window -> IO ()
 renderBorder Nothing (r, g, b, a) _ _ bPx w = riverWindowSetBorders (winPtr w) edgeAll bPx r g b a

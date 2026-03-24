@@ -54,7 +54,7 @@ hsWmWindow dataPtr _ win = do
             , dimensionsHint = (0, 0, 0, 0)
             , parentWindow = Nothing
             }
-    pure $ s & #allWindows % at win ?~ w & #manageQueue %~ (>> startupApplyManage win)
+    pure $ s & #allWindows % at win ?~ w & #manageQueue <>~ startupApplyManage win
 
 hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
 hsWmSeat dataPtr _ seat = do
@@ -85,7 +85,7 @@ hsWmOutput dataPtr _ output = do
         & (#allOutputs % at' output ?~ o)
         & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
         & (#focusedOutput .~ output)
-        & (#manageQueue %~ (>> riverLayerShellOutputSetDefault newLayerShellOutputPtr))
+        & (#manageQueue <>~ riverLayerShellOutputSetDefault newLayerShellOutputPtr)
         & (#allOutputWorkspaces .~ newOutputsWorkspaces)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
@@ -105,22 +105,25 @@ hsWmRenderStart dataPtr wmManager = do
 hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmSessionLocked dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let deActivateX = mapM_ riverXkbBindingDisable (concat $ M.elems $ seatXkbBindings state)
-        deActivateP = mapM_ riverPointerBindingDisable (concat $ M.elems $ seatPointerBindings state)
-    pure state{manageQueue = manageQueue state >> deActivateX >> deActivateP}
+  modifyMVar_ stateMVar $ \(state :: WMState) ->
+    pure $
+      state
+        & #manageQueue
+        <>~ ( traverseOf_ (#seatXkbBindings % traversed % traversed) riverXkbBindingDisable state
+                >> traverseOf_ (#seatPointerBindings % traversed % traversed) riverPointerBindingDisable state
+            )
 
 hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
-hsWmSessionUnlocked dataPtr wm = do
+hsWmSessionUnlocked dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let activateX = mapM_ riverXkbBindingEnable (concat $ M.elems $ seatXkbBindings state)
-        activateP = mapM_ riverPointerBindingEnable (concat $ M.elems $ seatPointerBindings state)
-        focus = case focusedWindow state of
-          Nothing -> pure ()
-          Just w -> riverSeatFocusWindow (focusedSeat state) w
-    riverWindowManagerManageDirty wm
-    pure state{manageQueue = manageQueue state >> activateX >> activateP >> focus}
+  modifyMVar_ stateMVar $ \(state :: WMState) ->
+    pure $
+      state
+        & #manageQueue
+        <>~ ( traverseOf_ (#seatXkbBindings % traversed % traversed) riverXkbBindingEnable state
+                >> traverseOf_ (#seatPointerBindings % traversed % traversed) riverPointerBindingEnable state
+                >> traverseOf_ (#focusedWindow % _Just) (riverSeatFocusWindow (state ^. #focusedSeat)) state
+            )
 
 startupApplyManage :: Ptr RiverWindow -> IO ()
 startupApplyManage w = do

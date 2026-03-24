@@ -1,12 +1,15 @@
 module Handlers.Seat where
 
 import Control.Concurrent.MVar
-import Control.Monad (when)
+import Control.Monad (msum, when)
+import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
 import Optics.Core
+import Optics.State
+import Optics.State.Operators
 import Types
 import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
@@ -55,25 +58,34 @@ hsSeatPointerEnter dataPtr _ _ = do
 hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatWindowInteraction dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> case focusedWindow state of
-    Just w | w == win -> pure state{manageQueue = manageQueue state >> riverSeatFocusWindow seat win}
-    _ -> do
-      let Window{nodePtr, isFloating, isFullscreen} = allWindows state M.! win
-          maybeWorkspace
-            | isFullscreen = BS.lookupA win (allWorkspacesFullscreen state)
-            | isFloating = BS.lookupA win (allWorkspacesFloating state)
-            | otherwise = BS.lookupA win (allWorkspacesTiled state)
-          output = case maybeWorkspace of
-            Nothing -> focusedOutput state
-            Just workspace -> case B.lookupR workspace (allOutputWorkspaces state) of
-              Nothing -> focusedOutput state
-              Just o -> o
-      pure
-        state
-          { focusedWindow = Just (win)
-          , manageQueue = manageQueue state >> when isFloating (riverNodePlaceTop nodePtr) >> riverSeatFocusWindow seat win
-          , focusedOutput = output
-          }
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform =
+    use #focusedWindow >>= \case
+      Just fWin | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
+      _ ->
+        preuse (#allWindows % at win % _Just)
+          >>= ( mapM_ $ \winRec -> do
+                  tiled <- use #allWorkspacesTiled
+                  floating <- use #allWorkspacesFloating
+                  full <- use #allWorkspacesFullscreen
+                  case msum
+                    [ BS.lookupA win tiled
+                    , BS.lookupA win floating
+                    , BS.lookupA win full
+                    ] of
+                    Just ws -> do
+                      oToW <- use #allOutputWorkspaces
+                      case B.lookupR ws oToW of
+                        Nothing -> pure ()
+                        Just o -> do
+                          #focusedWindow ?= win
+                          #focusedOutput .= o
+                          #workspaceFocusHistory %= M.insert ws win
+                          #manageQueue <>= riverSeatFocusWindow seat win
+                          when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
+                    Nothing -> pure ()
+              )
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 hsSeatOpDelta dataPtr _ dx dy = do
