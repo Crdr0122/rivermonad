@@ -36,21 +36,15 @@ hsOutputWlOutput _ _ _ = pure ()
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    putStrLn "Output Destroyed"
-    riverOutputDestroy output
-    let lsPtr = outLayerShell $ allOutputs state M.! output
-    riverLayerShellOutputDestroy lsPtr
-    let newOutputs = M.delete output (allOutputs state)
-        newLayerShells = M.delete lsPtr (allLayerShellOutputs state)
-        newOutputWorkspaces = B.delete output (allOutputWorkspaces state)
-        newFocusedOutput
-          | focusedOutput state == output = nullPtr
-          | otherwise = focusedOutput state
-    pure
-      state
-        { allOutputs = newOutputs
-        , focusedOutput = newFocusedOutput
-        , allLayerShellOutputs = newLayerShells
-        , allOutputWorkspaces = newOutputWorkspaces
-        }
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
+    case state ^? #allOutputs % at output % _Just of
+      Nothing -> pure state
+      Just o -> do
+        riverOutputDestroy output
+        riverLayerShellOutputDestroy $ o ^. #outLayerShell
+        pure $
+          state
+            & (#allOutputs %~ M.delete output)
+            & (#allLayerShellOutputs %~ M.delete (o ^. #outLayerShell))
+            & (#allOutputWorkspaces %~ B.delete output)
+            & (#focusedOutput %~ (\oldO -> if oldO == output then nullPtr else oldO))

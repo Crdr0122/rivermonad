@@ -6,7 +6,7 @@
 module Types where
 
 import Control.Concurrent
-import Control.Concurrent.STM.TQueue
+import Control.Monad.State (MonadState)
 import Data.Aeson
 import Data.Bimap
 import Data.Map.Strict
@@ -16,6 +16,8 @@ import Foreign
 import Foreign.C
 import GHC.Generics
 import Network.Socket
+import Optics.Core
+import Optics.State
 import Utils.BiSeqMap
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq, Generic)
@@ -49,7 +51,6 @@ data WMState = WMState
   , cursorPosition :: (CInt, CInt)
   , persistedState :: Map String (WorkspaceID, WindowStatus)
   , currentKeymapFd :: CInt
-  , tQueue :: TQueue WMEvent
   , subscribers :: [Socket]
   }
   deriving (Generic)
@@ -216,3 +217,11 @@ instance FromJSON PersistedState
 data WindowStatus = Tiled | Floating | Fullscreen | FullscreenFloating deriving (Show, Eq, Generic)
 instance ToJSON WindowStatus
 instance FromJSON WindowStatus
+
+(<>~) :: (Is k A_Setter, Semigroup b) => Optic k is s t b b -> b -> s -> t
+o <>~ m = over o (<> m)
+infixr 4 <>~
+
+(<>=) :: (Is k A_Setter, MonadState s m, Semigroup b) => Optic k is s s b b -> b -> m ()
+o <>= m = modifying o (<> m)
+infix 4 <>=

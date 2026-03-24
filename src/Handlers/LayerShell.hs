@@ -16,7 +16,7 @@ hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
     case state ^. #allLayerShellOutputs % at lsOutput of
       Nothing -> pure state
-      Just oPtr -> pure $ state & #allOutputs % at oPtr % _Just % #outGeometry .~ Rect x y width height
+      Just oPtr -> pure $ state & #allOutputs % at oPtr %? #outGeometry .~ Rect x y width height
 
 foreign export ccall "hs_layer_shell_seat_focus_none"
   hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()

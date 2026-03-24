@@ -97,6 +97,8 @@ delete b bimap@(BiSeqMap ab ba)
        in BiSeqMap ab' ba'
 
 move :: (Ord a, Ord b) => b -> a -> BiSeqMap a b -> BiSeqMap a b
-move b newA bm =
-  let bm1 = delete b bm
-   in insert newA b bm1
+move b newA bm
+  | not (M.member b (bToA bm)) = bm
+  | otherwise =
+      let bm1 = delete b bm
+       in insert newA b bm1

@@ -2,6 +2,7 @@ module Utils.Helpers (
   calculateFloatingPosition,
   calculateFloatingPositions,
   allWorkspaceWindows,
+  workspaceWindows,
   createKeymapFd,
 ) where
 
@@ -9,6 +10,7 @@ import Data.Maybe
 import Data.Sequence as S
 import Foreign
 import Foreign.C
+import Optics.Core
 import System.IO
 import System.Posix.IO
 import System.Posix.Types (Fd (..))
@@ -60,6 +62,12 @@ calculateFloatingPosition
     h = outHeight * 6 `div` 10
     offsetX = (outWidth - w) `div` 2
     offsetY = (outHeight - h) `div` 2
+
+workspaceWindows :: WorkspaceID -> Getter WMState (Seq (Ptr RiverWindow))
+workspaceWindows ws = to $ \s ->
+  (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
+    S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
+    S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
 
 allWorkspaceWindows :: WorkspaceID -> WMState -> Seq (Ptr RiverWindow)
 allWorkspaceWindows w WMState{allWorkspacesFloating, allWorkspacesFullscreen, allWorkspacesTiled} =

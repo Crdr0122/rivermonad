@@ -60,7 +60,7 @@ startLayout stateMVar = do
 
 startLayoutOutput :: Ptr RiverOutput -> WorkspaceID -> MVar WMState -> IO ()
 startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMState) ->
-  case state ^? #allOutputs % at output % _Just % #outGeometry of
+  case state ^? #allOutputs % at output %? #outGeometry of
     Nothing -> pure state
     Just geom -> do
       let newState = execState (layoutEngine geom) state
@@ -86,7 +86,7 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
         forM_ bordered $ \(win, rect@Rect{..}) -> do
           let ptr = win ^. #winPtr
               node = win ^. #nodePtr
-          #allWindows % at ptr % _Just % #tilingGeometry .= Just rect
+          #allWindows % at ptr %? #tilingGeometry .= Just rect
           #manageQueue %= (>> riverWindowProposeDimensions ptr rw rh)
           #renderQueue %= (>> (riverNodeSetPosition node rx ry >> riverWindowSetContentClipBox ptr 0 0 rw rh >> riverNodePlaceBottom node))
 
@@ -107,7 +107,7 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
         let newFullscreenWindows = (allWindows M.!) <$> newFullscreenPtrs
         #allWorkspacesFullscreen %= BS.insertList ws newFullscreenPtrs
         forM_ newFullscreenPtrs $ \ptr -> do
-          #allWindows % at ptr % _Just % #isFullscreen .= True
+          #allWindows % at ptr %? #isFullscreen .= True
           #manageQueue %= (>> (riverWindowFullscreen ptr output >> riverWindowInformFullscreen ptr))
         #renderQueue %= (>> raiseAllWindows (reverse newFullscreenWindows))
 
