@@ -3,6 +3,7 @@
 module Handlers.Window where
 
 import Control.Concurrent.MVar
+import Control.Monad (when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
@@ -14,6 +15,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TEE
 import Foreign
 import Foreign.C
+import Optics.Core
 import Optics.State
 import Optics.State.Operators
 import Types
@@ -109,20 +111,19 @@ hsWindowClosed dataPtr win = do
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
-    fWinM <- use #focusedWindow
-    fOutput <- use #focusedOutput
-    outWorkmaps <- use #allOutputWorkspaces
-    case (fWinM, B.lookup fOutput outWorkmaps) of
-      (Just fWin, Just fWs) | fWin == win -> do
+    mWs <- use focusedWorkspace
+    mWin <- use #focusedWindow
+    case (mWin, mWs) of
+      (Just fWin, Just ws) | fWin == win -> do
         seat <- use #focusedSeat
-        use (workspaceWindows fWs) >>= \case
+        use (workspaceWindows ws) >>= \case
           S.Empty -> do
             #focusedWindow .= Nothing
-            #workspaceFocusHistory %= M.delete fWs
+            #workspaceFocusHistory %= M.delete ws
             #manageQueue <>= riverSeatClearFocus seat
           h S.:<| _ -> do
             #focusedWindow ?= h
-            #workspaceFocusHistory %= M.insert fWs h
+            #workspaceFocusHistory %= M.insert ws h
             #manageQueue <>= riverSeatFocusWindow seat h
       _ -> pure ()
 
@@ -158,25 +159,16 @@ hsWindowParent dataPtr win parent = do
 hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { allWindows
-       , allOutputWorkspaces
-       , focusedOutput
-       , floatingQueue
-       } -> do
-        let newWindows = M.adjust (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)}) win allWindows
-            newState = state{allWindows = newWindows}
-            focusedWorkspace = fromMaybe 1 (B.lookup focusedOutput allOutputWorkspaces)
-        if minW == maxW && minH == maxH && minW /= 0 && minH /= 0 -- Window cannot change size, like dialog windows or splashes
-          then
-            pure
-              newState
-                { allWorkspacesTiled = BS.delete win (allWorkspacesTiled state)
-                , allWorkspacesFullscreen = BS.delete win (allWorkspacesFullscreen state)
-                , floatingQueue = M.adjust (win :) focusedWorkspace floatingQueue
-                }
-          else pure newState
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform = do
+    #allWindows % at win % _Just %= (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)})
+    when (minW == maxW && minH == maxH && minW /= 0 && minH /= 0) $ do
+      #allWorkspacesTiled %= BS.delete win
+      #allWorkspacesFullscreen %= BS.delete win
+      use focusedWorkspace >>= \case
+        Just focusedWs -> #floatingQueue % at focusedWs % _Just %= (win :)
+        Nothing -> pure ()
 
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowTitle dataPtr win title = do

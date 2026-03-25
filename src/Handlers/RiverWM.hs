@@ -74,19 +74,18 @@ hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
 hsWmOutput dataPtr _ output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    newLayerShellOutputPtr <- riverLayerShellGetOutput (currentLayerShell state) output
+    newLayerShellOutputPtr <- riverLayerShellGetOutput (state ^. #currentLayerShell) output
     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
     let o = Output output newLayerShellOutputPtr (Rect 0 0 0 0)
         remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ state ^. #allOutputWorkspaces) [1 ..]
-        newOutputsWorkspaces = B.insert output remainingWorkspace (allOutputWorkspaces state)
     pure $
       state
         & (#allOutputs % at' output ?~ o)
         & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
         & (#focusedOutput .~ output)
         & (#manageQueue <>~ riverLayerShellOutputSetDefault newLayerShellOutputPtr)
-        & (#allOutputWorkspaces .~ newOutputsWorkspaces)
+        & (#allOutputWorkspaces %~ B.insert output remainingWorkspace)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmManageStart dataPtr wmManager = do

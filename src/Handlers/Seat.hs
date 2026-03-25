@@ -1,10 +1,11 @@
 module Handlers.Seat where
 
 import Control.Concurrent.MVar
-import Control.Monad (msum, when)
+import Control.Monad (forM_, msum, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe)
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -12,6 +13,7 @@ import Optics.State
 import Optics.State.Operators
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.Helpers
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_seat_pointer_enter"
@@ -63,114 +65,97 @@ hsSeatWindowInteraction dataPtr seat win = do
   transform =
     use #focusedWindow >>= \case
       Just fWin | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
-      _ ->
-        preuse (#allWindows % at win % _Just)
-          >>= ( mapM_ $ \winRec -> do
-                  tiled <- use #allWorkspacesTiled
-                  floating <- use #allWorkspacesFloating
-                  full <- use #allWorkspacesFullscreen
-                  case msum
-                    [ BS.lookupA win tiled
-                    , BS.lookupA win floating
-                    , BS.lookupA win full
-                    ] of
-                    Just ws -> do
-                      oToW <- use #allOutputWorkspaces
-                      case B.lookupR ws oToW of
-                        Nothing -> pure ()
-                        Just o -> do
-                          #focusedWindow ?= win
-                          #focusedOutput .= o
-                          #workspaceFocusHistory %= M.insert ws win
-                          #manageQueue <>= riverSeatFocusWindow seat win
-                          when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
-                    Nothing -> pure ()
-              )
+      _ -> do
+        mWinRec <- preuse (#allWindows % at win % _Just)
+        forM_ mWinRec $ \winRec -> do
+          tiled <- use #allWorkspacesTiled
+          floating <- use #allWorkspacesFloating
+          full <- use #allWorkspacesFullscreen
+          forM_ (msum [BS.lookupA win tiled, BS.lookupA win floating, BS.lookupA win full]) $ \ws -> do
+            #focusedWindow ?= win
+            #workspaceFocusHistory %= M.insert ws win
+            #manageQueue <>= riverSeatFocusWindow seat win
+            when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
+
+            oToW <- use #allOutputWorkspaces
+            oldO <- use #focusedOutput
+            case B.lookupR ws oToW of
+              Just o | o /= oldO -> do
+                #focusedOutput .= o
+                preuse (#allOutputs % at o %? #outLayerShell) >>= \case
+                  Nothing -> pure ()
+                  Just oRec -> #manageQueue <>= riverLayerShellOutputSetDefault oRec
+              _ -> pure ()
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 hsSeatOpDelta dataPtr _ dx dy = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { allOutputs
-       , focusedOutput
-       , focusedWindow
-       , allWindows
-       , allOutputWorkspaces
-       , workspaceLayouts
-       } -> do
-        case focusedWindow of
-          Nothing -> pure state
-          Just win -> do
-            case opDeltaState state of
-              None -> pure state
-              Dragging -> do
-                let Window{floatingGeometry, nodePtr} = allWindows M.! win
-                case floatingGeometry of
-                  Nothing -> pure state
-                  Just Rect{rx, ry} -> do
-                    let
-                      Rect{rx = outX, ry = outY} = (allOutputs M.! focusedOutput) ^. #outGeometry
-                      (newX, newY) = (rx + dx, ry + dy)
-                      reposition =
-                        riverNodeSetPosition nodePtr (newX + outX) (newY + outY)
-                    pure
-                      state
-                        { renderQueue = renderQueue state >> reposition
-                        , currentOpDelta = (newX, newY, 0, 0)
-                        }
-              Resizing edge -> do
-                let Window{floatingGeometry, nodePtr, dimensionsHint} = allWindows M.! win
-                case floatingGeometry of
-                  Nothing -> pure state
-                  Just Rect{rx, ry, rw, rh} -> do
-                    let (minW, minH, _, _) = dimensionsHint
-                        (w, h, x, y)
-                          | edge == edgeTop = (rw, newHeightMinus, rx, newY)
-                          | edge == edgeBottom = (rw, newHeightPlus, rx, ry)
-                          | edge == edgeRight = (newWidthPlus, rh, rx, ry)
-                          | edge == edgeLeft = (newWidthMinus, rh, newX, ry)
-                          | edge == edgeTopLeft = (newWidthMinus, newHeightMinus, newX, newY)
-                          | edge == edgeTopRight = (newWidthPlus, newHeightMinus, rx, newY)
-                          | edge == edgeBottomLeft = (newWidthMinus, newHeightPlus, newX, ry)
-                          | edge == edgeBottomRight = (newWidthPlus, newHeightPlus, rx, ry)
-                          | otherwise = (rw, rh, rx, ry)
-                         where
-                          minminW = max minW 15
-                          minminH = max minH 15
-                          newX = min (rx + dx) (rw + rx - minminW)
-                          newY = min (ry + dy) (ry + rh - minminH)
-                          newWidthMinus = max (rw - dx) minminW
-                          newWidthPlus = max (rw + dx) minminW
-                          newHeightMinus = max (rh - dy) minminH
-                          newHeightPlus = max (rh + dy) minminH
-                    pure
-                      state
-                        { manageQueue = manageQueue state >> riverWindowProposeDimensions win w h
-                        , renderQueue = renderQueue state >> riverNodeSetPosition nodePtr x y
-                        , currentOpDelta = (x, y, w, h)
-                        }
-              ResizingTile -> do
-                let
-                  outWidth = (allOutputs M.! focusedOutput) ^. #outGeometry % #rw
-                  (oldDx, _, _, _) = currentOpDelta state
-                  focusedWorkspace = allOutputWorkspaces B.! focusedOutput
-                case handleSomeMsg (workspaceLayouts M.! focusedWorkspace) (SomeMessage $ IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outWidth)) of
-                  Nothing -> pure state{currentOpDelta = (dx, 0, 0, 0)}
-                  Just layout -> pure state{workspaceLayouts = M.insert focusedWorkspace layout workspaceLayouts, currentOpDelta = (dx, 0, 0, 0)}
-              DraggingTile w -> do
-                let Window{tilingGeometry, nodePtr} = (allWindows M.! w)
-                case tilingGeometry of
-                  Nothing -> pure state
-                  Just Rect{rx = ox, ry = oy} -> do
-                    let
-                      newX = ox + dx
-                      newY = oy + dy
-                    pure
-                      state
-                        { renderQueue = renderQueue state >> riverNodeSetPosition nodePtr newX newY
-                        , currentOpDelta = (newX, newY, 0, 0)
-                        }
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform = do
+    mWinPtr <- use #focusedWindow
+    opState <- use #opDeltaState
+    case (mWinPtr, opState) of
+      (Just win, mode) | mode /= None -> do
+        mWinRec <- preuse (#allWindows % at win % _Just)
+        forM_ mWinRec $ \winRec -> do
+          case mode of
+            Dragging -> handleDrag winRec
+            Resizing edge -> handleResize win winRec edge
+            ResizingTile -> handleTileResize
+            DraggingTile -> handleTileDrag winRec
+            _ -> pure ()
+      _ -> pure ()
+
+  handleDrag win = forM_ (view #floatingGeometry win) $ \Rect{rx, ry} -> do
+    moutGeom <- use focusedOutputGeom
+    forM_ moutGeom $ \outGeom -> do
+      let (newX, newY) = (rx + dx, ry + dy)
+      #renderQueue <>= riverNodeSetPosition (view #nodePtr win) (newX + outGeom ^. #rx) (newY + outGeom ^. #ry)
+      #currentOpDelta .= (newX, newY, 0, 0)
+
+  handleTileResize = do
+    (oldDx, _, _, _) <- use #currentOpDelta
+    ws <- use focusedWorkspace
+    preuse (focusedOutputGeom %? #rw) >>= \case
+      Nothing -> pure ()
+      Just outW -> do
+        #workspaceLayouts % at (fromMaybe 1 ws) % _Just %= \layout ->
+          fromMaybe layout (handleSomeMsg layout $ SomeMessage $ IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outW))
+        #currentOpDelta .= (dx, 0, 0, 0)
+
+  handleTileDrag win = forM_ (view #tilingGeometry win) $ \Rect{rx, ry} -> do
+    let newX = rx + dx
+        newY = ry + dy
+    #renderQueue <>= riverNodeSetPosition (win ^. #nodePtr) newX newY
+    #currentOpDelta .= (newX, newY, 0, 0)
+
+  handleResize winPtr winRec e = do
+    forM_ (view #floatingGeometry winRec) $ \Rect{rx, ry, rw, rh} -> do
+      let (minW, minH, _, _) = view #dimensionsHint winRec
+          minminW = max minW 15
+          minminH = max minH 15
+          nWm = max (rw - dx) minminW
+          nWp = max (rw + dx) minminW
+          nHm = max (rh - dy) minminH
+          nHp = max (rh + dy) minminH
+          nX = min (rx + dx) (rw + rx - minminW)
+          nY = min (ry + dy) (ry + rh - minminH)
+
+          (w, h, x, y)
+            | e == edgeTop = (rw, nHm, rx, nY)
+            | e == edgeBottom = (rw, nHp, rx, ry)
+            | e == edgeRight = (nWm, rh, rx, ry)
+            | e == edgeLeft = (nWp, rh, nX, ry)
+            | e == edgeTopLeft = (nWm, nHm, nX, nY)
+            | e == edgeTopRight = (nWp, nHm, rx, nY)
+            | e == edgeBottomLeft = (nWm, nHp, nX, ry)
+            | e == edgeBottomRight = (nWp, nHp, rx, ry)
+            | otherwise = (rw, rh, rx, ry)
+
+      #manageQueue <>= riverWindowProposeDimensions winPtr w h
+      #renderQueue <>= riverNodeSetPosition (view #nodePtr winRec) x y
+      #currentOpDelta .= (x, y, w, h)
 
 hsSeatOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()
 hsSeatOpRelease _ _ = pure ()

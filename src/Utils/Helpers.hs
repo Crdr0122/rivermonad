@@ -1,11 +1,13 @@
 module Utils.Helpers (
   calculateFloatingPosition,
   calculateFloatingPositions,
-  allWorkspaceWindows,
   workspaceWindows,
+  focusedWorkspace,
+  focusedOutputGeom,
   createKeymapFd,
 ) where
 
+import Data.Bimap as B
 import Data.Maybe
 import Data.Sequence as S
 import Foreign
@@ -69,10 +71,11 @@ workspaceWindows ws = to $ \s ->
     S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
     S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
 
-allWorkspaceWindows :: WorkspaceID -> WMState -> Seq (Ptr RiverWindow)
-allWorkspaceWindows w WMState{allWorkspacesFloating, allWorkspacesFullscreen, allWorkspacesTiled} =
-  let look a = BS.lookupBs w a
-   in look allWorkspacesFullscreen S.>< look allWorkspacesTiled >< look allWorkspacesFloating
+focusedWorkspace :: Getter WMState (Maybe WorkspaceID)
+focusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOutput)) % _Just
+
+focusedOutputGeom :: Getter WMState (Maybe Rect)
+focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOutput) %? #outGeometry
 
 -- You'll need to import these from a library like 'unix' or bind them via FFI
 foreign import ccall unsafe "memfd_create"

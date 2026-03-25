@@ -56,7 +56,7 @@ data WMState = WMState
   }
   deriving (Generic)
 
-data OpDeltaState = Dragging | DraggingTile (Ptr RiverWindow) | Resizing RiverEdge | ResizingTile | None
+data OpDeltaState = Dragging | DraggingTile | Resizing RiverEdge | ResizingTile | None deriving (Eq)
 
 data WMEvent = IPCEvent String Socket
 
@@ -226,3 +226,11 @@ infixr 4 <>~
 (<>=) :: (Is k A_Setter, MonadState s m, Semigroup b) => Optic k is s s b b -> b -> m ()
 o <>= m = modifying o (<> m)
 infix 4 <>=
+
+(%?~) :: (JoinKinds k1 A_Prism k2, Is k2 A_Setter) => Optic k1 is s t (Maybe a) (Maybe b) -> (a -> b) -> s -> t
+o %?~ a = over (o % _Just) a
+infix 4 %?~
+
+(%?=) :: (JoinKinds k1 A_Prism k2, MonadState s m, Is k2 A_Setter) => Optic k1 is s s (Maybe a) (Maybe b) -> (a -> b) -> m ()
+o %?= a = modifying (o % _Just) a
+infix 4 %?=

@@ -15,7 +15,6 @@ import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Optics.Core
-import Optics.Extra
 import Optics.State
 import Optics.State.Operators
 import Types
@@ -46,13 +45,15 @@ startLayout stateMVar = do
         Nothing -> pure ()
         Just win -> do
           let (targetWS, status) = (getWorkspace, getStatus)
-              getWorkspace = findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #workspaceRules) ^. non ("", "", focusedWS) % _3
-              getStatus = findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #floatingRules) ^. non ("", "", Tiled) % _3
+              getWorkspace =
+                findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #workspaceRules) ^. non ("", "", focusedWS) % _3
+              getStatus =
+                findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #floatingRules) ^. non ("", "", Tiled) % _3
           case status of
             Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
-            Floating -> #floatingQueue %= M.adjust (winPtr :) targetWS
-            Fullscreen -> #fullscreenQueue %= M.adjust (winPtr :) targetWS
-            _ -> #fullscreenQueue %= M.adjust (winPtr :) targetWS
+            Floating -> #floatingQueue % at targetWS %?= (winPtr :)
+            Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
+            FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
 
           when (targetWS == focusedWS) $ do
             #focusedWindow ?= winPtr
