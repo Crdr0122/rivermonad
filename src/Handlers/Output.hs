@@ -22,13 +22,13 @@ hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputDimensions dataPtr output width height = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(s :: WMState) ->
-    pure $ s & #allOutputs % at output % _Just % #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height
+    pure $ s & #allOutputs % at output %? #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height
 
 hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputPosition dataPtr output x y = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(s :: WMState) ->
-    pure $ s & #allOutputs % at output % _Just % #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y
+    pure $ s & #allOutputs % at output %? #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y
 
 hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput _ _ _ = pure ()
@@ -36,15 +36,14 @@ hsOutputWlOutput _ _ _ = pure ()
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    case state ^? #allOutputs % at output % _Just of
-      Nothing -> pure state
-      Just o -> do
-        riverOutputDestroy output
-        riverLayerShellOutputDestroy $ o ^. #outLayerShell
-        pure $
-          state
-            & (#allOutputs %~ M.delete output)
-            & (#allLayerShellOutputs %~ M.delete (o ^. #outLayerShell))
-            & (#allOutputWorkspaces %~ B.delete output)
-            & (#focusedOutput %~ (\oldO -> if oldO == output then nullPtr else oldO))
+  modifyMVar_ stateMVar $ \(state :: WMState) -> case state ^? #allOutputs % at output % _Just of
+    Nothing -> pure state
+    Just o -> do
+      riverOutputDestroy output
+      riverLayerShellOutputDestroy $ o ^. #outLayerShell
+      pure $
+        state
+          & (#allOutputs %~ M.delete output)
+          & (#allLayerShellOutputs %~ M.delete (o ^. #outLayerShell))
+          & (#allOutputWorkspaces %~ B.delete output)
+          & (#focusedOutput %~ (\oldO -> if oldO == output then nullPtr else oldO))

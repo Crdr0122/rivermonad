@@ -3,7 +3,7 @@
 module Handlers.Window where
 
 import Control.Concurrent.MVar
-import Control.Monad (when)
+import Control.Monad (forM_, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
@@ -47,57 +47,30 @@ foreign export ccall "hs_window_unmaximize_requested"
   hsWindowUnmaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 
 hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
-hsWindowIdentifier dataPtr win identifier = do
+hsWindowIdentifier dataPtr win identifierPtr = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { persistedState
-       , allWindows
-       , focusedOutput
-       , fullscreenQueue
-       , floatingQueue
-       , allOutputWorkspaces
-       , allWorkspacesTiled
-       } -> do
-        i <- peekCString identifier
-        case M.lookup i persistedState of
-          Nothing -> do
-            let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
-            pure
-              state
-                { allWindows = newWindows
-                , newWindowQueue = win : newWindowQueue state
-                }
-          Just (supposedWorkspace, windowStatus) -> do
-            let newPersisted = M.delete i persistedState
-                hidingAction =
-                  if supposedWorkspace == fromMaybe 1 (B.lookup focusedOutput allOutputWorkspaces) then pure () else riverWindowHide win
-                newState = case windowStatus of
-                  Tiled -> do
-                    let newWindows = M.adjust (\w -> w{winIdentifier = i}) win allWindows
-                    state
-                      { allWindows = newWindows
-                      , allWorkspacesTiled = BS.insert supposedWorkspace win allWorkspacesTiled
-                      }
-                  Floating -> do
-                    let newWindows = M.adjust (\w -> w{winIdentifier = i, isFloating = True}) win allWindows
-                    state
-                      { allWindows = newWindows
-                      , floatingQueue = M.adjust (win :) supposedWorkspace floatingQueue
-                      }
-                  Fullscreen -> do
-                    let newWindows = M.adjust (\w -> w{winIdentifier = i, isFullscreen = True}) win allWindows
-                    state
-                      { allWindows = newWindows
-                      , fullscreenQueue = M.adjust (win :) supposedWorkspace fullscreenQueue
-                      }
-                  FullscreenFloating -> do
-                    let newWindows = M.adjust (\w -> w{winIdentifier = i, isFullscreen = True, isFloating = True}) win allWindows
-                    state
-                      { allWindows = newWindows
-                      , fullscreenQueue = M.adjust (win :) supposedWorkspace fullscreenQueue
-                      }
-            pure newState{persistedState = newPersisted, renderQueue = renderQueue state >> hidingAction}
+  ident <- peekCString identifierPtr
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState (transform ident)
+ where
+  transform ident = do
+    #allWindows % at win %? #winIdentifier .= ident
+    preuse (#persistedState % at ident % _Just) >>= \case
+      Nothing -> #newWindowQueue %= (win :)
+      Just (ws, status) -> do
+        #persistedState % at ident .= Nothing
+        case status of
+          Tiled -> do
+            #allWorkspacesTiled %= BS.insert ws win
+          Floating -> do
+            #floatingQueue % at ws %?= (win :)
+            #allWindows % at win %? #isFloating .= True
+          Fullscreen -> do
+            #floatingQueue % at ws %?= (win :)
+            #allWindows % at win %? #isFullscreen .= True
+          FullscreenFloating -> do
+            #fullscreenQueue % at ws %?= (win :)
+            #allWindows % at win %? #isFloating .= True
+            #allWindows % at win %? #isFullscreen .= True
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
@@ -111,9 +84,7 @@ hsWindowClosed dataPtr win = do
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
-    mWs <- use focusedWorkspace
-    mWin <- use #focusedWindow
-    case (mWin, mWs) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do
         seat <- use #focusedSeat
         use (workspaceWindows ws) >>= \case
@@ -128,26 +99,19 @@ hsWindowClosed dataPtr win = do
       _ -> pure ()
 
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
-hsWindowDimensions dataPtr winP width height = do
+hsWindowDimensions dataPtr winPtr w h = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state@WMState{opDeltaState} -> do
-    case opDeltaState of
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState updateDimensions
+ where
+  updateDimensions =
+    use #opDeltaState >>= \case
       None -> do
-        let w@Window{isFloating, floatingGeometry, isFullscreen} = allWindows state M.! winP
-        if
-          | isFullscreen -> pure state
-          | isFloating ->
-              do
-                let newGeometry =
-                      (fromMaybe (Rect 0 0 0 0) floatingGeometry)
-                        { rw = width
-                        , rh = height
-                        }
-                    newWindow = w{floatingGeometry = Just newGeometry}
-                    newAllWindows = M.insert winP newWindow (allWindows state)
-                pure state{allWindows = newAllWindows}
-          | otherwise -> pure state
-      _ -> pure state
+        mWinRec <- preuse (#allWindows % at winPtr % _Just)
+        forM_ mWinRec $ \winRec -> do
+          let isFloat = view #isFloating winRec
+              isFull = view #isFullscreen winRec
+          when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \rect -> rect{rw = w, rh = h}
+      _ -> pure ()
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
@@ -162,12 +126,12 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform = do
-    #allWindows % at win % _Just %= (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)})
+    #allWindows % at win %?= (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)})
     when (minW == maxW && minH == maxH && minW /= 0 && minH /= 0) $ do
       #allWorkspacesTiled %= BS.delete win
       #allWorkspacesFullscreen %= BS.delete win
       use focusedWorkspace >>= \case
-        Just focusedWs -> #floatingQueue % at focusedWs % _Just %= (win :)
+        Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
         Nothing -> pure ()
 
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()

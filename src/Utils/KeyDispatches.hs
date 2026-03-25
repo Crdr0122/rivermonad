@@ -97,9 +97,7 @@ cycleWindowFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    mFwin <- use #focusedWindow
-    mWs <- use focusedWorkspace
-    case (mFwin, mWs) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just w, Just focusedWs) -> do
         preuse (#allWindows % at w % _Just) >>= \case
           Just win -> do
@@ -130,10 +128,7 @@ toggleFullscreenCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 toggleFullscreenCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    mWinPtr <- use #focusedWindow
-    fOutput <- use #focusedOutput
-    workmaps <- use #allOutputWorkspaces
-    case (mWinPtr, B.lookup fOutput workmaps) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
         mWin <- preuse (#allWindows % at win % _Just)
         case mWin of
@@ -163,10 +158,8 @@ toggleFullscreenCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execS
 toggleFloatingCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 toggleFloatingCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
-  transform = do
-    mWs <- use focusedWorkspace
-    mWinPtr <- use #focusedWindow
-    case (mWinPtr, mWs) of
+  transform =
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
         mWin <- preuse (#allWindows % at win % _Just)
         case mWin of
@@ -180,7 +173,7 @@ toggleFloatingCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execSta
 
   enterFloating win ws = do
     #allWorkspacesTiled %= BS.delete win
-    #floatingQueue % at ws % _Just %= (win :)
+    #floatingQueue % at ws %?= (win :)
 
   exitFloating win ws = do
     #allWorkspacesFloating %= BS.delete win
@@ -261,9 +254,7 @@ zoomWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 zoomWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    mWs <- use focusedWorkspace
-    mWinPtr <- use #focusedWindow
-    case (mWinPtr, mWs) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
         mWin <- preuse (#allWindows % at currentWin % _Just)
         let shouldSkip = case mWin of
@@ -310,11 +301,11 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
             forM_ (BS.lookupBs target fullscreened) $ \w ->
               do
                 #allWorkspacesFullscreen %= BS.delete w
-                #fullscreenQueue % at target % _Just %= (w :)
+                #fullscreenQueue % at target %?= (w :)
             forM_ (BS.lookupBs currentWs fullscreened) $ \w ->
               do
                 #allWorkspacesFullscreen %= BS.delete w
-                #fullscreenQueue % at currentWs % _Just %= (w :)
+                #fullscreenQueue % at currentWs %?= (w :)
 
         #lastFocusedWorkspace .= currentWs
         preuse (#workspaceFocusHistory % at target % _Just) >>= \case
@@ -346,10 +337,8 @@ formatStatus state =
 focusWindow :: WindowDirection -> Ptr RiverSeat -> MVar WMState -> IO ()
 focusWindow direction seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
-  transform = do
-    mWs <- use focusedWorkspace
-    mWin <- use #focusedWindow
-    case (mWin, mWs) of
+  transform =
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
         tiled <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
         case S.elemIndexL currentWin tiled of
@@ -393,9 +382,7 @@ swapWindow direction seat stateMVar = modifyMVar_ stateMVar $ pure . execState t
     allWins <- use #allWindows
     pure $ ptrs <&> \ptr -> fromMaybe (Rect 0 0 0 0) (allWins ^? at ptr %? geoField % _Just)
   transform = do
-    mWs <- use focusedWorkspace
-    mWin <- use #focusedWindow
-    case (mWin, mWs) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
         tiled <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
         case S.elemIndexL currentWin tiled of
@@ -454,10 +441,7 @@ moveWindowToWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
 moveWindowToWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    mWinPtr <- use #focusedWindow
-    fOutput <- use #focusedOutput
-    workmaps <- use #allOutputWorkspaces
-    case (mWinPtr, B.lookup fOutput workmaps) of
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just currentWS)
         | currentWS /= targetID ->
             preuse (#allWindows % at win % _Just) >>= \case
@@ -489,7 +473,6 @@ exec command _ _ = void $ spawnCommand ("systemd-run --user --scope --slice=app.
 reloadWindowManager :: FilePath -> Ptr RiverSeat -> MVar WMState -> IO ()
 reloadWindowManager fp _ stateMVar = do
   state <- readMVar stateMVar
-  let test = (state, state) ^. (alongside (#focusedWindow) (#opDeltaState))
 
   let windowsToRecord = M.fromList $ toPersistedEntry <$> (M.elems $ state ^. #allWindows)
       newPersisted = PersistedState{persistedWindows = windowsToRecord}
@@ -533,9 +516,7 @@ stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeD
  where
   finalizeDrag = do
     #manageQueue <>= riverSeatOpEnd seat
-    mWin <- use #focusedWindow
-    mode <- use #opDeltaState
-    case (mWin, mode) of
+    use (pairOfGetter #focusedWindow #opDeltaState) >>= \case
       (Just win, Dragging) -> do
         (newX, newY, _, _) <- use #currentOpDelta
         #allWindows % at win %? #floatingGeometry %?= \r -> r{rx = newX, ry = newY}
@@ -561,130 +542,58 @@ stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeD
     #opDeltaState .= None
     #currentOpDelta .= (0, 0, 0, 0)
 
--- stopDragging :: Ptr RiverSeat -> MVar WMState -> IO ()
--- stopDragging seat stateMVar = do
---   modifyMVar_ stateMVar $ \state -> do
---     let stop = riverSeatOpEnd seat
---     case focusedWindow state of
---       Nothing -> pure state
---       Just w -> do
---         case opDeltaState state of
---           Dragging -> do
---             let window = allWindows state M.! w
---             case floatingGeometry window of
---               Nothing -> pure state
---               Just r -> do
---                 let
---                   (x, y, _, _) = currentOpDelta state
---                   newWindows =
---                     M.insert w window{floatingGeometry = Just r{rx = x, ry = y}} (allWindows state)
---                 pure
---                   state
---                     { allWindows = newWindows
---                     , manageQueue = manageQueue state >> stop
---                     , opDeltaState = None
---                     , currentOpDelta = (0, 0, 0, 0)
---                     }
---           DraggingTile -> do
---             let
---               focusedWs = fromMaybe 1 $ state ^. focusedWorkspace
---               (currentX, currentY, _, _) = currentOpDelta state
---               currentTiled = BS.lookupBs focusedWs (allWorkspacesTiled state)
---               calcDistance (x1, y1) (x2, y2) = sqrt (fromIntegral $ (x1 - x2) ^ (2 :: Int) + (y1 - y2) ^ (2 :: Int))
---               distances :: S.Seq Double
---               distances =
---                 (\Rect{rx, ry} -> calcDistance (rx, ry) (currentX, currentY))
---                   . (fromMaybe (Rect 0 0 0 0))
---                   . tilingGeometry
---                   . (allWindows state M.!)
---                   <$> currentTiled
---               index = case distances of
---                 S.Empty -> 0
---                 h S.:<| t -> fst $ S.foldlWithIndex (\(oldI, old) i newD -> if newD < old then (i + 1, newD) else (oldI, old)) (0, h) t
---               newTiled = BS.insertByIndex focusedWs w (fromIntegral index) (allWorkspacesTiled state)
---             pure
---               state
---                 { manageQueue = manageQueue state >> stop
---                 , opDeltaState = None
---                 , allWorkspacesTiled = newTiled
---                 , currentOpDelta = (0, 0, 0, 0)
---                 }
---           _ -> pure state{manageQueue = manageQueue state >> stop}
-
 resizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
-resizeWindow seat stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    case focusedWindow state of
-      Nothing -> pure state
-      Just w -> do
-        let
-          win@Window{isFullscreen, isFloating} = (allWindows state M.! w)
+resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResize
+ where
+  startResize = do
+    mWin <- use #focusedWindow
+    forM_ mWin $ \win -> do
+      mWinRec <- preuse (#allWindows % at win % _Just)
+      forM_ mWinRec $ \winRec -> do
+        #manageQueue <>= riverSeatOpStartPointer seat
+        #manageQueue <>= riverWindowInformResizeStart win
         if
-          | isFullscreen -> pure state
-          | isFloating ->
-              case floatingGeometry win of
-                Nothing -> pure state
-                Just Rect{rx, ry, rw, rh} -> do
-                  let (cX, cY) = cursorPosition state
-                      edge
-                        | cX < firstX && cY < firstY = edgeTopLeft
-                        | cX < secondX && cY < firstY = edgeTop
-                        | cY < firstY = edgeTopRight
-                        | cX < firstX && cY < secondY = edgeLeft
-                        | cX < oneHalfX && cY < oneHalfY = edgeTopLeft
-                        | cX < secondX && cY < oneHalfY = edgeTopRight
-                        | cX < oneHalfX && cY < secondY = edgeBottomLeft
-                        | cX < secondX && cY < secondY = edgeBottomRight
-                        | cY < secondY = edgeRight
-                        | cX < firstX = edgeBottomLeft
-                        | cX < secondX = edgeBottom
-                        | otherwise = edgeBottomRight
-                       where
-                        oneThirdW = rw `div` 3
-                        oneThirdH = rh `div` 3
-                        oneHalfX = rx + rw `div` 2
-                        oneHalfY = ry + rh `div` 2
-                        firstX = rx + oneThirdW
-                        secondX = firstX + oneThirdW
-                        firstY = ry + oneThirdH
-                        secondY = firstY + oneThirdH
-
-                  riverSeatOpStartPointer seat
-                  pure
-                    state
-                      { opDeltaState = Resizing edge
-                      , manageQueue = manageQueue state >> riverWindowInformResizeStart w
-                      }
-          | otherwise -> do
-              riverSeatOpStartPointer seat
-              pure
-                state
-                  { opDeltaState = ResizingTile
-                  , manageQueue = manageQueue state >> riverWindowInformResizeStart w
-                  }
+          | winRec ^. #isFloating -> forM_ (winRec ^. #floatingGeometry) $ \Rect{rx, ry, rw, rh} -> do
+              (cX, cY) <- use #cursorPosition
+              let edge
+                    | cX < firstX && cY < firstY = edgeTopLeft
+                    | cX < secondX && cY < firstY = edgeTop
+                    | cY < firstY = edgeTopRight
+                    | cX < firstX && cY < secondY = edgeLeft
+                    | cX < oneHalfX && cY < oneHalfY = edgeTopLeft
+                    | cX < secondX && cY < oneHalfY = edgeTopRight
+                    | cX < oneHalfX && cY < secondY = edgeBottomLeft
+                    | cX < secondX && cY < secondY = edgeBottomRight
+                    | cY < secondY = edgeRight
+                    | cX < firstX = edgeBottomLeft
+                    | cX < secondX = edgeBottom
+                    | otherwise = edgeBottomRight
+                   where
+                    oneThirdW = rw `div` 3
+                    oneThirdH = rh `div` 3
+                    oneHalfX = rx + rw `div` 2
+                    oneHalfY = ry + rh `div` 2
+                    firstX = rx + oneThirdW
+                    secondX = firstX + oneThirdW
+                    firstY = ry + oneThirdH
+                    secondY = firstY + oneThirdH
+              #opDeltaState .= Resizing edge
+          | winRec ^. #isFullscreen -> pure ()
+          | otherwise -> #opDeltaState .= ResizingTile
 
 stopResizing :: Ptr RiverSeat -> MVar WMState -> IO ()
-stopResizing seat stateMVar = do
-  modifyMVar_ stateMVar $ \state -> do
-    case focusedWindow state of
-      Nothing -> pure state
-      Just win -> do
-        let
-          window = allWindows state M.! win
-          stop = riverSeatOpEnd seat
-          newState = case (opDeltaState state, floatingGeometry window) of
-            (Resizing _, Just r) -> do
-              let (x, y, w, h) = currentOpDelta state
-                  newWindows =
-                    M.insert
-                      win
-                      window{floatingGeometry = Just r{rw = w, rh = h, rx = x, ry = y}}
-                      (allWindows state)
-              state{allWindows = newWindows}
-            _ -> state
-        pure
-          newState
-            { manageQueue = manageQueue state >> stop >> riverWindowInformResizeEnd win
-            , opDeltaState = None
-            , currentOpDelta = (0, 0, 0, 0)
-            }
+stopResizing seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeResize
+ where
+  finalizeResize = do
+    mWin <- use #focusedWindow
+    forM_ mWin $ \win -> do
+      use #opDeltaState >>= \case
+        Resizing _ -> do
+          (x, y, w, h) <- use #currentOpDelta
+          #allWindows % at win %? #floatingGeometry %?= \r -> r{rx = x, ry = y, rw = w, rh = h}
+        _ -> pure ()
+
+      #manageQueue <>= riverSeatOpEnd seat
+      #manageQueue <>= riverWindowInformResizeEnd win
+      #opDeltaState .= None
+      #currentOpDelta .= (0, 0, 0, 0)

@@ -72,14 +72,13 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
  where
   raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
   shrinkWindows b = fmap (& _2 %~ \r -> r & #rx %~ (+ b) & #ry %~ (+ b) & #rh %~ subtract (2 * b) & #rw %~ subtract (2 * b))
-  layoutEngine geom = do
-    allWindows <- use #allWindows
-    tilingPtrs <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
-    fWin <- use #focusedWindow
-    mCurrentLayout <- preuse (#workspaceLayouts % at ws % _Just)
-    case mCurrentLayout of
+  layoutEngine geom =
+    preuse (#workspaceLayouts % at ws % _Just) >>= \case
       Nothing -> pure ()
       Just currentLayout -> do
+        allWindows <- use #allWindows
+        tilingPtrs <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
+        fWin <- use #focusedWindow
         -- Tiled
         let idx = fWin >>= (`S.elemIndexL` tilingPtrs)
             tileable = (allWindows M.!) <$> tilingPtrs

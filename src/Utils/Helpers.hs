@@ -5,6 +5,8 @@ module Utils.Helpers (
   focusedWorkspace,
   focusedOutputGeom,
   createKeymapFd,
+  pairOfGetter,
+  pairOf,
 ) where
 
 import Data.Bimap as B
@@ -76,6 +78,15 @@ focusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #fo
 
 focusedOutputGeom :: Getter WMState (Maybe Rect)
 focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOutput) %? #outGeometry
+
+pairOf :: Lens' s a -> Lens' s b -> Lens' s (a, b)
+pairOf la lb = lens getter setter
+ where
+  getter s = (s ^. la, s ^. lb)
+  setter s (x, y) = s & la .~ x & lb .~ y
+
+pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
+pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
 
 -- You'll need to import these from a library like 'unix' or bind them via FFI
 foreign import ccall unsafe "memfd_create"
