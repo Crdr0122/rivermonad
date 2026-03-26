@@ -10,6 +10,7 @@
 #include <wayland-client-protocol.h>
 
 static struct wl_compositor *compositor = NULL;
+static struct wl_seat *seat = NULL;
 static struct river_window_manager_v1 *river = NULL;
 static struct river_xkb_bindings_v1 *xkb_binding = NULL;
 static struct river_layer_shell_v1 *layer_shell = NULL;
@@ -24,6 +25,11 @@ static void registry_global(void *data, struct wl_registry *registry,
   if (strcmp(interface, wl_compositor_interface.name) == 0) {
     compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 6);
     printf("Bound wl_compositor!\n");
+  }
+
+  if (strcmp(interface, wl_seat_interface.name) == 0) {
+    seat = wl_registry_bind(registry, name, &wl_seat_interface, 10);
+    printf("Bound wl_seat!\n");
   }
 
   if (strcmp(interface, river_window_manager_v1_interface.name) == 0) {
@@ -73,6 +79,7 @@ const struct wl_registry_listener *get_registry_listener(void) {
 }
 
 struct wl_compositor *get_compositor(void) { return compositor; }
+struct wl_seat *get_seat(void) { return seat; }
 struct river_window_manager_v1 *get_river(void) { return river; }
 struct river_xkb_bindings_v1 *get_xkb_bindings(void) { return xkb_binding; }
 struct river_layer_shell_v1 *get_layer_shell(void) { return layer_shell; }
