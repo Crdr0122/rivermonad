@@ -65,7 +65,13 @@ hsWmSeat dataPtr _ seat = do
     _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
     theme <- newCString (myConfig ^. #xCursorTheme % _1)
     riverSeatSetXcursorTheme seat theme (myConfig ^. #xCursorTheme % _2)
-    pure $ state & #focusedSeat .~ seat & #seatXkbBindings % at' seat ?~ [] & #seatPointerBindings % at' seat ?~ []
+    let s =
+          Seat
+            { seatPtr = seat
+            , xkbBindings = []
+            , pointerBindings = []
+            }
+    pure $ state & #focusedSeat .~ seat & #allSeats % at' seat ?~ s
 
   mapM_ (registerKeybind dataPtr seat) (myConfig ^. #allKeyBindings % to M.toList)
   mapM_ (registerPointerbind dataPtr seat) (myConfig ^. #allPointerBindings % to M.toList)
@@ -108,8 +114,8 @@ hsWmSessionLocked dataPtr _ = do
     pure $
       state
         & #manageQueue
-        <>~ ( traverseOf_ (#seatXkbBindings % traversed % traversed) riverXkbBindingDisable state
-                >> traverseOf_ (#seatPointerBindings % traversed % traversed) riverPointerBindingDisable state
+        <>~ ( traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingDisable state
+                >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingDisable state
             )
 
 hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
@@ -119,8 +125,8 @@ hsWmSessionUnlocked dataPtr _ = do
     pure $
       state
         & #manageQueue
-        <>~ ( traverseOf_ (#seatXkbBindings % traversed % traversed) riverXkbBindingEnable state
-                >> traverseOf_ (#seatPointerBindings % traversed % traversed) riverPointerBindingEnable state
+        <>~ ( traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingEnable state
+                >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingEnable state
                 >> traverseOf_ (#focusedWindow % _Just) (riverSeatFocusWindow (state ^. #focusedSeat)) state
             )
 

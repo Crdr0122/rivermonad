@@ -1,9 +1,9 @@
 module Handlers.XkbBindings where
 
 import Control.Concurrent.MVar
-import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
+import Optics.Core
 import Types
 import Wayland.Client
 import Wayland.ImportedFunctions
@@ -47,8 +47,7 @@ registerKeybind dataPtr seat ((key, modifier), (onPressed)) = do
     newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-    pure
+    pure $
       state
-        { manageQueue = manageQueue state >> riverXkbBindingEnable newBinding
-        , seatXkbBindings = adjust (newBinding :) seat (seatXkbBindings state)
-        }
+        & (#manageQueue <>~ riverXkbBindingEnable newBinding)
+        & (#allSeats % at seat %? #xkbBindings %~ (newBinding :))
