@@ -21,14 +21,12 @@ foreign export ccall "hs_output_wl_output"
 hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputDimensions dataPtr output width height = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(s :: WMState) ->
-    pure $ s & #allOutputs % at output %? #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height)
 
 hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputPosition dataPtr output x y = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(s :: WMState) ->
-    pure $ s & #allOutputs % at output %? #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y)
 
 hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput _ _ _ = pure ()

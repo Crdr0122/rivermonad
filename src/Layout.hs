@@ -26,24 +26,22 @@ startLayout :: MVar WMState -> IO ()
 startLayout stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let newState = execState sortNewWindows state
-    view #manageQueue newState
+    newState ^. #manageQueue
     pure $ newState & #manageQueue .~ pure ()
   state <- readMVar stateMVar
-  let outputs = B.toList (state ^. #allOutputWorkspaces)
-  mapM_ (\(o, w) -> startLayoutOutput o w stateMVar) outputs
+  mapM_ (startLayoutOutput stateMVar) $ B.toList (state ^. #allOutputWorkspaces)
  where
   sortNewWindows = do
     queue <- use #newWindowQueue
     #newWindowQueue .= []
-    fOutput <- use #focusedOutput
     workmaps <- use #allOutputWorkspaces
-    seat <- use #focusedSeat
-    let focusedWS = fromMaybe 1 $ B.lookup fOutput workmaps
+    mWs <- use focusedWorkspace
+    let focusedWS = fromMaybe 1 mWs
     forM_ queue $ \winPtr -> do
-      mWin <- preuse (#allWindows % at winPtr % _Just)
-      case mWin of
+      use (#allWindows % at winPtr) >>= \case
         Nothing -> pure ()
         Just win -> do
+          seat <- use #focusedSeat
           let (targetWS, status) = (getWorkspace, getStatus)
               getWorkspace =
                 findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #workspaceRules) ^. non ("", "", focusedWS) % _3
@@ -61,8 +59,8 @@ startLayout stateMVar = do
             #manageQueue <>= riverSeatFocusWindow seat winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr
 
-startLayoutOutput :: Ptr RiverOutput -> WorkspaceID -> MVar WMState -> IO ()
-startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMState) ->
+startLayoutOutput :: MVar WMState -> (Ptr RiverOutput, WorkspaceID) -> IO ()
+startLayoutOutput stateMVar (output, ws) = modifyMVar_ stateMVar $ \(state :: WMState) ->
   case state ^? #allOutputs % at output %? #outGeometry of
     Nothing -> pure state
     Just geom -> do
@@ -73,7 +71,7 @@ startLayoutOutput output ws stateMVar = modifyMVar_ stateMVar $ \(state :: WMSta
   raiseAllWindows = mapM_ (riverNodePlaceTop . nodePtr)
   shrinkWindows b = fmap (& _2 %~ \r -> r & #rx %~ (+ b) & #ry %~ (+ b) & #rh %~ subtract (2 * b) & #rw %~ subtract (2 * b))
   layoutEngine geom =
-    preuse (#workspaceLayouts % at ws % _Just) >>= \case
+    use (#workspaceLayouts % at ws) >>= \case
       Nothing -> pure ()
       Just currentLayout -> do
         allWindows <- use #allWindows

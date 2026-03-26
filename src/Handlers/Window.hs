@@ -8,7 +8,6 @@ import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
 import Data.Map.Strict qualified as M
-import Data.Maybe
 import Data.Sequence qualified as S
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -54,7 +53,7 @@ hsWindowIdentifier dataPtr win identifierPtr = do
  where
   transform ident = do
     #allWindows % at win %? #winIdentifier .= ident
-    preuse (#persistedState % at ident % _Just) >>= \case
+    use (#persistedState % at ident) >>= \case
       Nothing -> #newWindowQueue %= (win :)
       Just (ws, status) -> do
         #persistedState % at ident .= Nothing
@@ -106,19 +105,17 @@ hsWindowDimensions dataPtr winPtr w h = do
   updateDimensions =
     use #opDeltaState >>= \case
       None -> do
-        mWinRec <- preuse (#allWindows % at winPtr % _Just)
+        mWinRec <- use (#allWindows % at winPtr)
         forM_ mWinRec $ \winRec -> do
           let isFloat = view #isFloating winRec
               isFull = view #isFullscreen winRec
-          when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \rect -> rect{rw = w, rh = h}
+          when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \r -> r{rw = w, rh = h}
       _ -> pure ()
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let newWindows = M.adjust (\w -> w{parentWindow = Just parent}) win (allWindows state)
-    pure state{allWindows = newWindows}
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allWindows % at win %? #parentWindow ?~ parent)
 
 hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
@@ -126,9 +123,10 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform = do
-    #allWindows % at win %?= (\w -> w{dimensionsHint = (minW, minH, maxW, maxH)})
+    #allWindows % at win %? #dimensionsHint .= (minW, minH, maxW, maxH)
     when (minW == maxW && minH == maxH && minW /= 0 && minH /= 0) $ do
       #allWorkspacesTiled %= BS.delete win
+      #allWorkspacesFloating %= BS.delete win
       #allWorkspacesFullscreen %= BS.delete win
       use focusedWorkspace >>= \case
         Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
@@ -137,90 +135,67 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowTitle dataPtr win title = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state ->
+  modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
     if title == nullPtr
       then pure state
       else do
         bs <- BStr.packCString title
         let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
-            newWindows = M.adjust (\w -> w{winTitle = decoded}) win (allWindows state)
-        pure state{allWindows = newWindows}
+        pure $ state & #allWindows % at win %? #winTitle .~ decoded
 
 hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowAppID dataPtr win appID = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state ->
+  modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
     if appID == nullPtr
       then pure state
       else do
         bs <- BStr.packCString appID
         let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
-            newWindows = M.adjust (\w -> w{winAppID = decoded}) win (allWindows state)
-        pure state{allWindows = newWindows}
+        pure $ state & #allWindows % at win %? #winAppID .~ decoded
 
 hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
 hsWindowFullscreenRequested dataPtr win output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { allWindows
-       , allWorkspacesFloating
-       , allWorkspacesTiled
-       , allWorkspacesFullscreen
-       , fullscreenQueue
-       , allOutputWorkspaces
-       , focusedOutput
-       } -> do
-        let window@Window{isFloating} = allWindows M.! win
-            newWindows = M.insert win window{isFullscreen = True, isPinned = False} allWindows
-            currentFocusedWorkspace = fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces
-            targetWorkspace = fromMaybe currentFocusedWorkspace (B.lookup output allOutputWorkspaces)
-            newState
-              | isFloating = state{allWorkspacesFloating = BS.delete win allWorkspacesFloating}
-              | otherwise = state{allWorkspacesTiled = BS.delete win allWorkspacesTiled}
-
-        pure
-          newState
-            { allWindows = newWindows
-            , fullscreenQueue = M.adjust (win :) targetWorkspace fullscreenQueue
-            , allWorkspacesFullscreen = BS.insert targetWorkspace win allWorkspacesFullscreen
-            }
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform =
+    use (#allOutputWorkspaces % to (B.lookup output)) >>= \case
+      Nothing -> pure ()
+      Just targetWs -> do
+        #allWindows % at win %?= (\w -> w{isFullscreen = True, isPinned = False})
+        #allWorkspacesFloating %= BS.delete win
+        #allWorkspacesTiled %= BS.delete win
+        #allWorkspacesFullscreen %= BS.delete win
+        #fullscreenQueue % at targetWs %?= (win :)
 
 hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowExitFullscreenRequested dataPtr win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $
-    \state@WMState
-       { allWindows
-       , allWorkspacesFloating
-       , allWorkspacesTiled
-       , allWorkspacesFullscreen
-       , focusedOutput
-       , manageQueue
-       , allOutputWorkspaces
-       } -> do
-        let Window{isFloating} = allWindows M.! win
-            workspace = fromMaybe (fromMaybe 1 $ B.lookup focusedOutput allOutputWorkspaces) (BS.lookupA win allWorkspacesFullscreen)
-            newState
-              | isFloating = state{allWorkspacesFloating = BS.insert workspace win allWorkspacesFloating}
-              | otherwise = state{allWorkspacesTiled = BS.insert workspace win allWorkspacesTiled}
-        pure
-          newState
-            { allWindows = M.adjust (\w -> w{isFullscreen = False}) win allWindows
-            , manageQueue = manageQueue >> riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win
-            , allWorkspacesFullscreen = BS.delete win allWorkspacesFullscreen
-            }
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform =
+    use (#allWindows % at win) >>= \case
+      Nothing -> pure ()
+      Just Window{isFloating} ->
+        use (#allWorkspacesFullscreen % to (BS.lookupA win)) >>= \case
+          Nothing -> pure ()
+          Just ws -> do
+            #allWindows % at win %? #isFullscreen .= False
+            #allWorkspacesFullscreen %= BS.delete win
+            #manageQueue <>= (riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win)
+            if isFloating
+              then #floatingQueue % at ws %?= (win :)
+              else #allWorkspacesTiled %= BS.insert ws win
 
 hsWindowMaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowMaximizeRequested dataPtr win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let newWindows = M.adjust (\w -> w{isMaximized = True}) win (allWindows state)
-    pure state{allWindows = newWindows, manageQueue = manageQueue state >> riverWindowInformMaximized win}
+  modifyMVar_ (stateMVar :: MVar WMState) $
+    pure . (#manageQueue <>~ riverWindowInformMaximized win) . (#allWindows % at win %? #isMaximized .~ True)
 
 hsWindowUnmaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowUnmaximizeRequested dataPtr win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
-    let newWindows = M.adjust (\w -> w{isMaximized = False}) win (allWindows state)
-    pure state{allWindows = newWindows, manageQueue = manageQueue state >> riverWindowInformUnmaximized win}
+  modifyMVar_ (stateMVar :: MVar WMState) $
+    pure . (#manageQueue <>~ riverWindowInformUnmaximized win) . (#allWindows % at win %? #isMaximized .~ False)

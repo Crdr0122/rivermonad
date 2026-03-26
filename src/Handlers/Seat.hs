@@ -61,12 +61,12 @@ hsSeatWindowInteraction dataPtr seat win = do
     use #focusedWindow >>= \case
       Just fWin | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
       _ -> do
-        mWinRec <- preuse (#allWindows % at win % _Just)
+        mWinRec <- use (#allWindows % at win)
         forM_ mWinRec $ \winRec -> do
           tiled <- use #allWorkspacesTiled
           floating <- use #allWorkspacesFloating
           full <- use #allWorkspacesFullscreen
-          forM_ (msum [BS.lookupA win tiled, BS.lookupA win floating, BS.lookupA win full]) $ \ws -> do
+          forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
             #focusedWindow ?= win
             #workspaceFocusHistory %= M.insert ws win
             #manageQueue <>= riverSeatFocusWindow seat win
@@ -90,7 +90,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
   transform =
     use (pairOfGetter #focusedWindow #opDeltaState) >>= \case
       (Just win, mode) -> do
-        mWinRec <- preuse (#allWindows % at win % _Just)
+        mWinRec <- use (#allWindows % at win)
         forM_ mWinRec $ \winRec -> do
           case mode of
             Dragging -> handleDrag winRec
@@ -146,7 +146,7 @@ hsSeatOpDelta dataPtr _ dx dy = do
             | otherwise = (rw, rh, rx, ry)
 
       #manageQueue <>= riverWindowProposeDimensions winPtr w h
-      #renderQueue <>= riverNodeSetPosition (view #nodePtr winRec) x y
+      #renderQueue <>= riverNodeSetPosition (winRec ^. #nodePtr) x y
       #currentOpDelta .= (x, y, w, h)
 
 hsSeatOpRelease :: Ptr () -> Ptr RiverSeat -> IO ()

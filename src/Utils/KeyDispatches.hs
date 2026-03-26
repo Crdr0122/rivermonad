@@ -76,7 +76,7 @@ toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState trans
     use #focusedWindow >>= \case
       Nothing -> pure ()
       Just w -> do
-        maybeWinData <- preuse (#allWindows % at w % _Just)
+        maybeWinData <- use (#allWindows % at w)
         fOutput <- use #focusedOutput
         outWorkmaps <- use #allOutputWorkspaces
         case (maybeWinData, B.lookup fOutput outWorkmaps) of
@@ -99,7 +99,7 @@ cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSta
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just w, Just focusedWs) -> do
-        preuse (#allWindows % at w % _Just) >>= \case
+        use (#allWindows % at w) >>= \case
           Just win -> do
             let targetMapOptic
                   | view #isFullscreen win = #allWorkspacesFullscreen
@@ -110,7 +110,7 @@ cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSta
 
             let next = BS.lookUpNext focusedWs forward w targetMap
 
-            nextWinData <- preuse (#allWindows % at next % _Just)
+            nextWinData <- use (#allWindows % at next)
             let renderAction = case nextWinData of
                   Just nData
                     | view #isFullscreen win || view #isFloating win ->
@@ -130,7 +130,7 @@ toggleFullscreenCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execS
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
-        mWin <- preuse (#allWindows % at win % _Just)
+        mWin <- use (#allWindows % at win)
         case mWin of
           Just winRec | not (winRec ^. #isPinned) -> do
             let currentlyFullscreen = winRec ^. #isFullscreen
@@ -161,7 +161,7 @@ toggleFloatingCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execSta
   transform =
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
-        mWin <- preuse (#allWindows % at win % _Just)
+        mWin <- use (#allWindows % at win)
         case mWin of
           Just winRec | not (winRec ^. #isPinned || winRec ^. #isFullscreen) -> do
             if view #isFloating winRec
@@ -256,7 +256,7 @@ zoomWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
-        mWin <- preuse (#allWindows % at currentWin % _Just)
+        mWin <- use (#allWindows % at currentWin)
         let shouldSkip = case mWin of
               Just w -> view #isFloating w || view #isFullscreen w
               Nothing -> True
@@ -308,7 +308,7 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
                 #fullscreenQueue % at currentWs %?= (w :)
 
         #lastFocusedWorkspace .= currentWs
-        preuse (#workspaceFocusHistory % at target % _Just) >>= \case
+        use (#workspaceFocusHistory % at target) >>= \case
           Nothing -> do
             newWins <- use (workspaceWindows target)
             case newWins of
@@ -328,7 +328,7 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
 formatStatus :: WMState -> String
 formatStatus state =
   let
-    windows = fmap (\i -> (i, (state ^. workspaceWindows i))) [1 .. 9]
+    windows = (\i -> (i, (state ^. workspaceWindows i))) <$> [1 .. 9]
     target = fromMaybe 1 $ B.lookup (focusedOutput state) (allOutputWorkspaces state)
     str = concat $ L.intersperse "," $ fmap (\(i, s) -> if i == target then "1" else if S.length s > 0 then "2" else "0") windows
    in
@@ -444,7 +444,7 @@ moveWindowToWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ pure . e
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just currentWS)
         | currentWS /= targetID ->
-            preuse (#allWindows % at win % _Just) >>= \case
+            use (#allWindows % at win) >>= \case
               Just winRec | not (view #isPinned winRec) -> do
                 moveWindowStructural win winRec
                 #workspaceFocusHistory % at targetID ?= win
@@ -499,7 +499,7 @@ dragWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
   transform = do
     mWin <- use #focusedWindow
     forM_ mWin $ \win -> do
-      mWinRec <- preuse (#allWindows % at win % _Just)
+      mWinRec <- use (#allWindows % at win)
       forM_ mWinRec $ \winRec -> do
         unless (winRec ^. #isFullscreen) $ do
           #manageQueue <>= riverSeatOpStartPointer seat
@@ -548,7 +548,7 @@ resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResi
   startResize = do
     mWin <- use #focusedWindow
     forM_ mWin $ \win -> do
-      mWinRec <- preuse (#allWindows % at win % _Just)
+      mWinRec <- use (#allWindows % at win)
       forM_ mWinRec $ \winRec -> do
         #manageQueue <>= riverSeatOpStartPointer seat
         #manageQueue <>= riverWindowInformResizeStart win
