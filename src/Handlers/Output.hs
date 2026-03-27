@@ -1,12 +1,16 @@
 module Handlers.Output where
 
 import Control.Concurrent.MVar
+import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
 import Foreign
 import Foreign.C
 import Optics.Core
+import Optics.State
+import Optics.State.Operators
 import Types
+import Utils.Helpers
 import Wayland.ImportedFunctions
 
 foreign export ccall "hs_output_position"
@@ -34,14 +38,20 @@ hsOutputWlOutput _ _ _ = pure ()
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(state :: WMState) -> case state ^? #allOutputs % at output % _Just of
-    Nothing -> pure state
-    Just o -> do
-      riverOutputDestroy output
-      riverLayerShellOutputDestroy $ o ^. #outLayerShell
-      pure $
-        state
-          & (#allOutputs %~ M.delete output)
-          & (#allLayerShellOutputs %~ M.delete (o ^. #outLayerShell))
-          & (#allOutputWorkspaces %~ B.delete output)
-          & (#focusedOutput %~ (\oldO -> if oldO == output then nullPtr else oldO))
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
+    riverOutputDestroy output
+    traverseOf_ (#allOutputs % at output %? #outLayerShell) riverLayerShellOutputDestroy state
+    pure $ execState transform state
+ where
+  transform = do
+    #allOutputs %= M.delete output
+    #allOutputWorkspaces %= B.delete output
+
+    use (pairOfGetter #focusedOutput (#allOutputWorkspaces % to B.keys)) >>= \case
+      (oldO, []) | oldO /= output -> #focusedOutput .= nullPtr
+      (oldO, h : _) | oldO /= output -> #focusedOutput .= h
+      _ -> pure ()
+
+    use (#allOutputs % at output) >>= \case
+      Nothing -> pure ()
+      Just o -> #allLayerShellOutputs %= M.delete (o ^. #outLayerShell)

@@ -53,3 +53,5 @@ foreign import ccall unsafe "get_river_libinput_config_listener" getRiverLibinpu
 foreign import ccall unsafe "get_river_libinput_device_listener" getRiverLibinputDeviceListener :: Ptr ()
 foreign import ccall unsafe "get_river_input_manager_listener" getRiverInputManagerListener :: Ptr ()
 foreign import ccall unsafe "get_river_input_device_listener" getRiverInputDeviceListener :: Ptr ()
+foreign import ccall unsafe "get_wl_seat_listener" getWlSeatListener :: Ptr ()
+foreign import ccall unsafe "get_wl_pointer_listener" getWlPointerListener :: Ptr ()

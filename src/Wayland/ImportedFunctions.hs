@@ -6,7 +6,6 @@ import Foreign
 import Foreign.C
 import Types
 
-
 foreign import capi "river-window-management.h river_window_manager_v1_stop"
   riverWindowManagerStop :: Ptr RiverWMManager -> IO ()
 foreign import capi "river-window-management.h river_window_manager_v1_destroy"
@@ -248,3 +247,18 @@ foreign import capi "river-libinput-config.h river_libinput_accel_config_v1_dest
   riverLibinputAccelConfigDestroy :: Ptr RiverLibinputAccelConfig -> IO ()
 foreign import capi "river-libinput-config.h river_libinput_accel_config_v1_set_points"
   riverLibinputAccelConfigSetPoints :: Ptr RiverLibinputAccelConfig -> CUInt -> Ptr WlArray -> Ptr WlArray -> IO ()
+
+foreign import capi "cursor-shape.h wp_cursor_shape_manager_v1_destroy"
+  cursorShapeManagerDestroy :: Ptr CursorShapeManager -> IO ()
+foreign import capi "cursor-shape.h wp_cursor_shape_manager_v1_get_pointer"
+  cursorShapeManagerGetPointer :: Ptr CursorShapeManager -> Ptr WlPointer -> IO (Ptr CursorShapeDevice)
+foreign import capi "cursor-shape.h wp_cursor_shape_manager_v1_get_tablet_tool_v2"
+  cursorShapeManagerGetTabletTool :: Ptr CursorShapeManager -> Ptr () -> IO (Ptr CursorShapeDevice)
+
+foreign import capi "cursor-shape.h wp_cursor_shape_device_v1_destroy"
+  cursorShapeDeviceDestroy :: Ptr CursorShapeDevice -> IO ()
+foreign import capi "cursor-shape.h wp_cursor_shape_device_v1_set_shape"
+  cursorShapeDeviceSetShape :: Ptr CursorShapeDevice -> CUInt -> CUInt -> IO ()
+
+foreign import capi "wayland-client.h wl_seat_get_pointer"
+  wlSeatGetPointer :: Ptr WlSeat -> IO (Ptr WlPointer)

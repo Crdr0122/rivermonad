@@ -1,7 +1,7 @@
 module Handlers.Registry where
 
 import Control.Concurrent.MVar
-import Data.Bimap qualified as B
+import Data.Map qualified as M
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -56,7 +56,17 @@ registryGlobal dataPtr registry name interfacePtr version = do
     "wl_seat" -> do
       seatPtr <- wlRegistryBind registry name wl_seat_interface (min 9 version)
       modifyMVar_ stateMVar $ \state -> do
-        pure $ (state & #allWlSeats %~ B.insert name (castPtr seatPtr))
+        let wlSeat =
+              WlSeatData
+                { wlSeatPtr = (castPtr seatPtr)
+                , wlSeatCapabilities = 0
+                , wlPointerSerial = 0
+                , wlPointer = nullPtr
+                , wlCursorShapeDevice = nullPtr
+                }
+        doublePtr <- newStablePtr (dataPtr, name)
+        _ <- wlProxyAddListener (castPtr seatPtr) getWlSeatListener (castStablePtrToPtr doublePtr)
+        pure $ (state & #allWlSeats %~ M.insert name wlSeat)
       putStrLn $ "Bound wl_seat: " ++ show name
     "river_window_manager_v1" -> do
       wmPtr <- wlRegistryBind registry name river_window_manager_v1_interface (min 4 version)
