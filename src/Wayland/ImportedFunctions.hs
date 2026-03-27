@@ -262,3 +262,8 @@ foreign import capi "cursor-shape.h wp_cursor_shape_device_v1_set_shape"
 
 foreign import capi "wayland-client.h wl_seat_get_pointer"
   wlSeatGetPointer :: Ptr WlSeat -> IO (Ptr WlPointer)
+foreign import capi "wayland-client.h wl_seat_release"
+  wlSeatRelease :: Ptr WlSeat -> IO ()
+
+foreign import capi "wayland-client.h wl_pointer_release"
+  wlPointerRelease :: Ptr WlPointer -> IO ()

@@ -36,6 +36,7 @@ import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign hiding (void)
+import Foreign.C
 import IPC
 import Optics.Core
 import Optics.State
@@ -43,6 +44,7 @@ import Optics.State.Operators
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
+import Utils.CursorShapes
 import Utils.Helpers
 import Wayland.ImportedFunctions
 
@@ -493,6 +495,7 @@ dragWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
       mWinRec <- use (#allWindows % at win)
       forM_ mWinRec $ \winRec -> do
         unless (winRec ^. #isFullscreen) $ do
+          setCursorShape seat cursorGrabbing
           #manageQueue <>= riverSeatOpStartPointer seat
           if view #isFloating winRec
             then #opDeltaState .= Dragging
@@ -507,6 +510,7 @@ stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeD
  where
   finalizeDrag = do
     #manageQueue <>= riverSeatOpEnd seat
+    setCursorShape seat cursorDefault
     use (pairOfGetter #focusedWindow #opDeltaState) >>= \case
       (Just win, Dragging) -> do
         (newX, newY, _, _) <- use #currentOpDelta
@@ -546,19 +550,19 @@ resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResi
         if
           | winRec ^. #isFloating -> forM_ (winRec ^. #floatingGeometry) $ \Rect{rx, ry, rw, rh} -> do
               (cX, cY) <- use #cursorPosition
-              let edge
-                    | cX < firstX && cY < firstY = edgeTopLeft
-                    | cX < secondX && cY < firstY = edgeTop
-                    | cY < firstY = edgeTopRight
-                    | cX < firstX && cY < secondY = edgeLeft
-                    | cX < oneHalfX && cY < oneHalfY = edgeTopLeft
-                    | cX < secondX && cY < oneHalfY = edgeTopRight
-                    | cX < oneHalfX && cY < secondY = edgeBottomLeft
-                    | cX < secondX && cY < secondY = edgeBottomRight
-                    | cY < secondY = edgeRight
-                    | cX < firstX = edgeBottomLeft
-                    | cX < secondX = edgeBottom
-                    | otherwise = edgeBottomRight
+              let (edge, shape)
+                    | cX < firstX && cY < firstY = (edgeTopLeft, cursorNwResize)
+                    | cX < secondX && cY < firstY = (edgeTop, cursorNResize)
+                    | cY < firstY = (edgeTopRight, cursorNeResize)
+                    | cX < firstX && cY < secondY = (edgeLeft, cursorWResize)
+                    | cX < oneHalfX && cY < oneHalfY = (edgeTopLeft, cursorNwResize)
+                    | cX < secondX && cY < oneHalfY = (edgeTopRight, cursorNeResize)
+                    | cX < oneHalfX && cY < secondY = (edgeBottomLeft, cursorSwResize)
+                    | cX < secondX && cY < secondY = (edgeBottomRight, cursorSeResize)
+                    | cY < secondY = (edgeRight, cursorEResize)
+                    | cX < firstX = (edgeBottomLeft, cursorSwResize)
+                    | cX < secondX = (edgeBottom, cursorSResize)
+                    | otherwise = (edgeBottomRight, cursorSeResize)
                    where
                     oneThirdW = rw `div` 3
                     oneThirdH = rh `div` 3
@@ -568,6 +572,7 @@ resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResi
                     secondX = firstX + oneThirdW
                     firstY = ry + oneThirdH
                     secondY = firstY + oneThirdH
+              setCursorShape seat shape
               #opDeltaState .= Resizing edge
           | winRec ^. #isFullscreen -> pure ()
           | otherwise -> #opDeltaState .= ResizingTile
@@ -585,6 +590,19 @@ stopResizing seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeR
         _ -> pure ()
 
       #manageQueue <>= riverSeatOpEnd seat
+      setCursorShape seat cursorDefault
       #manageQueue <>= riverWindowInformResizeEnd win
       #opDeltaState .= None
       #currentOpDelta .= (0, 0, 0, 0)
+
+setCursorShape :: Ptr RiverSeat -> CUInt -> State WMState ()
+setCursorShape seat shape = do
+  preuse (#allSeats % at seat %? #seatName) >>= \case
+    Nothing -> pure ()
+    Just name ->
+      preuse (#allWlSeats % at name %? #wlCursorShapeDevice % _Just) >>= \case
+        Just device ->
+          preuse (#allWlSeats % at name %? #wlPointerSerial) >>= \case
+            Nothing -> pure ()
+            Just serial -> #manageQueue <>= cursorShapeDeviceSetShape device serial shape
+        _ -> pure ()

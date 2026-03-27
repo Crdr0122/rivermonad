@@ -126,9 +126,9 @@ data Output = Output
 data WlSeatData = WlSeatData
   { wlSeatPtr :: Ptr WlSeat
   , wlSeatCapabilities :: CUInt
-  , wlPointer :: Ptr WlPointer
+  , wlPointer :: Maybe (Ptr WlPointer)
   , wlPointerSerial :: CUInt
-  , wlCursorShapeDevice :: Ptr CursorShapeDevice
+  , wlCursorShapeDevice :: Maybe (Ptr CursorShapeDevice)
   }
   deriving (Generic)
 

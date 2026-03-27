@@ -50,10 +50,24 @@ hsSeatRemoved dataPtr seat = do
     traverseOf_ (#allSeats % at seat %? #xkbBindings % traversed) riverXkbBindingDestroy state
     traverseOf_ (#allSeats % at seat %? #pointerBindings % traversed) riverPointerBindingDestroy state
     riverSeatDestroy seat
-    pure $ execState transform state
+    execStateT transform state
  where
   transform = do
-    preuse (#allSeats % at seat %? #seatName) >>= maybe (pure ()) (\n -> #allWlSeats %= M.delete n)
+    preuse (#allSeats % at seat %? #seatName) >>= \case
+      Nothing -> pure ()
+      Just n -> do
+        preuse (#allWlSeats % at n %? #wlCursorShapeDevice % _Just) >>= \case
+          Nothing -> pure ()
+          Just pointerPtr -> liftIO $ cursorShapeDeviceDestroy pointerPtr
+        preuse (#allWlSeats % at n %? #wlPointer % _Just) >>= \case
+          Nothing -> pure ()
+          Just pointerPtr -> liftIO $ wlPointerRelease pointerPtr
+        preuse (#allWlSeats % at n %? #wlSeatPtr) >>= \case
+          Nothing -> pure ()
+          Just pointerPtr -> liftIO $ wlSeatRelease pointerPtr
+
+        #allWlSeats %= M.delete n
+
     #allSeats %= M.delete seat
     #focusedSeat %= (\oldS -> if oldS == seat then nullPtr else oldS)
 
