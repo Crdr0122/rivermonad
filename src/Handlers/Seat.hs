@@ -57,30 +57,29 @@ hsSeatWindowInteraction dataPtr seat win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
-  transform =
-    use #focusedWindow >>= \case
-      Just fWin | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
-      _ -> do
-        mWinRec <- use (#allWindows % at win)
-        forM_ mWinRec $ \winRec -> do
-          tiled <- use #allWorkspacesTiled
-          floating <- use #allWorkspacesFloating
-          full <- use #allWorkspacesFullscreen
-          forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
-            #focusedWindow ?= win
-            #workspaceFocusHistory %= M.insert ws win
-            #manageQueue <>= riverSeatFocusWindow seat win
-            when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
+  transform = do
+    use (pairOfGetter #focusedWindow (#allWindows % at win)) >>= \case
+      (Just fWin, _) | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
+      (_, Just winRec) -> do
+        tiled <- use #allWorkspacesTiled
+        floating <- use #allWorkspacesFloating
+        full <- use #allWorkspacesFullscreen
+        forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
+          #focusedWindow ?= win
+          #workspaceFocusHistory %= M.insert ws win
+          #manageQueue <>= riverSeatFocusWindow seat win
+          when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
 
-            oToW <- use #allOutputWorkspaces
-            oldO <- use #focusedOutput
-            case B.lookupR ws oToW of
-              Just o | o /= oldO -> do
-                #focusedOutput .= o
-                preuse (#allOutputs % at o %? #outLayerShell) >>= \case
-                  Nothing -> pure ()
-                  Just oRec -> #manageQueue <>= riverLayerShellOutputSetDefault oRec
-              _ -> pure ()
+          oToW <- use #allOutputWorkspaces
+          oldO <- use #focusedOutput
+          case B.lookupR ws oToW of
+            Just o | o /= oldO -> do
+              #focusedOutput .= o
+              preuse (#allOutputs % at o %? #outLayerShell) >>= \case
+                Nothing -> pure ()
+                Just oRec -> #manageQueue <>= riverLayerShellOutputSetDefault oRec
+            _ -> pure ()
+      _ -> pure ()
 
 hsSeatOpDelta :: Ptr () -> Ptr RiverSeat -> CInt -> CInt -> IO ()
 hsSeatOpDelta dataPtr _ dx dy = do

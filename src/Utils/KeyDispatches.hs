@@ -161,8 +161,7 @@ toggleFloatingCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execSta
   transform =
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
-        mWin <- use (#allWindows % at win)
-        case mWin of
+        use (#allWindows % at win) >>= \case
           Just winRec | not (winRec ^. #isPinned || winRec ^. #isFullscreen) -> do
             if view #isFloating winRec
               then exitFloating win ws
@@ -205,21 +204,18 @@ cycleWindows :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform =
-    use focusedWorkspace >>= \case
-      Nothing -> pure ()
-      Just focusedWs -> do
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
+      (Just w, Just focusedWs) -> do
         #allWorkspacesTiled %= BS.changeSeqOrder focusedWs (cycleW forward)
-        use #focusedWindow >>= \case
+        tiledMap <- use #allWorkspacesTiled
+        case BS.lookupA w tiledMap of
           Nothing -> pure ()
-          Just w -> do
-            tiledMap <- use #allWorkspacesTiled
-            case BS.lookupA w tiledMap of
-              Nothing -> pure ()
-              Just workspace -> do
-                let nextWin = BS.lookUpNext workspace forward w tiledMap
-                #focusedWindow ?= nextWin
-                #workspaceFocusHistory % at focusedWs ?= nextWin
-                #manageQueue <>= riverSeatFocusWindow seat nextWin
+          Just workspace -> do
+            let nextWin = BS.lookUpNext workspace forward w tiledMap
+            #focusedWindow ?= nextWin
+            #workspaceFocusHistory % at focusedWs ?= nextWin
+            #manageQueue <>= riverSeatFocusWindow seat nextWin
+      _ -> pure ()
 
   cycleW _ S.Empty = S.empty
   cycleW True (h S.:<| hs) = hs S.|> h
@@ -229,22 +225,19 @@ cycleWindowSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowSlaves forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    use focusedWorkspace >>= \case
-      Nothing -> pure ()
-      Just focusedWs -> do
+    use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
+      (Just w, Just focusedWs) -> do
         #allWorkspacesTiled %= BS.changeSeqOrder focusedWs (cycleW forward)
-        use #focusedWindow >>= \case
-          Nothing -> pure ()
-          Just w -> do
-            tiledMap <- use #allWorkspacesTiled
-            let s = BS.lookupBs focusedWs tiledMap
-            case S.elemIndexL w s of
-              Just i | i /= 0 -> do
-                let nextWin = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
-                #focusedWindow ?= nextWin
-                #workspaceFocusHistory % at focusedWs ?= nextWin
-                #manageQueue <>= riverSeatFocusWindow seat nextWin
-              _ -> pure ()
+        tiledMap <- use #allWorkspacesTiled
+        let s = BS.lookupBs focusedWs tiledMap
+        case S.elemIndexL w s of
+          Just i | i /= 0 -> do
+            let nextWin = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
+            #focusedWindow ?= nextWin
+            #workspaceFocusHistory % at focusedWs ?= nextWin
+            #manageQueue <>= riverSeatFocusWindow seat nextWin
+          _ -> pure ()
+      _ -> pure ()
 
   cycleW True (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
   cycleW False (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
@@ -309,9 +302,8 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
 
         #lastFocusedWorkspace .= currentWs
         use (#workspaceFocusHistory % at target) >>= \case
-          Nothing -> do
-            newWins <- use (workspaceWindows target)
-            case newWins of
+          Nothing ->
+            use (workspaceWindows target) >>= \case
               w S.:<| _ -> do
                 #focusedWindow ?= w
                 #workspaceFocusHistory % at target ?= w

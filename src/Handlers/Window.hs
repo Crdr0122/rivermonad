@@ -3,7 +3,7 @@
 module Handlers.Window where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_, when)
+import Control.Monad (unless, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
@@ -103,13 +103,11 @@ hsWindowDimensions dataPtr winPtr w h = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState updateDimensions
  where
   updateDimensions =
-    use #opDeltaState >>= \case
-      None -> do
-        mWinRec <- use (#allWindows % at winPtr)
-        forM_ mWinRec $ \winRec -> do
-          let isFloat = view #isFloating winRec
-              isFull = view #isFullscreen winRec
-          when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \r -> r{rw = w, rh = h}
+    use (pairOfGetter #opDeltaState (#allWindows % at winPtr)) >>= \case
+      (None, Just winRec) -> do
+        let isFloat = view #isFloating winRec
+            isFull = view #isFullscreen winRec
+        when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \r -> r{rw = w, rh = h}
       _ -> pure ()
 
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
@@ -134,25 +132,21 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
 
 hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowTitle dataPtr win title = do
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
-    if title == nullPtr
-      then pure state
-      else do
-        bs <- BStr.packCString title
-        let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
-        pure $ state & #allWindows % at win %? #winTitle .~ decoded
+  unless (title == nullPtr) $ do
+    stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+    modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
+      bs <- BStr.packCString title
+      let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
+      pure $ state & #allWindows % at win %? #winTitle .~ decoded
 
 hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 hsWindowAppID dataPtr win appID = do
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
-    if appID == nullPtr
-      then pure state
-      else do
-        bs <- BStr.packCString appID
-        let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
-        pure $ state & #allWindows % at win %? #winAppID .~ decoded
+  unless (appID == nullPtr) $ do
+    stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+    modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
+      bs <- BStr.packCString appID
+      let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
+      pure $ state & #allWindows % at win %? #winAppID .~ decoded
 
 hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
 hsWindowFullscreenRequested dataPtr win output = do
@@ -175,18 +169,15 @@ hsWindowExitFullscreenRequested dataPtr win = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform =
-    use (#allWindows % at win) >>= \case
-      Nothing -> pure ()
-      Just Window{isFloating} ->
-        use (#allWorkspacesFullscreen % to (BS.lookupA win)) >>= \case
-          Nothing -> pure ()
-          Just ws -> do
-            #allWindows % at win %? #isFullscreen .= False
-            #allWorkspacesFullscreen %= BS.delete win
-            #manageQueue <>= (riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win)
-            if isFloating
-              then #floatingQueue % at ws %?= (win :)
-              else #allWorkspacesTiled %= BS.insert ws win
+    use (pairOfGetter (#allWindows % at win) (#allWorkspacesFullscreen % to (BS.lookupA win))) >>= \case
+      (Just Window{isFloating}, Just ws) -> do
+        #allWindows % at win %? #isFullscreen .= False
+        #allWorkspacesFullscreen %= BS.delete win
+        #manageQueue <>= (riverWindowExitFullscreen win >> riverWindowInformNotFullscreen win)
+        if isFloating
+          then #floatingQueue % at ws %?= (win :)
+          else #allWorkspacesTiled %= BS.insert ws win
+      _ -> pure ()
 
 hsWindowMaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowMaximizeRequested dataPtr win = do
