@@ -40,15 +40,6 @@ foreign import capi "wayland-client.h wl_registry_bind"
 foreign import capi "wayland-client.h wl_proxy_add_listener"
   wlProxyAddListener :: Ptr a -> Ptr () -> Ptr () -> IO CInt
 
-foreign import ccall unsafe "get_registry_listener" getRegistryListener :: Ptr ()
-foreign import ccall unsafe "get_compositor" getCompositor :: Ptr ()
-foreign import ccall unsafe "get_river" getRiver :: Ptr RiverWMManager
-foreign import ccall unsafe "get_xkb_bindings" getXkbBindings :: Ptr RiverXkbBindings
-foreign import ccall unsafe "get_layer_shell" getLayerShell :: Ptr RiverLayerShell
-foreign import ccall unsafe "get_xkb_config" getXkbConfig :: Ptr RiverXkbConfig
-foreign import ccall unsafe "get_libinput_config" getLibinputConfig :: Ptr RiverLibinputConfig
-foreign import ccall unsafe "get_input_manager" getInputManager :: Ptr RiverInputManager
-
 foreign import ccall unsafe "get_river_wm_listener" getRiverWmListener :: Ptr ()
 foreign import ccall unsafe "get_river_window_listener" getRiverWindowListener :: Ptr ()
 foreign import ccall unsafe "get_river_output_listener" getRiverOutputListener :: Ptr ()

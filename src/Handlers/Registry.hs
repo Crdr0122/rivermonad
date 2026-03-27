@@ -29,7 +29,7 @@ foreign import ccall "&river_layer_shell_v1_interface" river_layer_shell_v1_inte
 foreign import ccall "&river_input_manager_v1_interface" river_input_manager_v1_interface :: Ptr WlInterface
 foreign import ccall "&river_libinput_config_v1_interface" river_libinput_config_v1_interface :: Ptr WlInterface
 foreign import ccall "&river_xkb_config_v1_interface" river_xkb_config_v1_interface :: Ptr WlInterface
-foreign import ccall "&cursor_shape_manager_v1_interface" cursor_shape_manager_v1_interface :: Ptr WlInterface
+foreign import ccall "&wp_cursor_shape_manager_v1_interface" cursor_shape_manager_v1_interface :: Ptr WlInterface
 
 instance Storable WlRegistryListener where
   sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 2
