@@ -71,6 +71,7 @@ executable rivermonad
     Handlers.RiverWM
     Handlers.Seat
     Handlers.Window
+    Handlers.WlSeat
     Handlers.XkbBindings
     Handlers.XkbConfig
     Handlers.Registry

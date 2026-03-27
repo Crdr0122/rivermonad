@@ -28,7 +28,7 @@ data WMState = WMState
   , allWindows :: Map (Ptr RiverWindow) Window
   , allOutputs :: Map (Ptr RiverOutput) Output
   , allSeats :: Map (Ptr RiverSeat) Seat
-  , allWlSeats :: Bimap CUInt (Ptr WlSeat)
+  , allWlSeats :: Map CUInt WlSeatData
   , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
   , focusedSeat :: Ptr RiverSeat
@@ -68,9 +68,11 @@ data WlSurface
 data WlInterface
 data WlArray
 data WlSeat
+data WlPointer
 type WlFixedT = CInt
 
 data CursorShapeManager
+data CursorShapeDevice
 
 data RiverNode
 data RiverWindow
@@ -120,6 +122,15 @@ data Output = Output
   , outGeometry :: Rect
   }
   deriving (Generic, Eq)
+
+data WlSeatData = WlSeatData
+  { wlSeatPtr :: Ptr WlSeat
+  , wlSeatCapabilities :: CUInt
+  , wlPointer :: Ptr WlPointer
+  , wlPointerSerial :: CUInt
+  , wlCursorShapeDevice :: Ptr CursorShapeDevice
+  }
+  deriving (Generic)
 
 data Seat = Seat
   { seatPtr :: Ptr RiverSeat

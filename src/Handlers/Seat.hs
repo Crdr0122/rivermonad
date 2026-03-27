@@ -53,7 +53,7 @@ hsSeatRemoved dataPtr seat = do
     pure $ execState transform state
  where
   transform = do
-    preuse (#allSeats % at seat %? #seatName) >>= maybe (pure ()) (\n -> #allWlSeats %= B.delete n)
+    preuse (#allSeats % at seat %? #seatName) >>= maybe (pure ()) (\n -> #allWlSeats %= M.delete n)
     #allSeats %= M.delete seat
     #focusedSeat %= (\oldS -> if oldS == seat then nullPtr else oldS)
 
