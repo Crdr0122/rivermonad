@@ -8,6 +8,7 @@ import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
 import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe)
 import Data.Sequence qualified as S
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -57,6 +58,8 @@ hsWindowIdentifier dataPtr win identifierPtr = do
       Nothing -> #newWindowQueue %= (win :)
       Just (ws, status) -> do
         #persistedState % at ident .= Nothing
+        fWs <- use focusedWorkspace
+        #renderQueue <>= unless (ws == fromMaybe 1 fWs) (riverWindowHide win)
         case status of
           Tiled -> do
             #allWorkspacesTiled %= BS.insert ws win
@@ -153,15 +156,13 @@ hsWindowFullscreenRequested dataPtr win output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
-  transform =
-    use (#allOutputWorkspaces % to (B.lookup output)) >>= \case
-      Nothing -> pure ()
-      Just targetWs -> do
-        #allWindows % at win %?= (\w -> w{isFullscreen = True, isPinned = False})
-        #allWorkspacesFloating %= BS.delete win
-        #allWorkspacesTiled %= BS.delete win
-        #allWorkspacesFullscreen %= BS.delete win
-        #fullscreenQueue % at targetWs %?= (win :)
+  transform = do
+    targetWs <- use (#allOutputWorkspaces % to (fromMaybe 1 . B.lookup output))
+    #allWindows % at win %?= (\w -> w{isFullscreen = True, isPinned = False})
+    #allWorkspacesFloating %= BS.delete win
+    #allWorkspacesTiled %= BS.delete win
+    #allWorkspacesFullscreen %= BS.delete win
+    #fullscreenQueue % at targetWs %?= (win :)
 
 hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowExitFullscreenRequested dataPtr win = do

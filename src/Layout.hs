@@ -99,7 +99,7 @@ startLayoutOutput stateMVar (output, ws) = modifyMVar_ stateMVar $ \(state :: WM
         #renderQueue <>= floatRAction
         forM_ (zip newFloatingWindows floatingPositions) $ \(win, rect) -> do
           let ptr = win ^. #winPtr
-          #allWindows % at ptr % _Just %= \w -> w & #floatingGeometry ?~ rect & #isFloating .~ True
+          #allWindows % at ptr %?= \w -> w & #floatingGeometry ?~ rect & #isFloating .~ True
           #renderQueue <>= riverWindowSetContentClipBox ptr 0 0 0 0
 
         -- Fullscreen

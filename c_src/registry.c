@@ -10,6 +10,7 @@
 #include <wayland-client-protocol.h>
 
 static struct wl_compositor *compositor = NULL;
+static struct wl_seat *seat = NULL;
 static struct river_window_manager_v1 *river = NULL;
 static struct river_xkb_bindings_v1 *xkb_binding = NULL;
 static struct river_layer_shell_v1 *layer_shell = NULL;
@@ -20,10 +21,71 @@ static struct river_libinput_config_v1 *libinput_config = NULL;
 static void registry_global(void *data, struct wl_registry *registry,
                             uint32_t name, const char *interface,
                             uint32_t version) {
-  // printf("Interface: %s\n", interface);
+  // Interface: wl_compositor
+  // Bound wl_compositor!
+  // Interface: wp_security_context_manager_v1
+  // Interface: wl_shm
+  // Interface: wp_single_pixel_buffer_manager_v1
+  // Interface: wp_alpha_modifier_v1
+  // Interface: wp_viewporter
+  // Interface: wp_fractional_scale_manager_v1
+  // Interface: wl_subcompositor
+  // Interface: wp_cursor_shape_manager_v1
+  // Interface: xdg_wm_base
+  // Interface: zxdg_decoration_manager_v1
+  // Interface: xdg_activation_v1
+  // Interface: wl_data_device_manager
+  // Interface: zwp_primary_selection_device_manager_v1
+  // Interface: ext_data_control_manager_v1
+  // Interface: zwlr_data_control_manager_v1
+  // Interface: zwlr_export_dmabuf_manager_v1
+  // Interface: zwlr_screencopy_manager_v1
+  // Interface: ext_image_copy_capture_manager_v1
+  // Interface: ext_output_image_capture_source_manager_v1
+  // Interface: ext_foreign_toplevel_list_v1
+  // Interface: wp_tearing_control_manager_v1
+  // Interface: zwp_linux_dmabuf_v1
+  // Interface: wp_linux_drm_syncobj_manager_v1
+  // Interface: river_window_manager_v1
+  // Bound river_wm!
+  // Interface: river_xkb_bindings_v1
+  // Bound river_xkb_binding!
+  // Interface: river_layer_shell_v1
+  // Bound river_layer_shell!
+  // Interface: zwlr_layer_shell_v1
+  // Interface: zwlr_gamma_control_manager_v1
+  // Interface: wp_presentation
+  // Interface: zxdg_output_manager_v1
+  // Interface: zwlr_output_manager_v1
+  // Interface: zwlr_output_power_manager_v1
+  // Interface: river_input_manager_v1
+  // Bound river_input_management!
+  // Interface: ext_idle_notifier_v1
+  // Interface: zwp_relative_pointer_manager_v1
+  // Interface: zwp_pointer_gestures_v1
+  // Interface: zwlr_virtual_pointer_manager_v1
+  // Interface: zwp_virtual_keyboard_manager_v1
+  // Interface: zwp_pointer_constraints_v1
+  // Interface: zwp_input_method_manager_v2
+  // Interface: zwp_text_input_manager_v3
+  // Interface: zwp_tablet_manager_v2
+  // Interface: wl_seat
+  // Bound wl_seat!
+  // Interface: river_libinput_config_v1
+  // Bound river_libinput_config!
+  // Interface: river_xkb_config_v1
+  // Bound river_xkb_config!
+  // Interface: zwp_idle_inhibit_manager_v1
+  // Interface: ext_session_lock_manager_v1
+  // Interface: wl_output
   if (strcmp(interface, wl_compositor_interface.name) == 0) {
     compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 6);
     printf("Bound wl_compositor!\n");
+  }
+
+  if (strcmp(interface, wl_seat_interface.name) == 0) {
+    seat = wl_registry_bind(registry, name, &wl_seat_interface, 9);
+    printf("Bound wl_seat!\n");
   }
 
   if (strcmp(interface, river_window_manager_v1_interface.name) == 0) {
@@ -73,6 +135,7 @@ const struct wl_registry_listener *get_registry_listener(void) {
 }
 
 struct wl_compositor *get_compositor(void) { return compositor; }
+struct wl_seat *get_seat(void) { return seat; }
 struct river_window_manager_v1 *get_river(void) { return river; }
 struct river_xkb_bindings_v1 *get_xkb_bindings(void) { return xkb_binding; }
 struct river_layer_shell_v1 *get_layer_shell(void) { return layer_shell; }

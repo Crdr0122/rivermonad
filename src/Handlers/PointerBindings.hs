@@ -1,9 +1,9 @@
 module Handlers.PointerBindings where
 
 import Control.Concurrent.MVar
-import Data.Map.Strict (adjust)
 import Foreign
 import Foreign.C
+import Optics.Core
 import Types
 import Wayland.Client
 import Wayland.ImportedFunctions
@@ -32,7 +32,7 @@ foreign import ccall "wrapper"
 registerPointerbind :: Ptr () -> Ptr RiverSeat -> ((CUInt, CUInt), (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())) -> IO ()
 registerPointerbind dataPtr seat ((key, modifier), (onPressed, onReleased)) = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
     pressedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)
     releasedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onReleased seat)
 
@@ -42,8 +42,7 @@ registerPointerbind dataPtr seat ((key, modifier), (onPressed, onReleased)) = do
     newBinding <- riverSeatGetPointerBinding seat key modifier
     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
 
-    pure
+    pure $
       state
-        { manageQueue = manageQueue state >> riverPointerBindingEnable newBinding
-        , seatPointerBindings = adjust (newBinding :) seat (seatPointerBindings state)
-        }
+        & (#manageQueue <>~ riverPointerBindingEnable newBinding)
+        & (#allSeats % at seat %? #pointerBindings %~ (newBinding :))

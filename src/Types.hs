@@ -27,11 +27,10 @@ data WMState = WMState
   , renderQueue :: IO ()
   , allWindows :: Map (Ptr RiverWindow) Window
   , allOutputs :: Map (Ptr RiverOutput) Output
+  , allSeats :: Map (Ptr RiverSeat) Seat
   , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
   , focusedSeat :: Ptr RiverSeat
-  , seatXkbBindings :: Map (Ptr RiverSeat) [Ptr RiverXkbBinding]
-  , seatPointerBindings :: Map (Ptr RiverSeat) [Ptr RiverPointerBinding]
   , allLayerShellOutputs :: Map (Ptr RiverLayerShellOutput) (Ptr RiverOutput)
   , allOutputWorkspaces :: Bimap (Ptr RiverOutput) WorkspaceID
   , lastFocusedWorkspace :: WorkspaceID
@@ -64,7 +63,11 @@ data WlDisplay
 data WlRegistry
 data WlProxy
 data WlSurface
+data WlInterface
 data WlArray
+type WlFixedT = CInt
+type RegistryGlobalCallback = Ptr () -> Ptr WlRegistry -> Word32 -> CString -> Word32 -> IO ()
+
 data RiverNode
 data RiverWindow
 data RiverOutput
@@ -89,7 +92,6 @@ data RiverLibinputConfig
 data RiverLibinputAccelConfig
 data RiverLibinputDevice
 data RiverLibinputResult
-type WlFixedT = CInt
 
 data Window = Window
   { winPtr :: Ptr RiverWindow
@@ -114,6 +116,12 @@ data Output = Output
   , outGeometry :: Rect
   }
   deriving (Generic, Eq)
+
+data Seat = Seat
+  { seatPtr :: Ptr RiverSeat
+  , xkbBindings :: [Ptr RiverXkbBinding]
+  , pointerBindings :: [Ptr RiverPointerBinding]
+  } deriving (Generic)
 
 class (Typeable m) => Message m
 data SomeMessage = forall m. (Message m) => SomeMessage m

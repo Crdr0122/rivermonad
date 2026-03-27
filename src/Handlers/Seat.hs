@@ -38,13 +38,12 @@ hsSeatRemoved :: Ptr () -> Ptr RiverSeat -> IO ()
 hsSeatRemoved dataPtr seat = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    mapM_ riverXkbBindingDestroy $ state ^. #seatXkbBindings % at seat % non []
-    mapM_ riverPointerBindingDestroy $ state ^. #seatPointerBindings % at seat % non []
+    traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingDestroy state
+    traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingDestroy state
     riverSeatDestroy seat
     pure $
       state
-        & (#seatPointerBindings %~ M.delete seat)
-        & (#seatXkbBindings %~ M.delete seat)
+        & (#allSeats %~ M.delete seat)
         & (#focusedSeat %~ (\oldS -> if oldS == seat then nullPtr else oldS))
 
 hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()

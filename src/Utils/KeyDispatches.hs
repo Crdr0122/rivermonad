@@ -70,7 +70,7 @@ closeCurrentWindow _ stateMVar = do
       Just w -> pure $ state & #manageQueue <>~ riverWindowClose w
 
 toggleFocusFloating :: Ptr RiverSeat -> MVar WMState -> IO ()
-toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+toggleFocusFloating seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform =
     use #focusedWindow >>= \case
@@ -88,7 +88,6 @@ toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState trans
               Just next -> do
                 #focusedWindow ?= next
                 #workspaceFocusHistory % at ws ?= next
-                seat <- use #focusedSeat
                 #manageQueue <>= riverSeatFocusWindow seat next
               Nothing -> pure ()
           _ -> pure ()
