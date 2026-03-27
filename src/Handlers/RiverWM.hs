@@ -5,7 +5,6 @@ import Config
 import Control.Concurrent.MVar
 import Data.Bimap qualified as B
 import Data.List qualified as L
-import Data.Map.Strict qualified as M
 import Data.Maybe
 import Foreign
 import Foreign.C
@@ -68,20 +67,20 @@ hsWmSeat dataPtr _ seat = do
     let s =
           Seat
             { seatPtr = seat
+            , seatName = 0
             , xkbBindings = []
             , pointerBindings = []
             }
     pure $ state & #focusedSeat .~ seat & #allSeats % at' seat ?~ s
-
-  mapM_ (registerKeybind dataPtr seat) (myConfig ^. #allKeyBindings % to M.toList)
-  mapM_ (registerPointerbind dataPtr seat) (myConfig ^. #allPointerBindings % to M.toList)
+  itraverseOf_ (#allKeyBindings % itraversed) (registerKeybind dataPtr seat) myConfig
+  itraverseOf_ (#allPointerBindings % itraversed) (registerPointerbind dataPtr seat) myConfig
 
 hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
 hsWmOutput dataPtr _ output = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    newLayerShellOutputPtr <- riverLayerShellGetOutput (state ^. #currentLayerShell) output
     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
+    newLayerShellOutputPtr <- riverLayerShellGetOutput (state ^. #currentLayerShell) output
     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
     let o = Output output newLayerShellOutputPtr (Rect 0 0 0 0)
         remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ state ^. #allOutputWorkspaces) [1 ..]
@@ -94,17 +93,17 @@ hsWmOutput dataPtr _ output = do
         & (#allOutputWorkspaces %~ B.insert output remainingWorkspace)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
-hsWmManageStart dataPtr wmManager = do
+hsWmManageStart dataPtr wm = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   startLayout stateMVar
-  riverWindowManagerManageFinish wmManager
+  riverWindowManagerManageFinish wm
 
 hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
-hsWmRenderStart dataPtr wmManager = do
+hsWmRenderStart dataPtr wm = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(s :: WMState) -> do
     s ^. #renderQueue
-    riverWindowManagerRenderFinish wmManager
+    riverWindowManagerRenderFinish wm
     pure $ s & #renderQueue .~ pure ()
 
 hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()

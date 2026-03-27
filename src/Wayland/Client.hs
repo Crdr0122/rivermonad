@@ -35,7 +35,7 @@ foreign import capi "wayland-client.h wl_display_get_registry"
   wlDisplayGetRegistry :: Ptr WlDisplay -> IO (Ptr WlRegistry)
 
 foreign import capi "wayland-client.h wl_registry_bind"
-  wlRegistryBind :: Ptr WlRegistry -> CUInt -> Ptr () -> CUInt -> IO (Ptr WlProxy)
+  wlRegistryBind :: Ptr WlRegistry -> CUInt -> Ptr WlInterface -> CUInt -> IO (Ptr WlProxy)
 
 foreign import capi "wayland-client.h wl_proxy_add_listener"
   wlProxyAddListener :: Ptr a -> Ptr () -> Ptr () -> IO CInt

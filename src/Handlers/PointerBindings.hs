@@ -29,8 +29,8 @@ instance Storable PointerBindingListener where
 foreign import ccall "wrapper"
   mkPointerCallback :: PointerCallback -> IO (FunPtr PointerCallback)
 
-registerPointerbind :: Ptr () -> Ptr RiverSeat -> ((CUInt, CUInt), (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())) -> IO ()
-registerPointerbind dataPtr seat ((key, modifier), (onPressed, onReleased)) = do
+registerPointerbind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt) -> (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ()) -> IO ()
+registerPointerbind dataPtr seat (key, modifier) (onPressed, onReleased) = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
     pressedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)

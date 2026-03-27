@@ -55,7 +55,7 @@ myConfig =
         , ("QQ", "QQ", Tiled)
         , ("", "QQ", Floating)
         ]
-    , execOnStart = ["river-tag-overlay"]
+    -- , execOnStart = ["river-tag-overlay"]
     , allKeyBindings =
         M.union
           ( M.fromList

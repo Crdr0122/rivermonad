@@ -73,10 +73,12 @@ executable rivermonad
     Handlers.Window
     Handlers.XkbBindings
     Handlers.XkbConfig
+    Handlers.Registry
     IPC
     Layout
     Types
     Utils.BiSeqMap
+    Utils.CursorShapes
     Utils.DefaultConfig
     Utils.Helpers
     Utils.KeyDispatches

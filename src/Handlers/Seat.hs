@@ -34,17 +34,28 @@ foreign export ccall "hs_seat_pointer_position"
 foreign export ccall "hs_seat_removed"
   hsSeatRemoved :: Ptr () -> Ptr RiverSeat -> IO ()
 
+foreign export ccall "hs_seat_wl_seat"
+  hsSeatWlSeat :: Ptr () -> Ptr RiverSeat -> CUInt -> IO ()
+
+hsSeatWlSeat :: Ptr () -> Ptr RiverSeat -> CUInt -> IO ()
+hsSeatWlSeat dataPtr seat name = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
+    pure $ state & #allSeats % at seat %? #seatName .~ name
+
 hsSeatRemoved :: Ptr () -> Ptr RiverSeat -> IO ()
 hsSeatRemoved dataPtr seat = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingDestroy state
-    traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingDestroy state
+    traverseOf_ (#allSeats % at seat %? #xkbBindings % traversed) riverXkbBindingDestroy state
+    traverseOf_ (#allSeats % at seat %? #pointerBindings % traversed) riverPointerBindingDestroy state
     riverSeatDestroy seat
-    pure $
-      state
-        & (#allSeats %~ M.delete seat)
-        & (#focusedSeat %~ (\oldS -> if oldS == seat then nullPtr else oldS))
+    pure $ execState transform state
+ where
+  transform = do
+    preuse (#allSeats % at seat %? #seatName) >>= maybe (pure ()) (\n -> #allWlSeats %= B.delete n)
+    #allSeats %= M.delete seat
+    #focusedSeat %= (\oldS -> if oldS == seat then nullPtr else oldS)
 
 hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatPointerEnter dataPtr _ _ = do

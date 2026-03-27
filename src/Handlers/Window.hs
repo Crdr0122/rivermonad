@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiWayIf #-}
-
 module Handlers.Window where
 
 import Control.Concurrent.MVar

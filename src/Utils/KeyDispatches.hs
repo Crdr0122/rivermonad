@@ -60,7 +60,7 @@ sendMessage msg _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
         forM_ (handleSomeMsg (layouts M.! ws) (SomeMessage msg)) $ \l -> #workspaceLayouts % at ws ?= l
 
 exitSession :: Ptr RiverSeat -> MVar WMState -> IO ()
-exitSession _ stateMVar = readMVar stateMVar >>= riverWindowManagerExitSession . currentWmManager
+exitSession _ stateMVar = readMVar stateMVar >>= riverWindowManagerExitSession . currentWindowManager
 
 closeCurrentWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 closeCurrentWindow _ stateMVar = do

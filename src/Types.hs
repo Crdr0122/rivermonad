@@ -28,6 +28,7 @@ data WMState = WMState
   , allWindows :: Map (Ptr RiverWindow) Window
   , allOutputs :: Map (Ptr RiverOutput) Output
   , allSeats :: Map (Ptr RiverSeat) Seat
+  , allWlSeats :: Bimap CUInt (Ptr WlSeat)
   , focusedWindow :: Maybe (Ptr RiverWindow)
   , focusedOutput :: Ptr RiverOutput
   , focusedSeat :: Ptr RiverSeat
@@ -41,10 +42,11 @@ data WMState = WMState
   , newWindowQueue :: [Ptr RiverWindow]
   , floatingQueue :: Map WorkspaceID [Ptr RiverWindow]
   , fullscreenQueue :: Map WorkspaceID [Ptr RiverWindow]
-  , currentWmManager :: Ptr RiverWMManager
+  , currentWindowManager :: Ptr RiverWMManager
   , currentXkbBindings :: Ptr RiverXkbBindings
   , currentXkbConfig :: Ptr RiverXkbConfig
   , currentLayerShell :: Ptr RiverLayerShell
+  , currentCursorShapeManager :: Ptr CursorShapeManager
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
@@ -65,8 +67,10 @@ data WlProxy
 data WlSurface
 data WlInterface
 data WlArray
+data WlSeat
 type WlFixedT = CInt
-type RegistryGlobalCallback = Ptr () -> Ptr WlRegistry -> Word32 -> CString -> Word32 -> IO ()
+
+data CursorShapeManager
 
 data RiverNode
 data RiverWindow
@@ -119,9 +123,11 @@ data Output = Output
 
 data Seat = Seat
   { seatPtr :: Ptr RiverSeat
+  , seatName :: CUInt
   , xkbBindings :: [Ptr RiverXkbBinding]
   , pointerBindings :: [Ptr RiverPointerBinding]
-  } deriving (Generic)
+  }
+  deriving (Generic)
 
 class (Typeable m) => Message m
 data SomeMessage = forall m. (Message m) => SomeMessage m

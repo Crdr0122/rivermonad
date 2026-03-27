@@ -9,8 +9,8 @@ import Data.Aeson
 import Data.Bimap qualified as B
 import Data.ByteString.Lazy qualified as Byte
 import Data.Map.Strict qualified as M
-import Foreign.Ptr
-import Foreign.StablePtr
+import Foreign
+import Handlers.Registry
 import IPC
 import System.Directory
 import System.IO
@@ -30,19 +30,6 @@ main = do
   if registry == nullPtr
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
-
-  reg_listener <- pure getRegistryListener
-  _ <- wlProxyAddListener (castPtr registry) reg_listener nullPtr
-
-  _ <- wlDisplayRoundtrip display
-
-  let
-    river = getRiver
-    xkbBindings = getXkbBindings
-    layerShell = getLayerShell
-    xkbConfig = getXkbConfig
-    libinputConfig = getLibinputConfig
-    inputManager = getInputManager
 
   exists <- doesFileExist (statePath myConfig)
   oldWindows <-
@@ -76,13 +63,15 @@ main = do
         , newWindowQueue = []
         , focusedSeat = nullPtr
         , allSeats = M.empty
+        , allWlSeats = B.empty
         , allOutputWorkspaces = B.empty
         , lastFocusedWorkspace = 1
         , workspaceLayouts = defaultLayouts myConfig
-        , currentWmManager = river
-        , currentXkbBindings = xkbBindings
-        , currentLayerShell = layerShell
-        , currentXkbConfig = xkbConfig
+        , currentWindowManager = nullPtr
+        , currentXkbBindings = nullPtr
+        , currentLayerShell = nullPtr
+        , currentXkbConfig = nullPtr
+        , currentCursorShapeManager = nullPtr
         , opDeltaState = None
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
@@ -93,10 +82,11 @@ main = do
         }
   stPtr <- newStablePtr st
 
-  _ <- wlProxyAddListener (castPtr river) getRiverWmListener (castStablePtrToPtr stPtr)
-  _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener (castStablePtrToPtr stPtr)
-  _ <- wlProxyAddListener (castPtr libinputConfig) getRiverLibinputConfigListener (castStablePtrToPtr stPtr)
-  _ <- wlProxyAddListener (castPtr inputManager) getRiverInputManagerListener (castStablePtrToPtr stPtr)
+  reg <- makeRegistryGlobalCallback registryGlobal
+  regRemove <- makeRegistryGlobalRemoveCallback registryGlobalRemove
+  listenerPtr <- malloc :: IO (Ptr WlRegistryListener)
+  poke listenerPtr (WlRegistryListener reg regRemove)
+  _ <- wlProxyAddListener (castPtr registry) (castPtr listenerPtr) (castStablePtrToPtr stPtr)
 
   _ <- wlDisplayRoundtrip display
 
