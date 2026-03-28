@@ -1,7 +1,7 @@
 module Handlers.Window where
 
 import Control.Concurrent.MVar
-import Control.Monad (unless, when)
+import Control.Monad (msum, unless, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
@@ -84,6 +84,7 @@ hsWindowClosed dataPtr win = do
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
+    #workspaceFocusHistory %= M.filter (/= win)
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do
         seat <- use #focusedSeat
@@ -155,12 +156,14 @@ hsWindowFullscreenRequested dataPtr win output = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform = do
-    targetWs <- use (#allOutputWorkspaces % to (fromMaybe 1 . B.lookup output))
+    focusedWs <- use focusedWorkspace
+    targetWs <- use (#allOutputWorkspaces % to (B.lookup output))
+    let actualWs = fromMaybe 1 $ msum [targetWs, focusedWs]
     #allWindows % at win %?= (\w -> w{isFullscreen = True, isPinned = False})
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
-    #fullscreenQueue % at targetWs %?= (win :)
+    #fullscreenQueue % at actualWs %?= (win :)
 
 hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowExitFullscreenRequested dataPtr win = do

@@ -30,7 +30,9 @@ foreign export ccall "hs_xkb_keymap_failure"
   hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 
 hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
-hsXkbKeymapSuccess keyboard keymap = riverXkbKeyboardSetKeymap (castPtr keyboard) keymap >> riverXkbKeyboardNumlockEnable (castPtr keyboard)
+hsXkbKeymapSuccess keyboard keymap = do
+  riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
+  riverXkbKeyboardNumlockEnable (castPtr keyboard)
 
 hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 hsXkbKeymapFailure _ _ errorMsg = do
