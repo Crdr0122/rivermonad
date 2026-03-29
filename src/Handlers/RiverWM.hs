@@ -82,7 +82,13 @@ hsWmOutput dataPtr _ output = do
     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
     newLayerShellOutputPtr <- riverLayerShellGetOutput (state ^. #currentLayerShell) output
     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
-    let o = Output output newLayerShellOutputPtr (Rect 0 0 0 0)
+    let o =
+          Output
+            { outPtr = output
+            , outLayerShell = newLayerShellOutputPtr
+            , outGeometry = (Rect 0 0 0 0)
+            , outWlOutput = 0
+            }
         remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ state ^. #allOutputWorkspaces) [1 ..]
     pure $
       state

@@ -33,7 +33,9 @@ hsOutputPosition dataPtr output x y = do
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y)
 
 hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
-hsOutputWlOutput _ _ _ = pure ()
+hsOutputWlOutput dataPtr output wlOutput = do
+  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outWlOutput .~ wlOutput)
 
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr output = do

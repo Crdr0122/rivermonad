@@ -1,5 +1,6 @@
 #include "../generated/river-xkb-config.h"
 #include <HsFFI.h>
+#include <stdio.h>
 #include <wayland-client-core.h>
 
 extern void hs_xkb_config_finished(void *data, struct river_xkb_config_v1 *xkb);
@@ -14,14 +15,18 @@ static const struct river_xkb_config_v1_listener xkb_config_listener = {
 
 static void capslock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void capslock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
-static void numlock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
+static void numlock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {
+  printf("Hello\n");
+}
 static void numlock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void removed(void *data, struct river_xkb_keyboard_v1 *xkb) {
   river_xkb_keyboard_v1_destroy(xkb);
 }
 static void input_device(void *data,
                          struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1,
-                         struct river_input_device_v1 *device) {}
+                         struct river_input_device_v1 *device) {
+  printf("Hello\n");
+}
 
 static void layout(void *data,
                    struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1,
@@ -42,6 +47,15 @@ extern void hs_xkb_keymap_success(void *data,
 extern void hs_xkb_keymap_failure(void *data,
                                   struct river_xkb_keymap_v1 *keymap,
                                   const char *error_msg);
+
+static void handle_xkb_keymap_success(void *data,
+                                      struct river_xkb_keymap_v1 *keymap) {
+  river_xkb_keyboard_v1_set_keymap((struct river_xkb_keyboard_v1 *)data,
+                                   keymap);
+  river_xkb_keyboard_v1_numlock_enable((struct river_xkb_keyboard_v1 *)data);
+  river_xkb_keyboard_v1_capslock_enable((struct river_xkb_keyboard_v1 *)data);
+}
+
 static const struct river_xkb_keymap_v1_listener xkb_keymap_listener = {
     .success = hs_xkb_keymap_success,
     .failure = hs_xkb_keymap_failure,

@@ -55,7 +55,7 @@ myConfig =
         , ("QQ", "QQ", Tiled)
         , ("", "QQ", Floating)
         ]
-    -- , execOnStart = ["river-tag-overlay"]
+    , execOnStart = ["river-tag-overlay"]
     , allKeyBindings =
         M.union
           ( M.fromList
@@ -90,14 +90,14 @@ myConfig =
               ]
           )
           (allKeyBindings defaultConfig)
-    , composeKeyMap =
-        "xkb_keymap {\
-        \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
-        \    xkb_types     { include \"complete\" };\
-        \    xkb_compat    { include \"complete\" };\
-        \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
-        \    xkb_geometry  { include \"pc(pc105)\" };\
-        \};\n"
+    -- , composeKeyMap =
+    --     "xkb_keymap {\
+    --     \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
+    --     \    xkb_types     { include \"complete\" };\
+    --     \    xkb_compat    { include \"complete\" };\
+    --     \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
+    --     \    xkb_geometry  { include \"pc(pc105)\" };\
+    --     \};\n"
     }
 
 cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()

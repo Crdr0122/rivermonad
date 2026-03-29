@@ -120,6 +120,7 @@ data Output = Output
   { outPtr :: Ptr RiverOutput
   , outLayerShell :: Ptr RiverLayerShellOutput
   , outGeometry :: Rect
+  , outWlOutput :: CUInt
   }
   deriving (Generic, Eq)
 
@@ -234,8 +235,11 @@ data RivermonadConfig = RivermonadConfig
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)
+  -- , persistedWorkspaces :: Map (Ptr RiverOutput) WorkspaceID
   }
   deriving (Generic)
+
+
 
 instance ToJSON PersistedState
 instance FromJSON PersistedState

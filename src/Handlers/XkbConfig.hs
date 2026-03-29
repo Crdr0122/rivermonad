@@ -22,6 +22,8 @@ hsXkbConfigXkbKeyboard dataPtr config keyboard = do
     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
     keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
     _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
+    -- riverXkbKeyboardNumlockDisable keyboard
+    -- riverXkbKeyboardCapslockEnable keyboard
     pure state
 
 foreign export ccall "hs_xkb_keymap_success"

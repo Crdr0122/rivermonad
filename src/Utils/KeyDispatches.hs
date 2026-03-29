@@ -77,11 +77,8 @@ toggleFocusFloating seat stateMVar = modifyMVar_ stateMVar $ pure . execState tr
   transform =
     use #focusedWindow >>= \case
       Nothing -> pure ()
-      Just w -> do
-        maybeWinData <- use (#allWindows % at w)
-        fOutput <- use #focusedOutput
-        outWorkmaps <- use #allOutputWorkspaces
-        case (maybeWinData, B.lookup fOutput outWorkmaps) of
+      Just w ->
+        use (pairOfGetter (#allWindows % at w) focusedWorkspace) >>= \case
           (Just win, Just ws) | not (win ^. #isFullscreen) -> do
             let targetOptic
                   | view #isFloating win = #allWorkspacesTiled
@@ -99,7 +96,7 @@ cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSta
  where
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
-      (Just w, Just focusedWs) -> do
+      (Just w, Just focusedWs) ->
         use (#allWindows % at w) >>= \case
           Just win -> do
             let targetMapOptic
@@ -131,8 +128,7 @@ toggleFullscreenCurrentWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execS
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just win, Just ws) -> do
-        mWin <- use (#allWindows % at win)
-        case mWin of
+        use (#allWindows % at win) >>= \case
           Just winRec | not (winRec ^. #isPinned) -> do
             let currentlyFullscreen = winRec ^. #isFullscreen
                 currentlyFloating = winRec ^. #isFloating
