@@ -235,11 +235,12 @@ data RivermonadConfig = RivermonadConfig
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)
-  -- , persistedWorkspaces :: Map (Ptr RiverOutput) WorkspaceID
+  , persistedWorkspaces :: Map Word32 WorkspaceID
   }
   deriving (Generic)
 
-
+cuintToWord32 :: CUInt -> Word32
+cuintToWord32 (CUInt x) = x
 
 instance ToJSON PersistedState
 instance FromJSON PersistedState
