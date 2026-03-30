@@ -1,9 +1,12 @@
 module Handlers.Output where
 
 import Control.Concurrent.MVar
+import Control.Monad (when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
+import Data.List qualified as L
 import Data.Map.Strict qualified as M
+import Data.Maybe
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -35,7 +38,21 @@ hsOutputPosition dataPtr output x y = do
 hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput dataPtr output wlOutput = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outWlOutput .~ wlOutput)
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform = do
+    #allOutputs % at output %? #outWlOutput .= wlOutput
+    oWs <- use #allOutputWorkspaces
+    use (#persistedStateOutputs % at (cuintToWord32 wlOutput)) >>= \case
+      Just oldW | B.notMemberR oldW oWs -> do
+        #allOutputWorkspaces %= B.insert output oldW
+        #persistedStateOutputs % at (cuintToWord32 wlOutput) .= Nothing
+      _ -> do
+        let remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ oWs) [1 ..]
+        #allOutputWorkspaces %= B.insert output remainingWorkspace
+
+    fO <- use #focusedOutput
+    when (fO == nullPtr) $ #focusedOutput .= output
 
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr output = do

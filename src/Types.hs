@@ -50,7 +50,8 @@ data WMState = WMState
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (CInt, CInt, CInt, CInt)
   , cursorPosition :: (CInt, CInt)
-  , persistedState :: Map String (WorkspaceID, WindowStatus)
+  , persistedStateWindows :: Map String (WorkspaceID, WindowStatus)
+  , persistedStateOutputs :: Map Word32 WorkspaceID
   , workspaceFocusHistory :: Map WorkspaceID (Ptr RiverWindow)
   , currentKeymapFd :: CInt
   , subscribers :: [Socket]
@@ -235,7 +236,7 @@ data RivermonadConfig = RivermonadConfig
 
 data PersistedState = PersistedState
   { persistedWindows :: Map String (WorkspaceID, WindowStatus)
-  , persistedWorkspaces :: Map Word32 WorkspaceID
+  , persistedOutputs :: Map Word32 WorkspaceID
   }
   deriving (Generic)
 

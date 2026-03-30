@@ -39,7 +39,6 @@ import Foreign hiding (void)
 import Foreign.C
 import IPC
 import Optics.Core
-import Optics.Extra
 import Optics.State
 import Optics.State.Operators
 import System.Process
@@ -465,8 +464,8 @@ reloadWindowManager fp _ stateMVar = do
   state <- readMVar stateMVar
 
   let windowsToRecord = M.fromList $ toPersistedEntry <$> (M.elems $ state ^. #allWindows)
-      workspacesToRecord = (\(o, w) -> (view #outWlOutput $ (state ^. #allOutputs) M.! o, w)) <$> B.toList (state ^. #allOutputWorkspaces)
-      newPersisted = PersistedState{persistedWindows = windowsToRecord}
+      workspacesToRecord = M.fromList $ (\(o, w) -> (cuintToWord32 $ view #outWlOutput $ (state ^. #allOutputs) M.! o, w)) <$> B.toList (state ^. #allOutputWorkspaces)
+      newPersisted = PersistedState{persistedWindows = windowsToRecord, persistedOutputs = workspacesToRecord}
       toPersistedEntry w = (ident, (fromMaybe 1 $ BS.lookupA ptr ws, status))
        where
         ident = w ^. #winIdentifier

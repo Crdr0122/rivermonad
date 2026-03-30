@@ -52,10 +52,10 @@ hsWindowIdentifier dataPtr win identifierPtr = do
  where
   transform ident = do
     #allWindows % at win %? #winIdentifier .= ident
-    use (#persistedState % at ident) >>= \case
+    use (#persistedStateWindows % at ident) >>= \case
       Nothing -> #newWindowQueue %= (win :)
       Just (ws, status) -> do
-        #persistedState % at ident .= Nothing
+        #persistedStateWindows % at ident .= Nothing
         fWs <- use focusedWorkspace
         #renderQueue <>= unless (ws == fromMaybe 1 fWs) (riverWindowHide win)
         case status of

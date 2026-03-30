@@ -3,9 +3,6 @@ module Handlers.RiverWM where
 import Config
 
 import Control.Concurrent.MVar
-import Data.Bimap qualified as B
-import Data.List qualified as L
-import Data.Maybe
 import Foreign
 import Foreign.C
 import Handlers.PointerBindings
@@ -89,14 +86,11 @@ hsWmOutput dataPtr _ output = do
             , outGeometry = (Rect 0 0 0 0)
             , outWlOutput = 0
             }
-        remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ state ^. #allOutputWorkspaces) [1 ..]
     pure $
       state
         & (#allOutputs % at' output ?~ o)
         & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
-        & (#focusedOutput .~ output)
         & (#manageQueue <>~ riverLayerShellOutputSetDefault newLayerShellOutputPtr)
-        & (#allOutputWorkspaces %~ B.insert output remainingWorkspace)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmManageStart dataPtr wm = do

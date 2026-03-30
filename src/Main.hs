@@ -32,16 +32,16 @@ main = do
     else putStrLn "Got registry!"
 
   exists <- doesFileExist (statePath myConfig)
-  oldWindows <-
+  (oldWindows, oldOutputs) <-
     if not exists
-      then pure M.empty
+      then pure (M.empty, M.empty)
       else do
         content <- Byte.readFile (statePath myConfig)
         case decode content of
-          Just PersistedState{persistedWindows} -> do
+          Just PersistedState{persistedWindows, persistedOutputs} -> do
             removeFile (statePath myConfig)
-            pure persistedWindows
-          _ -> pure M.empty
+            pure (persistedWindows, persistedOutputs)
+          _ -> pure (M.empty, M.empty)
 
   fd <- createKeymapFd (composeKeyMap myConfig)
   queue <- atomically $ newTQueue
@@ -75,7 +75,8 @@ main = do
         , opDeltaState = None
         , currentOpDelta = (0, 0, 0, 0)
         , cursorPosition = (0, 0)
-        , persistedState = oldWindows
+        , persistedStateWindows = oldWindows
+        , persistedStateOutputs = oldOutputs
         , workspaceFocusHistory = M.empty
         , currentKeymapFd = fd
         , subscribers = []
