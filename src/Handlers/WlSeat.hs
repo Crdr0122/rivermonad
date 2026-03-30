@@ -1,7 +1,7 @@
 module Handlers.WlSeat where
 
 import Control.Concurrent.MVar
-import Control.Monad.State hiding (state)
+import Control.Monad.State
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -27,8 +27,8 @@ foreign export ccall "hs_wl_seat_name"
 hsWlSeatCapabilities :: Ptr () -> Ptr WlSeat -> CUInt -> IO ()
 hsWlSeatCapabilities dataPtr wlSeat capabilities = do
   (stateMVar, name) <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(state :: WMState) ->
-    execStateT (transform name) state
+  modifyMVar_ stateMVar $ \(s :: WMState) ->
+    execStateT (transform name) s
  where
   transform name = do
     #allWlSeats % at name %? #wlSeatCapabilities .= capabilities
@@ -41,7 +41,6 @@ hsWlSeatCapabilities dataPtr wlSeat capabilities = do
         cursorManager <- use #currentCursorShapeManager
         device <- liftIO $ cursorShapeManagerGetPointer cursorManager pointerPtr
         #allWlSeats % at name %? #wlCursorShapeDevice ?= device
-
         #allWlSeats % at name %? #wlPointer ?= pointerPtr
       else do
         #allWlSeats % at name %? #wlPointer .= Nothing
@@ -63,5 +62,5 @@ foreign export ccall "hs_wl_pointer_enter"
 hsWlPointerEnter :: Ptr () -> Ptr WlPointer -> CUInt -> Ptr () -> WlFixedT -> WlFixedT -> IO ()
 hsWlPointerEnter dataPtr _ serial _ _ _ = do
   (stateMVar, name) <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(state :: WMState) -> do
-    pure $ state & #allWlSeats % at name %? #wlPointerSerial .~ serial
+  modifyMVar_ stateMVar $ \(s :: WMState) -> do
+    pure $ s & #allWlSeats % at name %? #wlPointerSerial .~ serial
