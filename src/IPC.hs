@@ -31,7 +31,6 @@ startIPCListener path q = do
       -- Read the command (up to 1024 bytes)
       msg <- recv conn 1024
       let cmd = BC.unpack msg
-      print cmd
 
       -- Push to main loop
       atomically $ writeTQueue q $ IPCEvent cmd conn

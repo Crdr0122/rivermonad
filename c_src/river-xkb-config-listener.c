@@ -3,10 +3,19 @@
 #include <stdio.h>
 #include <wayland-client-core.h>
 
+static const struct river_xkb_keyboard_v1_listener xkb_keyboard_listener;
+
 extern void hs_xkb_config_finished(void *data, struct river_xkb_config_v1 *xkb);
 extern void hs_xkb_config_xkb_keyboard(void *data,
                                        struct river_xkb_config_v1 *xkb,
                                        struct river_xkb_keyboard_v1 *keyboard);
+static void
+handle_xkb_config_xkb_keyboard(void *data, struct river_xkb_config_v1 *xkb,
+                               struct river_xkb_keyboard_v1 *keyboard) {
+  river_xkb_keyboard_v1_numlock_enable(keyboard);
+  wl_proxy_add_listener((struct wl_proxy *)keyboard,
+                        (void (**)(void))&xkb_keyboard_listener, NULL);
+}
 
 static const struct river_xkb_config_v1_listener xkb_config_listener = {
     .finished = hs_xkb_config_finished,
@@ -16,17 +25,21 @@ static const struct river_xkb_config_v1_listener xkb_config_listener = {
 static void capslock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void capslock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void numlock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {
-  printf("Hello\n");
+  printf("Numlock Disabled\n");
+  fflush(stdout);
 }
-static void numlock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
+static void numlock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {
+  printf("Numlock Enabled\n");
+  fflush(stdout);
+}
 static void removed(void *data, struct river_xkb_keyboard_v1 *xkb) {
   river_xkb_keyboard_v1_destroy(xkb);
 }
-static void input_device(void *data,
-                         struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1,
-                         struct river_input_device_v1 *device) {
-  printf("Hello\n");
-}
+static void input_device(void *data, struct river_xkb_keyboard_v1 *keyboard,
+                         struct river_input_device_v1 *device) {}
+extern void hs_xkb_keyboard_input_device(void *data,
+                                         struct river_xkb_keyboard_v1 *keyboard,
+                                         struct river_input_device_v1 *device);
 
 static void layout(void *data,
                    struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1,
