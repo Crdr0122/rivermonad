@@ -54,8 +54,7 @@ startLayout stateMVar = do
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
 
           when (targetWS == focusedWS) $ do
-            #focusedWindow ?= winPtr
-            #workspaceFocusHistory % at focusedWS ?= winPtr
+            setFocusedWindowAndHistory focusedWS winPtr
             #manageQueue <>= riverSeatFocusWindow seat winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr
 

@@ -94,8 +94,7 @@ hsWindowClosed dataPtr win = do
             #workspaceFocusHistory %= M.delete ws
             #manageQueue <>= riverSeatClearFocus seat
           h S.:<| _ -> do
-            #focusedWindow ?= h
-            #workspaceFocusHistory %= M.insert ws h
+            setFocusedWindowAndHistory ws h
             #manageQueue <>= riverSeatFocusWindow seat h
       _ -> pure ()
 

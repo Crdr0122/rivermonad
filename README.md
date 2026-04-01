@@ -23,6 +23,7 @@ Everything will be hardcoded for personal use
   - [X] Recompiling and restarting
   - [X] Saving state
       - [X] Window workspaces
+      - [X] Focused workspace on each output
 - [-] Window rules
   - [X] Open floating  
   - [X] Open fullscreen (?)

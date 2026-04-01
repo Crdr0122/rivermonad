@@ -85,8 +85,7 @@ toggleFocusFloating seat stateMVar = modifyMVar_ stateMVar $ pure . execState tr
                   | otherwise = #allWorkspacesFloating
             preuse (targetOptic % to (BS.lookupBs ws) % _head) >>= \case
               Just next -> do
-                #focusedWindow ?= next
-                #workspaceFocusHistory % at ws ?= next
+                setFocusedWindowAndHistory ws next
                 #manageQueue <>= riverSeatFocusWindow seat next
               Nothing -> pure ()
           _ -> pure ()
@@ -115,8 +114,7 @@ cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSta
                         riverNodePlaceTop (view #nodePtr nData)
                   _ -> pure ()
 
-            #focusedWindow ?= next
-            #workspaceFocusHistory % at focusedWs ?= next
+            setFocusedWindowAndHistory focusedWs next
             #renderQueue <>= renderAction
             #manageQueue <>= riverSeatFocusWindow seat next
           _ -> pure ()
@@ -209,8 +207,7 @@ cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState t
           Nothing -> pure ()
           Just workspace -> do
             let nextWin = BS.lookUpNext workspace forward w tiledMap
-            #focusedWindow ?= nextWin
-            #workspaceFocusHistory % at focusedWs ?= nextWin
+            setFocusedWindowAndHistory focusedWs nextWin
             #manageQueue <>= riverSeatFocusWindow seat nextWin
       _ -> pure ()
 
@@ -230,8 +227,7 @@ cycleWindowSlaves forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSt
         case S.elemIndexL w s of
           Just i | i /= 0 -> do
             let nextWin = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
-            #focusedWindow ?= nextWin
-            #workspaceFocusHistory % at focusedWs ?= nextWin
+            setFocusedWindowAndHistory focusedWs nextWin
             #manageQueue <>= riverSeatFocusWindow seat nextWin
           _ -> pure ()
       _ -> pure ()
@@ -302,8 +298,7 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
           Nothing ->
             use (workspaceWindows target) >>= \case
               w S.:<| _ -> do
-                #focusedWindow ?= w
-                #workspaceFocusHistory % at target ?= w
+                setFocusedWindowAndHistory target w
                 #manageQueue <>= riverSeatFocusWindow seat w
               S.Empty -> do
                 #focusedWindow .= Nothing
@@ -354,8 +349,7 @@ focusWindow direction seat stateMVar = modifyMVar_ stateMVar $ pure . execState 
         centerX = rx rect + rw rect `div` 2
         centerY = ry rect + rh rect `div` 2
 
-    #focusedWindow ?= nextWin
-    #workspaceFocusHistory % at ws ?= nextWin
+    setFocusedWindowAndHistory ws nextWin
 
     #manageQueue <>= riverSeatFocusWindow seat nextWin
     #manageQueue <>= riverSeatPointerWarp seat centerX centerY
@@ -441,8 +435,7 @@ moveWindowToWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ pure . e
 
                 use (workspaceWindows currentWS) >>= \case
                   (h S.:<| _) -> do
-                    #focusedWindow ?= h
-                    #workspaceFocusHistory % at currentWS ?= h
+                    setFocusedWindowAndHistory currentWS h
                     #manageQueue <>= riverSeatFocusWindow seat h
                   S.Empty -> do
                     #focusedWindow .= Nothing
@@ -490,31 +483,27 @@ dragWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
     mWin <- use #focusedWindow
     forM_ mWin $ \win -> do
       mWinRec <- use (#allWindows % at win)
-      forM_ mWinRec $ \winRec -> do
-        unless (winRec ^. #isFullscreen) $ do
-          setCursorShape seat cursorGrabbing
-          #manageQueue <>= riverSeatOpStartPointer seat
-          if view #isFloating winRec
-            then #opDeltaState .= Dragging
-            else do
-              let Rect{rx, ry} = winRec ^. #tilingGeometry % non (Rect 0 0 0 0)
-              #opDeltaState .= DraggingTile
-              #currentOpDelta .= (rx, ry, 0, 0)
-              #allWorkspacesTiled %= BS.delete win
+      forM_ mWinRec $ \winRec -> unless (winRec ^. #isFullscreen) $ do
+        setCursorShape seat cursorGrabbing
+        #manageQueue <>= riverSeatOpStartPointer seat
+        if winRec ^. #isFloating
+          then #opDeltaState .= Dragging
+          else do
+            let Rect{rx, ry} = winRec ^. #tilingGeometry % non (Rect 0 0 0 0)
+            #opDeltaState .= DraggingTile
+            #currentOpDelta .= (rx, ry, 0, 0)
+            #allWorkspacesTiled %= BS.delete win
 
 stopDragging :: Ptr RiverSeat -> MVar WMState -> IO ()
 stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeDrag
  where
   finalizeDrag = do
-    #manageQueue <>= riverSeatOpEnd seat
-    setCursorShape seat cursorDefault
     use (pairOfGetter #focusedWindow #opDeltaState) >>= \case
       (Just win, Dragging) -> do
         (newX, newY, _, _) <- use #currentOpDelta
         #allWindows % at win %? #floatingGeometry %?= \r -> r{rx = newX, ry = newY}
       (Just win, DraggingTile) -> do
-        fWs <- use focusedWorkspace
-        let ws = fromMaybe 1 fWs
+        ws <- use (focusedWorkspace % non 1)
 
         (curX, curY, _, _) <- use #currentOpDelta
         tiledList <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
@@ -533,6 +522,8 @@ stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeD
       _ -> pure ()
     #opDeltaState .= None
     #currentOpDelta .= (0, 0, 0, 0)
+    #manageQueue <>= riverSeatOpEnd seat
+    setCursorShape seat cursorDefault
 
 resizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResize

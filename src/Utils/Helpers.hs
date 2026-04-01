@@ -3,24 +3,32 @@ module Utils.Helpers (
   calculateFloatingPositions,
   workspaceWindows,
   focusedWorkspace,
+  setFocusedWindowAndHistory,
   focusedOutputGeom,
   createKeymapFd,
   pairOfGetter,
   pairOf,
 ) where
 
+import Control.Monad.State
 import Data.Bimap as B
 import Data.Maybe
 import Data.Sequence as S
 import Foreign
 import Foreign.C
 import Optics.Core
+import Optics.State.Operators
 import System.IO
 import System.Posix.IO
 import System.Posix.Types (Fd (..))
 import Types
 import Utils.BiSeqMap qualified as BS
 import Wayland.ImportedFunctions
+
+setFocusedWindowAndHistory :: (MonadState WMState m) => WorkspaceID -> Ptr RiverWindow -> m ()
+setFocusedWindowAndHistory ws w = do
+  #focusedWindow ?= w
+  #workspaceFocusHistory % at ws ?= w
 
 calculateFloatingPositions :: (Functor f, Foldable f) => Rect -> f Window -> ([Rect], IO (), IO ())
 calculateFloatingPositions o windows = res

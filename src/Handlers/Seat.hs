@@ -89,8 +89,7 @@ hsSeatWindowInteraction dataPtr seat win = do
         floating <- use #allWorkspacesFloating
         full <- use #allWorkspacesFullscreen
         forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
-          #focusedWindow ?= win
-          #workspaceFocusHistory %= M.insert ws win
+          setFocusedWindowAndHistory ws win
           #manageQueue <>= riverSeatFocusWindow seat win
           when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
 
