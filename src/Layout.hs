@@ -35,8 +35,7 @@ startLayout stateMVar = do
     queue <- use #newWindowQueue
     #newWindowQueue .= []
     workmaps <- use #allOutputWorkspaces
-    mWs <- use focusedWorkspace
-    let focusedWS = fromMaybe 1 mWs
+    focusedWS <- use (focusedWorkspace % non 1)
     forM_ queue $ \winPtr -> do
       use (#allWindows % at winPtr) >>= \case
         Nothing -> pure ()

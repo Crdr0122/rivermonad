@@ -131,11 +131,12 @@ hsSeatOpDelta dataPtr _ dx dy = do
 
   handleTileResize = do
     (oldDx, _, _, _) <- use #currentOpDelta
-    ws <- use focusedWorkspace
+    ws <- use (focusedWorkspace % non 1)
     preuse (focusedOutputGeom %? #rw) >>= \case
       Nothing -> pure ()
       Just outW -> do
-        #workspaceLayouts % at (fromMaybe 1 ws) %?= \layout -> fromMaybe layout (handleSomeMsg layout $ SomeMessage $ IncMasterFrac (fromIntegral (dx - oldDx) / fromIntegral outW))
+        let frac = fromIntegral (dx - oldDx) / fromIntegral outW
+        #workspaceLayouts % at ws %?= \layout -> fromMaybe layout (handleSomeMsg layout $ SomeMessage $ IncMasterFrac frac)
         #currentOpDelta .= (dx, 0, 0, 0)
 
   handleTileDrag win = forM_ (view #tilingGeometry win) $ \Rect{rx, ry} -> do
