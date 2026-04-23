@@ -13,7 +13,7 @@ foreign export ccall "hs_layer_shell_output_non_exclusive_area"
 hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(state :: WMState) -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) ->
     case state ^. #allLayerShellOutputs % at lsOutput of
       Nothing -> pure state
       Just oPtr -> pure $ state & #allOutputs % at oPtr %? #outGeometry .~ Rect x y width height

@@ -43,10 +43,29 @@ startLayout stateMVar = do
         Just win -> do
           seat <- use #focusedSeat
           let (targetWS, status) = (getWorkspace, getStatus)
+
               getWorkspace =
-                findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #workspaceRules) ^. non ("", "", focusedWS) % _3
+                findOf
+                  folded
+                  ( \(t, a, _) ->
+                      t `isInfixOf` (win ^. #winTitle)
+                        && a `isInfixOf` (win ^. #winAppID)
+                  )
+                  (myConfig ^. #workspaceRules)
+                  ^. non ("", "", focusedWS)
+                  % _3
+
               getStatus =
-                findOf folded (\(t, a, _) -> t `isInfixOf` (win ^. #winTitle) && a `isInfixOf` (win ^. #winAppID)) (myConfig ^. #floatingRules) ^. non ("", "", Tiled) % _3
+                findOf
+                  folded
+                  ( \(t, a, _) ->
+                      t `isInfixOf` (win ^. #winTitle)
+                        && a `isInfixOf` (win ^. #winAppID)
+                  )
+                  (myConfig ^. #floatingRules)
+                  ^. non ("", "", Tiled)
+                  % _3
+
           case status of
             Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
             Floating -> #floatingQueue % at targetWS %?= (winPtr :)

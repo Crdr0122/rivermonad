@@ -55,28 +55,28 @@ hsOutputWlOutput dataPtr output wlOutput = do
     when (fO == nullPtr) $ #focusedOutput .= output
 
 hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
-hsOutputRemoved dataPtr output = do
+hsOutputRemoved dataPtr removedOutput = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ execStateT transform
  where
   transform = do
-    liftIO $ riverOutputDestroy output
+    liftIO $ riverOutputDestroy removedOutput
 
-    use (#allOutputs % at output) >>= \case
+    use (#allOutputs % at removedOutput) >>= \case
       Nothing -> pure ()
       Just o -> do
         #allLayerShellOutputs %= M.delete (o ^. #outLayerShell)
         liftIO $ riverLayerShellOutputDestroy (o ^. #outLayerShell)
-        -- Need something else to identify outputs
-        -- use (#allOutputWorkspaces % to (B.lookup output)) >>= \case
-        --   Nothing -> pure ()
-        --   Just ws -> #persistedStateOutputs % at (cuintToWord32 $ o ^. #outWlOutput) ?= ws
+    -- Need something else to identify outputs
+    -- use (#allOutputWorkspaces % to (B.lookup output)) >>= \case
+    --   Nothing -> pure ()
+    --   Just ws -> #persistedStateOutputs % at (cuintToWord32 $ o ^. #outWlOutput) ?= ws
 
-    #allOutputWorkspaces %= B.delete output
+    #allOutputWorkspaces %= B.delete removedOutput
     -- Delete first then check remaining
     use (pairOfGetter #focusedOutput (#allOutputWorkspaces % to B.keys)) >>= \case
-      (oldO, []) | oldO /= output -> #focusedOutput .= nullPtr
-      (oldO, h : _) | oldO /= output -> #focusedOutput .= h
+      (currentFocusedOutput, []) | currentFocusedOutput == removedOutput -> #focusedOutput .= nullPtr
+      (currentFocusedOutput, h : _) | currentFocusedOutput == removedOutput -> #focusedOutput .= h
       _ -> pure ()
 
-    #allOutputs %= M.delete output
+    #allOutputs %= M.delete removedOutput

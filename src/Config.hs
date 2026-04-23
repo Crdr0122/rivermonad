@@ -90,22 +90,24 @@ myConfig =
               ]
           )
           (allKeyBindings defaultConfig)
-    -- , composeKeyMap =
-    --     "xkb_keymap {\
-    --     \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
-    --     \    xkb_types     { include \"complete\" };\
-    --     \    xkb_compat    { include \"complete\" };\
-    --     \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
-    --     \    xkb_geometry  { include \"pc(pc105)\" };\
-    --     \};\n"
+    , composeKeyMap =
+        "xkb_keymap {\
+        \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
+        \    xkb_types     { include \"complete\" };\
+        \    xkb_compat    { include \"complete\" };\
+        \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
+        \    xkb_geometry  { include \"pc(pc105)\" };\
+        \};\n"
     }
 
 cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowsOrSlaves forward seat stateMVar = do
   state <- readMVar stateMVar
-  case layoutName' (workspaceLayouts state M.! (allOutputWorkspaces state B.! focusedOutput state)) of
-    "TwoPane" -> cycleWindowSlaves forward seat stateMVar
-    _ -> cycleWindows forward seat stateMVar
+  case B.lookup (focusedOutput state) (allOutputWorkspaces state) of
+    Nothing -> pure ()
+    Just fO -> case layoutName' (workspaceLayouts state M.! fO) of
+      "TwoPane" -> cycleWindowSlaves forward seat stateMVar
+      _ -> cycleWindows forward seat stateMVar
 
 cycleWindowsOrSlavesOrFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowsOrSlavesOrFocus forward seat stateMVar = do

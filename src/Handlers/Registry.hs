@@ -48,8 +48,7 @@ registryGlobal dataPtr registry name interfacePtr version = do
   (stateMVar :: MVar WMState) <- deRefStablePtr (castPtrToStablePtr dataPtr)
   interface <- peekCString interfacePtr
   case interface of
-    "wl_compositor" -> do
-      putStrLn $ "Bound Compositor"
+    "wl_compositor" -> pure()
     "wp_cursor_shape_manager_v1" -> do
       cursor <- wlRegistryBind registry name cursor_shape_manager_v1_interface (min 2 version)
       modifyMVar_ stateMVar $ pure . (#currentCursorShapeManager .~ (castPtr cursor))

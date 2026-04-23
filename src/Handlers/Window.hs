@@ -56,8 +56,8 @@ hsWindowIdentifier dataPtr win identifierPtr = do
       Nothing -> #newWindowQueue %= (win :)
       Just (ws, status) -> do
         #persistedStateWindows % at ident .= Nothing
-        fWs <- use focusedWorkspace
-        #renderQueue <>= unless (ws == fromMaybe 1 fWs) (riverWindowHide win)
+        fWs <- use (focusedWorkspace % to (fromMaybe 1))
+        unless (ws == fWs) $ #renderQueue <>= riverWindowHide win
         case status of
           Tiled -> do
             #allWorkspacesTiled %= BS.insert ws win

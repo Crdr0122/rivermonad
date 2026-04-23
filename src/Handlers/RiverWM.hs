@@ -50,7 +50,7 @@ hsWmWindow dataPtr _ win = do
             , dimensionsHint = (0, 0, 0, 0)
             , parentWindow = Nothing
             }
-    pure $ s & #allWindows % at win ?~ w & #manageQueue <>~ startupApplyManage win
+    pure $ s & (#allWindows % at win ?~ w) & (#manageQueue <>~ startupApplyManage win)
 
 hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
 hsWmSeat dataPtr _ seat = do
