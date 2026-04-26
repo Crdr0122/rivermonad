@@ -101,6 +101,12 @@ defaultConfig =
           , ((keyUp, modSuperShift), (swapWindow WindowUp))
           , ((keyDown, modSuperShift), (swapWindow WindowDown))
           , ((keyDelete, modControl .|. modAlt), (exitSession))
+          , ((keyXF86AudioRaiseVolume, modNone), (exec "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 2%+"))
+          , ((keyXF86AudioLowerVolume, modNone), (exec "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 2%-"))
+          , ((keyXF86AudioMute, modNone), (exec "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
+          , ((keyXF86AudioMicMute, modNone), (exec "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
+          , ((keyXF86MonBrightnessDown, modNone), (exec "ddcutil setvcp 10 - 10"))
+          , ((keyXF86MonBrightnessUp, modNone), (exec "ddcutil setvcp 10 + 10"))
           ]
     , composeKeyMap =
         "xkb_keymap {\

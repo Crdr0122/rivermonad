@@ -87,6 +87,10 @@ myConfig =
               , ((keyU, modSuperShift), (exec "screenrecorder toggle region"))
               , ((keyXF86Calculator, modSuper), (exec "~/.config/river/screenshot fullscreen"))
               , ((keyXF86Calculator, modSuperShift), (exec "~/.config/river/screenshot region"))
+              , ((keyXF86AudioNext, modNone), (exec "mpc next"))
+              , ((keyXF86AudioStop, modNone), (exec "mpc stop"))
+              , ((keyXF86AudioPlay, modNone), (exec "mpc toggle"))
+              , ((keyXF86AudioPrev, modNone), (exec "mpc prev"))
               ]
           )
           (allKeyBindings defaultConfig)

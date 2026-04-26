@@ -201,6 +201,35 @@ keyDelete = 0xff9f
 keyXF86Calculator :: CUInt
 keyXF86Calculator = 0x1008FF1D
 
+keyXF86Standby :: CUInt
+keyXF86AudioLowerVolume :: CUInt
+keyXF86AudioMute :: CUInt
+keyXF86AudioRaiseVolume :: CUInt
+keyXF86AudioPlay :: CUInt
+keyXF86AudioStop :: CUInt
+keyXF86AudioPrev :: CUInt
+keyXF86AudioNext :: CUInt
+keyXF86MonBrightnessUp :: CUInt
+keyXF86MonBrightnessDown :: CUInt
+keyXF86KbdLightOnOff :: CUInt
+keyXF86KbdBrightnessUp :: CUInt
+keyXF86KbdBrightnessDown :: CUInt
+keyXF86AudioMicMute :: CUInt
+keyXF86Standby = 0x1008FF10
+keyXF86AudioLowerVolume = 0x1008FF11
+keyXF86AudioMute = 0x1008FF12
+keyXF86AudioRaiseVolume = 0x1008FF13
+keyXF86AudioPlay = 0x1008FF14
+keyXF86AudioStop = 0x1008FF15
+keyXF86AudioPrev = 0x1008FF16
+keyXF86AudioNext = 0x1008FF1
+keyXF86MonBrightnessUp = 0x1008FF02
+keyXF86MonBrightnessDown = 0x1008FF03
+keyXF86KbdLightOnOff = 0x1008FF04
+keyXF86KbdBrightnessUp = 0x1008FF05
+keyXF86KbdBrightnessDown = 0x1008FF06
+keyXF86AudioMicMute = 0x1008FFB2
+
 -- Pointer
 btnLeft, btnRight, btnMiddle, btnSide, btnExtra :: CUInt
 btnLeft = 0x110
@@ -224,6 +253,7 @@ modAlt = 0x08
 
 modSuper :: CUInt
 modSuper = 0x40
+
 -- modSuper = 0x08
 
 modSuperShift :: CUInt
@@ -231,4 +261,3 @@ modSuperShift = modSuper .|. modShift
 
 modSuperAlt :: CUInt
 modSuperAlt = modSuper .|. modAlt
-
