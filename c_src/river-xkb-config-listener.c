@@ -24,14 +24,8 @@ static const struct river_xkb_config_v1_listener xkb_config_listener = {
 
 static void capslock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void capslock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
-static void numlock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {
-  printf("Numlock Disabled\n");
-  fflush(stdout);
-}
-static void numlock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {
-  printf("Numlock Enabled\n");
-  fflush(stdout);
-}
+static void numlock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
+static void numlock_enabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
 static void removed(void *data, struct river_xkb_keyboard_v1 *xkb) {
   river_xkb_keyboard_v1_destroy(xkb);
 }

@@ -20,8 +20,8 @@ hsXkbConfigXkbKeyboard dataPtr config keyboard = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
-    -- keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
-    -- _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
+    keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
+    _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
     riverXkbKeyboardNumlockEnable keyboard
     -- riverXkbKeyboardCapslockEnable keyboard
     pure state
