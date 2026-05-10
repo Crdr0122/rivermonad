@@ -212,8 +212,8 @@ cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState t
       _ -> pure ()
 
   cycleW _ S.Empty = S.empty
-  cycleW True (hs S.:|> h) = h S.<| hs
-  cycleW False (h S.:<| hs) = hs S.|> h
+  cycleW True (h S.:<| hs) = hs S.|> h
+  cycleW False (hs S.:|> h) = h S.<| hs
 
 cycleWindowSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowSlaves forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform

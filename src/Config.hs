@@ -59,8 +59,8 @@ myConfig =
     , allKeyBindings =
         M.union
           ( M.fromList
-              [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus True))
-              , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus False))
+              [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus False))
+              , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus True))
               , ((keyGrave, modSuper), (cycleWindowFocus True))
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
               , ((keyW, modSuper), (sendMessage Next))
