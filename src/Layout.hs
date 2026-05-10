@@ -10,7 +10,6 @@ import Data.Bimap qualified as B
 import Data.Foldable
 import Data.List
 import Data.Map.Strict qualified as M
-import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign
 import Foreign.C

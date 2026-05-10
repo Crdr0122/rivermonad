@@ -43,7 +43,6 @@ hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
 hsXkbKeymapSuccess keyboard keymap = do
   riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
   riverXkbKeyboardNumlockEnable (castPtr keyboard)
-  print $ "Keymap success"
 
 hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
 hsXkbKeymapFailure _ _ errorMsg = do

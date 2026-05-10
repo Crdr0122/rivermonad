@@ -74,10 +74,12 @@ hsWindowIdentifier dataPtr win identifierPtr = do
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
+  -- putStrLn "Crash Here?1"
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ \s -> do
     riverWindowDestroy win
     pure $ execState transform s
+  -- putStrLn "Crash Here?2"
  where
   transform = do
     #allWindows %= M.delete win
