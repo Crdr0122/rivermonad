@@ -42,5 +42,5 @@ Everything will be hardcoded for personal use
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [X] Libinput
-- [ ] Multiseats (Not needed?)
+- [-] Multiseats (Not needed?)
 - [ ] Overview (Grid view?)
