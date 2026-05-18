@@ -16,19 +16,20 @@ get_river_layer_shell_output_listener(void) {
   return &layer_shell_output_listener;
 }
 
-static void handle_focus_exclusive(void *data,
-                                   struct river_layer_shell_seat_v1 *seat) {}
-static void handle_focus_non_exclusive(void *data,
-                                       struct river_layer_shell_seat_v1 *seat) {
-}
+extern void
+hs_layer_shell_seat_focus_exclusive(void *data,
+                                    struct river_layer_shell_seat_v1 *seat);
+extern void
+hs_layer_shell_seat_focus_non_exclusive(void *data,
+                                        struct river_layer_shell_seat_v1 *seat);
 extern void
 hs_layer_shell_seat_focus_none(void *data,
                                struct river_layer_shell_seat_v1 *seat);
 
 static const struct river_layer_shell_seat_v1_listener
     layer_shell_seat_listener = {
-        .focus_exclusive = handle_focus_exclusive,
-        .focus_non_exclusive = handle_focus_non_exclusive,
+        .focus_exclusive = hs_layer_shell_seat_focus_exclusive,
+        .focus_non_exclusive = hs_layer_shell_seat_focus_non_exclusive,
         .focus_none = hs_layer_shell_seat_focus_none,
 };
 

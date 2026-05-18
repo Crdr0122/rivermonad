@@ -67,10 +67,6 @@ hsOutputRemoved dataPtr removedOutput = do
       Just o -> do
         #allLayerShellOutputs %= M.delete (o ^. #outLayerShell)
         liftIO $ riverLayerShellOutputDestroy (o ^. #outLayerShell)
-    -- Need something else to identify outputs
-    -- use (#allOutputWorkspaces % to (B.lookup output)) >>= \case
-    --   Nothing -> pure ()
-    --   Just ws -> #persistedStateOutputs % at (cuintToWord32 $ o ^. #outWlOutput) ?= ws
 
     #allOutputWorkspaces %= B.delete removedOutput
     -- Delete first then check remaining

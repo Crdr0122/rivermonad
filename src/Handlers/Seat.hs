@@ -77,20 +77,19 @@ hsSeatPointerEnter dataPtr _ _ = do
   modifyMVar_ stateMVar $ \state -> pure state
 
 hsSeatWindowInteraction :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
-hsSeatWindowInteraction dataPtr seat win = do
+hsSeatWindowInteraction dataPtr _ win = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform = do
     use (pairOfGetter #focusedWindow (#allWindows % at win)) >>= \case
-      (Just fWin, _) | fWin == win -> #manageQueue <>= riverSeatFocusWindow seat win
+      (Just fWin, _) | fWin == win -> pure ()
       (_, Just winRec) -> do
         tiled <- use #allWorkspacesTiled
         floating <- use #allWorkspacesFloating
         full <- use #allWorkspacesFullscreen
         forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
           setFocusedWindowAndHistory ws win
-          #manageQueue <>= riverSeatFocusWindow seat win
           when (winRec ^. #isFloating) $ #renderQueue <>= riverNodePlaceTop (winRec ^. #nodePtr)
 
           oToW <- use #allOutputWorkspaces
@@ -98,9 +97,6 @@ hsSeatWindowInteraction dataPtr seat win = do
           case B.lookupR ws oToW of
             Just o | o /= oldO -> do
               #focusedOutput .= o
-              preuse (#allOutputs % at o %? #outLayerShell) >>= \case
-                Nothing -> pure ()
-                Just oRec -> #manageQueue <>= riverLayerShellOutputSetDefault oRec
             _ -> pure ()
       _ -> pure ()
 

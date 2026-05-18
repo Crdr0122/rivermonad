@@ -26,6 +26,18 @@ startLayout stateMVar = do
   modifyMVar_ stateMVar $ \state -> do
     let newState = execState sortNewWindows state
     newState ^. #manageQueue
+    let
+      o = newState ^. #focusedOutput
+      seat = (newState ^. #focusedSeat)
+
+    maybe (riverSeatClearFocus seat) (riverSeatFocusWindow seat) (newState ^. #focusedWindow)
+
+    if o /= nullPtr
+      then case newState ^? #allOutputs % at o %? #outLayerShell of
+        Nothing -> pure ()
+        Just oRec -> riverLayerShellOutputSetDefault oRec
+      else pure ()
+
     pure $ newState & #manageQueue .~ pure ()
   state <- readMVar stateMVar
   mapM_ (startLayoutOutput stateMVar) $ B.toList (state ^. #allOutputWorkspaces)
@@ -39,7 +51,6 @@ startLayout stateMVar = do
       use (#allWindows % at winPtr) >>= \case
         Nothing -> pure ()
         Just win -> do
-          seat <- use #focusedSeat
           let (targetWS, status) = (getWorkspace, getStatus)
 
               getWorkspace =
@@ -70,9 +81,7 @@ startLayout stateMVar = do
             Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
 
-          when (targetWS == focusedWS) $ do
-            setFocusedWindowAndHistory focusedWS winPtr
-            #manageQueue <>= riverSeatFocusWindow seat winPtr
+          when (targetWS == focusedWS) $ setFocusedWindowAndHistory focusedWS winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr
 
 startLayoutOutput :: MVar WMState -> (Ptr RiverOutput, WorkspaceID) -> IO ()

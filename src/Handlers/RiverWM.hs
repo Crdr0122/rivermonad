@@ -90,7 +90,6 @@ hsWmOutput dataPtr _ output = do
       state
         & (#allOutputs % at' output ?~ o)
         & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
-        & (#manageQueue <>~ riverLayerShellOutputSetDefault newLayerShellOutputPtr)
 
 hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
 hsWmManageStart dataPtr wm = do
@@ -126,7 +125,6 @@ hsWmSessionUnlocked dataPtr _ = do
         & #manageQueue
         <>~ ( traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingEnable state
                 >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingEnable state
-                >> traverseOf_ (#focusedWindow % _Just) (riverSeatFocusWindow (state ^. #focusedSeat)) state
             )
 
 startupApplyManage :: Ptr RiverWindow -> IO ()

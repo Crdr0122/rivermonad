@@ -72,7 +72,7 @@ closeCurrentWindow _ stateMVar = do
       Just w -> pure $ state & #manageQueue <>~ riverWindowClose w
 
 toggleFocusFloating :: Ptr RiverSeat -> MVar WMState -> IO ()
-toggleFocusFloating seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform =
     use #focusedWindow >>= \case
@@ -84,14 +84,12 @@ toggleFocusFloating seat stateMVar = modifyMVar_ stateMVar $ pure . execState tr
                   | view #isFloating win = #allWorkspacesTiled
                   | otherwise = #allWorkspacesFloating
             preuse (targetOptic % to (BS.lookupBs ws) % _head) >>= \case
-              Just next -> do
-                setFocusedWindowAndHistory ws next
-                #manageQueue <>= riverSeatFocusWindow seat next
+              Just next -> setFocusedWindowAndHistory ws next
               Nothing -> pure ()
           _ -> pure ()
 
 cycleWindowFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
-cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+cycleWindowFocus forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
@@ -116,7 +114,6 @@ cycleWindowFocus forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSta
 
             setFocusedWindowAndHistory focusedWs next
             #renderQueue <>= renderAction
-            #manageQueue <>= riverSeatFocusWindow seat next
           _ -> pure ()
       _ -> pure ()
 
@@ -196,7 +193,7 @@ toggleMaximizeWindow _ stateMVar = do
               & (#manageQueue <>~ if isMaximized then riverWindowInformUnmaximized w else riverWindowInformMaximized w)
 
 cycleWindows :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
-cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+cycleWindows forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform =
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
@@ -208,7 +205,6 @@ cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState t
           Just workspace -> do
             let nextWin = BS.lookUpNext workspace forward w tiledMap
             setFocusedWindowAndHistory focusedWs nextWin
-            #manageQueue <>= riverSeatFocusWindow seat nextWin
       _ -> pure ()
 
   cycleW _ S.Empty = S.empty
@@ -216,7 +212,7 @@ cycleWindows forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState t
   cycleW False (hs S.:|> h) = h S.<| hs
 
 cycleWindowSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
-cycleWindowSlaves forward seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+cycleWindowSlaves forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
@@ -228,7 +224,6 @@ cycleWindowSlaves forward seat stateMVar = modifyMVar_ stateMVar $ pure . execSt
           Just i | i /= 0 -> do
             let nextWin = S.index s (((if forward then i else i - 2) `mod` (length s - 1)) + 1)
             setFocusedWindowAndHistory focusedWs nextWin
-            #manageQueue <>= riverSeatFocusWindow seat nextWin
           _ -> pure ()
       _ -> pure ()
 
@@ -260,7 +255,7 @@ zoomWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
 
 -- Does not move floating windows on another monitor
 switchWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
-switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
+switchWorkspace targetID _ stateMVar = modifyMVar_ stateMVar $ \state -> do
   let newState = execState (transform targetID) state
   broadcastState newState $ formatStatus newState
  where
@@ -297,15 +292,9 @@ switchWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ \state -> do
         use (#workspaceFocusHistory % at target) >>= \case
           Nothing ->
             use (workspaceWindows target) >>= \case
-              w S.:<| _ -> do
-                setFocusedWindowAndHistory target w
-                #manageQueue <>= riverSeatFocusWindow seat w
-              S.Empty -> do
-                #focusedWindow .= Nothing
-                #manageQueue <>= riverSeatClearFocus seat
-          Just w -> do
-            #focusedWindow ?= w
-            #manageQueue <>= riverSeatFocusWindow seat w
+              w S.:<| _ -> setFocusedWindowAndHistory target w
+              S.Empty -> #focusedWindow .= Nothing
+          Just w -> #focusedWindow ?= w
       Just _ | lastWs /= target -> transform lastWs
       _ -> pure ()
 
@@ -351,7 +340,6 @@ focusWindow direction seat stateMVar = modifyMVar_ stateMVar $ pure . execState 
 
     setFocusedWindowAndHistory ws nextWin
 
-    #manageQueue <>= riverSeatFocusWindow seat nextWin
     #manageQueue <>= riverSeatPointerWarp seat centerX centerY
 
     when isFloating $ do
@@ -421,7 +409,7 @@ findClosestWindow ws direction index = res
                   else (dx ** 2) + ((dy * 4) ** 2)
 
 moveWindowToWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
-moveWindowToWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+moveWindowToWorkspace targetID _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
@@ -436,11 +424,9 @@ moveWindowToWorkspace targetID seat stateMVar = modifyMVar_ stateMVar $ pure . e
                 use (workspaceWindows currentWS) >>= \case
                   (h S.:<| _) -> do
                     setFocusedWindowAndHistory currentWS h
-                    #manageQueue <>= riverSeatFocusWindow seat h
                   S.Empty -> do
                     #focusedWindow .= Nothing
                     #workspaceFocusHistory % at currentWS .= Nothing
-                    #manageQueue <>= riverSeatClearFocus seat
               _ -> pure ()
       _ -> pure ()
 

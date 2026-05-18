@@ -79,8 +79,9 @@ hsWindowClosed dataPtr win = do
   modifyMVar_ (stateMVar :: MVar WMState) $ \s -> do
     riverWindowDestroy win
     pure $ execState transform s
-  -- putStrLn "Crash Here?2"
  where
+  -- putStrLn "Crash Here?2"
+
   transform = do
     #allWindows %= M.delete win
     #allWorkspacesFloating %= BS.delete win
@@ -89,15 +90,12 @@ hsWindowClosed dataPtr win = do
     #workspaceFocusHistory %= M.filter (/= win)
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do
-        seat <- use #focusedSeat
         use (workspaceWindows ws) >>= \case
           S.Empty -> do
             #focusedWindow .= Nothing
             #workspaceFocusHistory %= M.delete ws
-            #manageQueue <>= riverSeatClearFocus seat
           h S.:<| _ -> do
             setFocusedWindowAndHistory ws h
-            #manageQueue <>= riverSeatFocusWindow seat h
       _ -> pure ()
 
 hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
