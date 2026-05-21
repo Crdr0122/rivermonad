@@ -74,19 +74,18 @@ hsWindowIdentifier dataPtr win identifierPtr = do
 
 hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
 hsWindowClosed dataPtr win = do
-  -- putStrLn "Crash Here?1"
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ \s -> do
     riverWindowDestroy win
     pure $ execState transform s
  where
-  -- putStrLn "Crash Here?2"
-
   transform = do
     #allWindows %= M.delete win
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
+    #floatingQueue %= M.map (filter (/= win))
+    #fullscreenQueue %= M.map (filter (/= win))
     #workspaceFocusHistory %= M.filter (/= win)
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do

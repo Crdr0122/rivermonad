@@ -91,7 +91,7 @@ toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState trans
 cycleWindowFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowFocus forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
-  transform = do
+  transform =
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just w, Just focusedWs) ->
         use (#allWindows % at w) >>= \case
@@ -101,15 +101,11 @@ cycleWindowFocus forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState 
                   | view #isFloating win = #allWorkspacesFloating
                   | otherwise = #allWorkspacesTiled
 
-            targetMap <- use targetMapOptic
-
-            let next = BS.lookUpNext focusedWs forward w targetMap
+            next <- BS.lookUpNext focusedWs forward w <$> use targetMapOptic
 
             nextWinData <- use (#allWindows % at next)
             let renderAction = case nextWinData of
-                  Just nData
-                    | view #isFullscreen win || view #isFloating win ->
-                        riverNodePlaceTop (view #nodePtr nData)
+                  Just nData | view #isFullscreen win || view #isFloating win -> riverNodePlaceTop (view #nodePtr nData)
                   _ -> pure ()
 
             setFocusedWindowAndHistory focusedWs next
@@ -237,11 +233,9 @@ zoomWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
-        mWin <- use (#allWindows % at currentWin)
-        let shouldSkip = case mWin of
-              Just w -> view #isFloating w || view #isFullscreen w
-              Nothing -> True
-        unless shouldSkip $ #allWorkspacesTiled %= BS.changeSeqOrder ws (zoom currentWin)
+        use (#allWindows % at currentWin) >>= \case
+          Just w | not (view #isFloating w || view #isFullscreen w) -> #allWorkspacesTiled %= BS.changeSeqOrder ws (zoom currentWin)
+          _ -> pure ()
       _ -> pure ()
 
   zoom _ S.Empty = S.empty
@@ -260,12 +254,12 @@ switchWorkspace targetID _ stateMVar = modifyMVar_ stateMVar $ \state -> do
   broadcastState newState $ formatStatus newState
  where
   transform target = do
-    fOutput <- use #focusedOutput
+    currentO <- use #focusedOutput
     outWorkmaps <- use #allOutputWorkspaces
     lastWs <- use #lastFocusedWorkspace
-    case B.lookup fOutput outWorkmaps of
+    case B.lookup currentO outWorkmaps of
       Just currentWs | currentWs /= target -> do
-        #allOutputWorkspaces %= B.insert fOutput target
+        #allOutputWorkspaces %= B.insert currentO target
         -- Pinned windows are moved to new workspace
         use #allWindows >>= itraverseOf_ (itraversed % filtered (^. #isPinned)) (\p _ -> #allWorkspacesFloating %= BS.move p target)
 
@@ -422,8 +416,7 @@ moveWindowToWorkspace targetID _ stateMVar = modifyMVar_ stateMVar $ pure . exec
                 #renderQueue <>= riverWindowHide win
 
                 use (workspaceWindows currentWS) >>= \case
-                  (h S.:<| _) -> do
-                    setFocusedWindowAndHistory currentWS h
+                  (h S.:<| _) -> setFocusedWindowAndHistory currentWS h
                   S.Empty -> do
                     #focusedWindow .= Nothing
                     #workspaceFocusHistory % at currentWS .= Nothing

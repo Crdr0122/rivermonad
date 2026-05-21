@@ -67,6 +67,7 @@ hsOutputRemoved dataPtr removedOutput = do
       Just o -> do
         #allLayerShellOutputs %= M.delete (o ^. #outLayerShell)
         liftIO $ riverLayerShellOutputDestroy (o ^. #outLayerShell)
+        #allOutputs %= M.delete removedOutput
 
     #allOutputWorkspaces %= B.delete removedOutput
     -- Delete first then check remaining
@@ -74,5 +75,3 @@ hsOutputRemoved dataPtr removedOutput = do
       (currentFocusedOutput, []) | currentFocusedOutput == removedOutput -> #focusedOutput .= nullPtr
       (currentFocusedOutput, h : _) | currentFocusedOutput == removedOutput -> #focusedOutput .= h
       _ -> pure ()
-
-    #allOutputs %= M.delete removedOutput
