@@ -1,5 +1,4 @@
 #include "../generated/river-libinput-config.h"
-#include <HsFFI.h>
 #include <wayland-client-core.h>
 
 static void handle_finished(void *data,
@@ -195,6 +194,9 @@ static void handle_rotation_default(
 static void handle_rotation_current(
     void *data, struct river_libinput_device_v1 *river_libinput_device_v1,
     uint32_t angle) {}
+static void
+handle_done(void *data,
+            struct river_libinput_device_v1 *river_libinput_device_v1) {}
 
 static const struct river_libinput_device_v1_listener libinput_device_listener =
     {
@@ -253,6 +255,7 @@ static const struct river_libinput_device_v1_listener libinput_device_listener =
         .rotation_current = handle_rotation_current,
         .rotation_default = handle_rotation_default,
         .rotation_support = handle_rotation_support,
+        .done = handle_done,
 };
 
 const struct river_libinput_config_v1_listener *

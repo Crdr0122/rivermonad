@@ -4,7 +4,10 @@ Uses FFI to libwayland for wayland communication
 
 Everything will be hardcoded for personal use
 
+Current protocols: River 0.4.7
+
 # TODO
+- wl_fixed_t into haskell type, currently placeholder, needed for scale, cursor stuff
 - [-] Layouts 
   - [X] Stack
   - [X] Twopane
@@ -44,3 +47,5 @@ Everything will be hardcoded for personal use
 - [X] Libinput
 - [-] Multiseats (Not needed?)
 - [ ] Overview (Grid view?)
+- [ ] New floating windows offset to not exactly block previous window
+- [ ] Xkb bindings seat -> needed for key eating and modifier watch

@@ -34,7 +34,7 @@ myConfig =
           ]
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
-        [ ("", "Slack", 2)
+        [ ("", "slack", 2)
         , ("QQ", "QQ", 2)
         , ("Weixin", "wechat", 2)
         , ("", "vesktop", 2)

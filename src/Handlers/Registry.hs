@@ -69,12 +69,12 @@ registryGlobal dataPtr registry name interfacePtr version = do
         pure $ (state & #allWlSeats %~ M.insert name wlSeat)
       putStrLn $ "Bound wl_seat: " ++ show name
     "river_window_manager_v1" -> do
-      wmPtr <- wlRegistryBind registry name river_window_manager_v1_interface (min 4 version)
+      wmPtr <- wlRegistryBind registry name river_window_manager_v1_interface (min 5 version)
       _ <- wlProxyAddListener (castPtr wmPtr) getRiverWmListener dataPtr
       modifyMVar_ stateMVar $ pure . (#currentWindowManager .~ (castPtr wmPtr))
       putStrLn $ "Bound Window Manager"
     "river_xkb_bindings_v1" -> do
-      xkbBindings <- wlRegistryBind registry name river_xkb_bindings_v1_interface (min 2 version)
+      xkbBindings <- wlRegistryBind registry name river_xkb_bindings_v1_interface (min 3 version)
       modifyMVar_ stateMVar $ pure . (#currentXkbBindings .~ (castPtr xkbBindings))
       putStrLn $ "Bound Xkb Bindings"
     "river_layer_shell_v1" -> do
@@ -82,20 +82,20 @@ registryGlobal dataPtr registry name interfacePtr version = do
       modifyMVar_ stateMVar $ pure . (#currentLayerShell .~ (castPtr layerShell))
       putStrLn $ "Bound Layer Shell"
     "river_input_manager_v1" -> do
-      inputManager <- wlRegistryBind registry name river_input_manager_v1_interface (min 1 version)
+      inputManager <- wlRegistryBind registry name river_input_manager_v1_interface (min 2 version)
       _ <- wlProxyAddListener (castPtr inputManager) getRiverInputManagerListener dataPtr
       putStrLn $ "Bound Input Manager"
     "river_libinput_config_v1" -> do
-      libinput <- wlRegistryBind registry name river_libinput_config_v1_interface (min 1 version)
+      libinput <- wlRegistryBind registry name river_libinput_config_v1_interface (min 2 version)
       _ <- wlProxyAddListener (castPtr libinput) getRiverLibinputConfigListener dataPtr
       putStrLn $ "Bound Libinput Config"
     "river_xkb_config_v1" -> do
-      xkbConfig <- wlRegistryBind registry name river_xkb_config_v1_interface (min 1 version)
+      xkbConfig <- wlRegistryBind registry name river_xkb_config_v1_interface (min 2 version)
       _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener dataPtr
       putStrLn $ "Bound Xkb Config"
     "zwlr_output_manager_v1" -> do
       wlrOutputManager <- wlRegistryBind registry name zwlr_output_manager_v1_interface (min 4 version)
-      _ <- wlProxyAddListener (castPtr wlrOutputManager) getRiverXkbConfigListener dataPtr
+      _ <- wlProxyAddListener (castPtr wlrOutputManager) getWlrOutputManagerListener dataPtr
       putStrLn $ "Bound Wlr Output"
     _ -> pure ()
 

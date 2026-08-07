@@ -1,5 +1,4 @@
 #include "../generated/river-xkb-config.h"
-#include <HsFFI.h>
 #include <stdio.h>
 #include <wayland-client-core.h>
 
@@ -20,6 +19,7 @@ handle_xkb_config_xkb_keyboard(void *data, struct river_xkb_config_v1 *xkb,
 static const struct river_xkb_config_v1_listener xkb_config_listener = {
     .finished = hs_xkb_config_finished,
     .xkb_keyboard = hs_xkb_config_xkb_keyboard,
+    
 };
 
 static void capslock_disabled(void *data, struct river_xkb_keyboard_v1 *xkb) {}
@@ -39,6 +39,9 @@ static void layout(void *data,
                    struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1,
                    uint32_t index, const char *name) {}
 
+static void done(void *data,
+                 struct river_xkb_keyboard_v1 *river_xkb_keyboard_v1) {}
+
 static const struct river_xkb_keyboard_v1_listener xkb_keyboard_listener = {
     .capslock_disabled = capslock_disabled,
     .capslock_enabled = capslock_enabled,
@@ -47,6 +50,7 @@ static const struct river_xkb_keyboard_v1_listener xkb_keyboard_listener = {
     .removed = removed,
     .input_device = input_device,
     .layout = layout,
+    .done = done,
 };
 
 extern void hs_xkb_keymap_success(void *data,

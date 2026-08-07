@@ -75,6 +75,7 @@ executable rivermonad
     Handlers.XkbBindings
     Handlers.XkbConfig
     Handlers.Registry
+    Handlers.WlrOutput
     IPC
     Layout
     Types

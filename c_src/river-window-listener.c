@@ -58,6 +58,9 @@ static void handle_unreliable_pid(void *data, struct river_window_v1 *window,
 static void handle_presentation_hint(void *data, struct river_window_v1 *window,
                                      uint32_t hint) {}
 
+static void handle_capture_sessions(void *data, struct river_window_v1 *window,
+                                     uint32_t num) {}
+
 static const struct river_window_v1_listener window_listener = {
     .closed = hs_window_closed,
     .dimensions_hint = hs_window_dimensions_hint,
@@ -77,6 +80,7 @@ static const struct river_window_v1_listener window_listener = {
     .unreliable_pid = handle_unreliable_pid,
     .presentation_hint = handle_presentation_hint,
     .identifier = hs_window_identifier,
+    .capture_sessions = handle_capture_sessions
 };
 
 const struct river_window_v1_listener *get_river_window_listener(void) {

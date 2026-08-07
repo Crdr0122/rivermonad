@@ -10,12 +10,16 @@ extern void hs_output_position(void *data, struct river_output_v1 *output,
 extern void hs_output_removed(void *data, struct river_output_v1 *output);
 extern void hs_output_wl_output(void *data, struct river_output_v1 *output,
                                 uint32_t name);
+extern void hs_output_capture_sessions(void *data,
+                                       struct river_output_v1 *output,
+                                       uint32_t num);
 
 static const struct river_output_v1_listener output_listener = {
     .removed = hs_output_removed,
     .position = hs_output_position,
     .dimensions = hs_output_dimensions,
     .wl_output = hs_output_wl_output,
+    .capture_sessions = hs_output_capture_sessions,
 };
 
 const struct river_output_v1_listener *get_river_output_listener(void) {

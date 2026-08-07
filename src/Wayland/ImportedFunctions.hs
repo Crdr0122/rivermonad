@@ -267,3 +267,38 @@ foreign import capi "wayland-client.h wl_seat_release"
 
 foreign import capi "wayland-client.h wl_pointer_release"
   wlPointerRelease :: Ptr WlPointer -> IO ()
+
+foreign import capi "wlr-output-management-unstable.h zwlr_output_manager_v1_create_configuration"
+  wlrOutputManagerCreateConfiguration :: Ptr WlrOutputManager -> CUInt -> IO (Ptr WlrOutputConfiguration)
+foreign import capi "wlr-output-management-unstable.h zwlr_output_manager_v1_stop"
+  wlrOutputManagerStop :: Ptr WlrOutputManager -> IO ()
+
+foreign import capi "wlr-output-management-unstable.h zwlr_output_head_v1_release"
+  wlrOutputHeadRelease :: Ptr WlrOutputHead -> IO ()
+
+foreign import capi "wlr-output-management-unstable.h zwlr_output_mode_v1_release"
+  wlrOutputModeRelease :: Ptr WlrOutputMode -> IO ()
+
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_v1_enable_head"
+  wlrOutputConfigurationEnableHead :: Ptr WlrOutputConfiguration -> Ptr WlrOutputHead -> IO (Ptr WlrOutputConfigurationHead)
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_v1_disable_head"
+  wlrOutputConfigurationDisableHead :: Ptr WlrOutputConfiguration -> Ptr WlrOutputHead -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_v1_apply"
+  wlrOutputConfigurationApply :: Ptr WlrOutputConfiguration -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_v1_test"
+  wlrOutputConfigurationTest :: Ptr WlrOutputConfiguration -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_v1_destroy"
+  wlrOutputConfigurationDestroy :: Ptr WlrOutputConfiguration -> IO ()
+
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_mode"
+  wlrOutputConfigurationHeadSetMode :: Ptr WlrOutputConfigurationHead -> Ptr WlrOutputMode -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_custom_mode"
+  wlrOutputConfigurationHeadSetCustomMode :: Ptr WlrOutputConfigurationHead -> CInt -> CInt -> CInt -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_position"
+  wlrOutputConfigurationHeadSetPosition :: Ptr WlrOutputConfigurationHead -> CInt -> CInt -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_transform"
+  wlrOutputConfigurationHeadSetTransform :: Ptr WlrOutputConfigurationHead -> CInt -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_scale"
+  wlrOutputConfigurationHeadSetScale :: Ptr WlrOutputConfigurationHead -> WlFixedT -> IO ()
+foreign import capi "wlr-output-management-unstable.h zwlr_output_configuration_head_v1_set_adaptive_sync"
+  wlrOutputConfigurationHeadSetAdaptiveSync :: Ptr WlrOutputConfigurationHead -> CUInt -> IO ()

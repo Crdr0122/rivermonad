@@ -24,6 +24,8 @@ foreign export ccall "hs_output_removed"
   hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 foreign export ccall "hs_output_wl_output"
   hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
+foreign export ccall "hs_output_capture_sessions"
+  hsOutputCaptureSessions :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 
 hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
 hsOutputDimensions dataPtr output width height = do
@@ -75,3 +77,6 @@ hsOutputRemoved dataPtr removedOutput = do
       (currentFocusedOutput, []) | currentFocusedOutput == removedOutput -> #focusedOutput .= nullPtr
       (currentFocusedOutput, h : _) | currentFocusedOutput == removedOutput -> #focusedOutput .= h
       _ -> pure ()
+
+hsOutputCaptureSessions :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
+hsOutputCaptureSessions _ _ _ = pure ()

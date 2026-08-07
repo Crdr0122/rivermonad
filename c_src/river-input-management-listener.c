@@ -1,5 +1,4 @@
 #include "../generated/river-input-management.h"
-#include <HsFFI.h>
 #include <wayland-client-core.h>
 
 static void handle_input_device(void *data,
@@ -22,11 +21,14 @@ static void handle_removed(void *data, struct river_input_device_v1 *device) {
 }
 static void handle_type(void *data, struct river_input_device_v1 *device,
                         uint32_t type) {}
+static void handle_done(void *data, struct river_input_device_v1 *device) {}
+
 static const struct river_input_device_v1_listener river_input_device_listener =
     {
         .name = handle_name,
         .removed = handle_removed,
         .type = handle_type,
+        .done = handle_done,
 };
 
 const struct river_input_manager_v1_listener *
