@@ -9,12 +9,14 @@ module Utils.Helpers (
   pairOfGetter,
   pairOf,
   setMinSize,
+  deleteWinPtrs,
 ) where
 
 import Control.Monad.State
-import Data.Bimap as B
-import Data.Maybe
-import Data.Sequence as S
+import Data.Bimap qualified as B
+import Data.List qualified as L
+import Data.Map qualified as M
+import Data.Sequence qualified as S
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -31,68 +33,88 @@ setFocusedWindowAndHistory ws w = do
   #focusedWindow ?= w
   #workspaceFocusHistory % at ws ?= w
 
+deleteWinPtrs :: (MonadState WMState m) => Ptr RiverWindow -> m ()
+deleteWinPtrs win = do
+  #allWorkspacesFloating %= BS.delete win
+  #allWorkspacesTiled %= BS.delete win
+  #allWorkspacesFullscreen %= BS.delete win
+  #newWindowQueue %= L.delete win
+  #floatingQueue %= M.map (filter (/= win))
+  #fullscreenQueue %= M.map (filter (/= win))
+  #workspaceFocusHistory %= M.filter (/= win)
+
 setMinSize :: Lens (a, b, c, d) (a', b', c, d) (a, b) (a', b')
 setMinSize =
   lens
     (\(a, b, _, _) -> (a, b)) -- Getter
     (\(_, _, c, d) (a', b') -> (a', b', c, d)) -- Setter
 
-calculateFloatingPositions :: (Functor f, Foldable f) => Rect -> f Window -> ([Rect], IO (), IO ())
-calculateFloatingPositions o windows = result
+calculateFloatingPositions :: Rect -> [Window] -> Int -> ([Rect], IO (), IO ())
+calculateFloatingPositions o windows num = result
  where
-  resultList = fmap (\win -> calculateFloatingPosition (winPtr win) win o) windows
+  resultList = fmap (\(n, win) -> calculateFloatingPosition (winPtr win) n win o) (zip [num ..] windows)
   result =
     foldl'
       (\(rects, ms, rs) (rect, m, r) -> (rect : rects, ms >> m, rs >> r))
       ([], pure (), pure ())
       resultList
 
-calculateFloatingPosition :: Ptr RiverWindow -> Window -> Rect -> (Rect, IO (), IO ())
+calculateFloatingPosition :: Ptr RiverWindow -> Int -> Window -> Rect -> (Rect, IO (), IO ())
 calculateFloatingPosition
   win
+  num
   Window{floatingGeometry, nodePtr, dimensionsHint}
-  Rect{rh = outHeight, rw = outWidth, rx = outX, ry = outY} = case floatingGeometry of
-    Nothing -> case dimensionsHint of
-      (0, 0, _, _) ->
-        -- Size hint is 0 meaning I get to decide
-        ( Rect{rx = offsetX, ry = offsetY, rw = w, rh = h}
-        , riverWindowProposeDimensions win w h
-        , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
+  Rect{rh = outHeight, rw = outWidth, rx = outX, ry = outY} =
+    let (resX, resY, resW, resH) = case floatingGeometry of
+          Just Rect{rx, ry, rw, rh} -> (rx, ry, rw, rh)
+          Nothing -> case dimensionsHint of
+            (0, 0, _, _) -> (offsetX + dx, offsetY + dy, w, h)
+            (minW, minH, 0, 0) ->
+              let
+                maxW = max minW w
+                maxH = max minH h
+                minY = (outHeight - maxH) `div` 2
+                minX = (outWidth - maxW) `div` 2
+               in
+                (minX + dx, minY + dy, maxW, maxH)
+            (_, _, maxW, maxH) ->
+              let
+                minW = min maxW w
+                minH = min maxH h
+                maxY = (outHeight - minH) `div` 2
+                maxX = (outWidth - minW) `div` 2
+               in
+                (maxX + dx, maxY + dy, minW, minH)
+     in ( Rect{rx = resX, ry = resY, rw = resW, rh = resH}
+        , riverWindowProposeDimensions win resW resH
+        , riverNodeSetPosition nodePtr (outX + resX) (outY + resY) >> riverNodePlaceTop nodePtr
         )
-      (minW, minH, 0, 0) ->
-        let
-          resW = max minW w
-          resH = max minH h
-          minY = (outHeight - resH) `div` 2
-          minX = (outWidth - resW) `div` 2
-         in
-          ( Rect{rx = minX, ry = minY, rw = resW, rh = resH}
-          , riverWindowProposeDimensions win resW resH
-          , riverNodeSetPosition nodePtr (minX + outX) (minY + outY)
-          )
-      (_, _, maxW, maxH) ->
-        let
-          resW = min maxW w
-          resH = min maxH h
-          maxY = (outHeight - resH) `div` 2
-          maxX = (outWidth - resW) `div` 2
-         in
-          ( Rect{rx = maxX, ry = maxY, rw = resW, rh = resH}
-          , riverWindowProposeDimensions win maxW maxH
-          , riverNodeSetPosition nodePtr (maxX + outX) (maxY + outY)
-          )
-    Just g@Rect{rx, ry, rw, rh} ->
-      ( g
-      , riverWindowProposeDimensions win rw rh
-      , riverNodeSetPosition nodePtr (outX + rx) (outY + ry)
-      )
    where
     w = outWidth * 6 `div` 10
     h = outHeight * 6 `div` 10
     offsetX = (outWidth - w) `div` 2
     offsetY = (outHeight - h) `div` 2
+    -- Bounded scatter offsets based on `num`
+    step = num `mod` 8
+    scaleX = min 36 (outWidth `div` 30)
+    scaleY = min 28 (outHeight `div` 30)
 
-workspaceWindows :: WorkspaceID -> Getter WMState (Seq (Ptr RiverWindow))
+    -- Scatters in all 4 directions around center (X, Y multipliers)
+    (multX, multY) = case step of
+      0 -> (0, 0) -- Center
+      1 -> (1, 1) -- Bottom-Right
+      2 -> (-1, 1) -- Bottom-Left
+      3 -> (1, -1) -- Top-Right
+      4 -> (-1, -1) -- Top-Left
+      5 -> (2, 0) -- Far-Right
+      6 -> (0, 2) -- Far-Bottom
+      7 -> (-2, -2) -- Far-Top-Left
+      _ -> (0, 0)
+
+    dx = multX * scaleX
+    dy = multY * scaleY
+
+workspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Ptr RiverWindow))
 workspaceWindows ws = to $ \s ->
   (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
     S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))

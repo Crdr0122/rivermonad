@@ -82,13 +82,8 @@ hsWindowClosed dataPtr win = do
  where
   transform = do
     #allWindows %= M.delete win
-    #allWorkspacesFloating %= BS.delete win
-    #allWorkspacesTiled %= BS.delete win
-    #allWorkspacesFullscreen %= BS.delete win
-    #newWindowQueue %= L.delete win
-    #floatingQueue %= M.map (filter (/= win))
-    #fullscreenQueue %= M.map (filter (/= win))
     #workspaceFocusHistory %= M.filter (/= win)
+    deleteWinPtrs win
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do
         use (workspaceWindows ws) >>= \case
@@ -115,17 +110,11 @@ hsWindowDimensions dataPtr winPtr w h = do
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  -- modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allWindows % at win %? #parentWindow ?~ parent)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
  where
   transform = do
     #allWindows % at win %? #parentWindow ?= parent
-    #allWorkspacesTiled %= BS.delete win
-    #allWorkspacesFloating %= BS.delete win
-    #allWorkspacesFullscreen %= BS.delete win
-    #newWindowQueue %= L.delete win
-    #floatingQueue %= M.map (filter (/= win))
-    #fullscreenQueue %= M.map (filter (/= win))
+    deleteWinPtrs win
     use focusedWorkspace >>= \case
       Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
       Nothing -> pure ()
@@ -138,12 +127,7 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
   transform = do
     #allWindows % at win %? #dimensionsHint .= (minW, minH, maxW, maxH)
     when (minW == maxW && minH == maxH && minW /= 0 && minH /= 0) $ do
-      #allWorkspacesTiled %= BS.delete win
-      #allWorkspacesFloating %= BS.delete win
-      #allWorkspacesFullscreen %= BS.delete win
-      #newWindowQueue %= L.delete win
-      #floatingQueue %= M.map (filter (/= win))
-      #fullscreenQueue %= M.map (filter (/= win))
+      deleteWinPtrs win
       use focusedWorkspace >>= \case
         Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
         Nothing -> pure ()
@@ -176,9 +160,7 @@ hsWindowFullscreenRequested dataPtr win output = do
     targetWs <- use (#allOutputWorkspaces % to (B.lookup output))
     let actualWs = fromMaybe 1 $ msum [targetWs, focusedWs]
     #allWindows % at win %?= (\w -> w{isFullscreen = True, isPinned = False})
-    #allWorkspacesFloating %= BS.delete win
-    #allWorkspacesTiled %= BS.delete win
-    #allWorkspacesFullscreen %= BS.delete win
+    deleteWinPtrs win
     #fullscreenQueue % at actualWs %?= (win :)
 
 hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()

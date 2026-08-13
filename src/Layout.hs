@@ -133,8 +133,10 @@ startLayoutOutput stateMVar (output, ws) = modifyMVar_ stateMVar $ \(state :: WM
 
         -- Floating
         queuedFloatingPtrs <- use (#floatingQueue % at ws % non [])
+        alreadyFloating <- use (#allWorkspacesFloating % to (BS.lookupBs ws) % to S.length)
         let newFloatingWindows = (allWindows M.!) <$> queuedFloatingPtrs
-            (floatingPositions, floatMAction, floatRAction) = calculateFloatingPositions geom newFloatingWindows
+            (floatingPositions, floatMAction, floatRAction) =
+              calculateFloatingPositions geom newFloatingWindows alreadyFloating
         #allWorkspacesFloating %= BS.insertList ws queuedFloatingPtrs
         #manageQueue <>= floatMAction
         #renderQueue <>= floatRAction

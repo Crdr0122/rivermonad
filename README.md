@@ -44,8 +44,8 @@ Current protocols: River 0.4.7
 - [X] Multimonitor focus other outputs
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
-- [X] Libinput
+- [ ] Libinput
 - [-] Multiseats (Not needed?)
 - [ ] Overview (Grid view?)
-- [ ] New floating windows offset to not exactly block previous window
+- [X] New floating windows offset to not exactly block previous window
 - [ ] Xkb bindings seat -> needed for key eating and modifier watch
