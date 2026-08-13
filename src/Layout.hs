@@ -3,6 +3,7 @@
 module Layout (startLayout) where
 
 import Config
+import Control.Arrow ((&&&))
 import Control.Concurrent.MVar
 import Control.Monad (unless, when)
 import Control.Monad.State hiding (state)
@@ -75,11 +76,26 @@ startLayout stateMVar = do
                   ^. non ("", "", Tiled)
                   % _3
 
+              getSize =
+                findOf
+                  folded
+                  ( \(t, a, _, _) ->
+                      t `isInfixOf` (win ^. #winTitle)
+                        && a `isInfixOf` (win ^. #winAppID)
+                  )
+                  (myConfig ^. #windowSizeRules)
+                  ^. non ("", "", 0, 0)
+                  % to ((^. _3) &&& (^. _4))
+
           case status of
             Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
             Floating -> #floatingQueue % at targetWS %?= (winPtr :)
             Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
+
+          case getSize of
+            (0, 0) -> pure ()
+            size -> #allWindows % at winPtr %? #dimensionsHint % setMinSize .= size
 
           when (targetWS == focusedWS) $ setFocusedWindowAndHistory focusedWS winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr

@@ -31,6 +31,7 @@ defaultConfig =
     , statePath = "/tmp/rivermonad-state.json"
     , floatingRules = []
     , workspaceRules = []
+    , windowSizeRules = []
     , execOnStart = []
     , borderPx = 2
     , gapPx = 0

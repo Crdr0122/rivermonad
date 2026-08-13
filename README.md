@@ -27,11 +27,11 @@ Current protocols: River 0.4.7
   - [X] Saving state
       - [X] Window workspaces
       - [X] Focused workspace on each output
-- [-] Window rules
+- [X] Window rules
   - [X] Open floating  
   - [X] Open fullscreen (?)
   - [X] Open on workspace
-  - [ ] Open with set size
+  - [X] Open with set size
 - [-] Ipc
   - [ ] Receive ipc keydispatches
   - [X] Send out workspace information for bars

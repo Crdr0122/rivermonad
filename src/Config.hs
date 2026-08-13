@@ -55,6 +55,7 @@ myConfig =
         , ("QQ", "QQ", Tiled)
         , ("", "QQ", Floating)
         ]
+    , windowSizeRules = [("", "beatoraja", 1500, 900)]
     , execOnStart = ["river-tag-overlay"]
     , allKeyBindings =
         M.union

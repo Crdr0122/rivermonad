@@ -8,6 +8,7 @@ module Utils.Helpers (
   createKeymapFd,
   pairOfGetter,
   pairOf,
+  setMinSize,
 ) where
 
 import Control.Monad.State
@@ -30,40 +31,52 @@ setFocusedWindowAndHistory ws w = do
   #focusedWindow ?= w
   #workspaceFocusHistory % at ws ?= w
 
+setMinSize :: Lens (a, b, c, d) (a', b', c, d) (a, b) (a', b')
+setMinSize =
+  lens
+    (\(a, b, _, _) -> (a, b)) -- Getter
+    (\(_, _, c, d) (a', b') -> (a', b', c, d)) -- Setter
+
 calculateFloatingPositions :: (Functor f, Foldable f) => Rect -> f Window -> ([Rect], IO (), IO ())
-calculateFloatingPositions o windows = res
+calculateFloatingPositions o windows = result
  where
-  resInter = fmap (\win -> calculateFloatingPosition (winPtr win) win o) windows
-  res =
+  resultList = fmap (\win -> calculateFloatingPosition (winPtr win) win o) windows
+  result =
     foldl'
       (\(rects, ms, rs) (rect, m, r) -> (rect : rects, ms >> m, rs >> r))
       ([], pure (), pure ())
-      resInter
+      resultList
 
 calculateFloatingPosition :: Ptr RiverWindow -> Window -> Rect -> (Rect, IO (), IO ())
 calculateFloatingPosition
   win
-  Window{floatingGeometry, nodePtr, dimensionsHint, parentWindow}
+  Window{floatingGeometry, nodePtr, dimensionsHint}
   Rect{rh = outHeight, rw = outWidth, rx = outX, ry = outY} = case floatingGeometry of
     Nothing -> case dimensionsHint of
       (0, 0, _, _) ->
+        -- Size hint is 0 meaning I get to decide
         ( Rect{rx = offsetX, ry = offsetY, rw = w, rh = h}
         , riverWindowProposeDimensions win w h
         , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
         )
-      (minW, minH, _, _)
-        | isJust parentWindow ->
-            let minY = (outHeight - minH) `div` 2
-                minX = (outWidth - minW) `div` 2
-             in ( Rect{rx = minX, ry = minY, rw = minW, rh = minH}
-                , riverWindowProposeDimensions win minW minH
-                , riverNodeSetPosition nodePtr (minX + outX) (minY + outY)
-                )
-      (_, _, _, _) ->
-        ( Rect{rx = offsetX, ry = offsetY, rw = w, rh = h}
-        , riverWindowProposeDimensions win w h
-        , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
-        )
+      (minW, minH, 0, 0) ->
+        let minY = (outHeight - minH) `div` 2
+            minX = (outWidth - minW) `div` 2
+         in ( Rect{rx = minX, ry = minY, rw = minW, rh = minH}
+            , riverWindowProposeDimensions win minW minH
+            , riverNodeSetPosition nodePtr (minX + outX) (minY + outY)
+            )
+      (_, _, maxW, maxH) ->
+        let
+          resW = min maxW w
+          resH = min maxH h
+          maxY = (outHeight - resW) `div` 2
+          maxX = (outWidth - resH) `div` 2
+         in
+          ( Rect{rx = maxX, ry = maxY, rw = resW, rh = resH}
+          , riverWindowProposeDimensions win w h
+          , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
+          )
     Just g@Rect{rx, ry, rw, rh} ->
       ( g
       , riverWindowProposeDimensions win rw rh

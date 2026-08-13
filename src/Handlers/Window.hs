@@ -5,6 +5,7 @@ import Control.Monad (msum, unless, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
+import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Sequence qualified as S
@@ -65,7 +66,7 @@ hsWindowIdentifier dataPtr win identifierPtr = do
             #floatingQueue % at ws %?= (win :)
             #allWindows % at win %? #isFloating .= True
           Fullscreen -> do
-            #floatingQueue % at ws %?= (win :)
+            #fullscreenQueue % at ws %?= (win :)
             #allWindows % at win %? #isFullscreen .= True
           FullscreenFloating -> do
             #fullscreenQueue % at ws %?= (win :)
@@ -84,6 +85,7 @@ hsWindowClosed dataPtr win = do
     #allWorkspacesFloating %= BS.delete win
     #allWorkspacesTiled %= BS.delete win
     #allWorkspacesFullscreen %= BS.delete win
+    #newWindowQueue %= L.delete win
     #floatingQueue %= M.map (filter (/= win))
     #fullscreenQueue %= M.map (filter (/= win))
     #workspaceFocusHistory %= M.filter (/= win)
@@ -126,6 +128,9 @@ hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
       #allWorkspacesTiled %= BS.delete win
       #allWorkspacesFloating %= BS.delete win
       #allWorkspacesFullscreen %= BS.delete win
+      #newWindowQueue %= L.delete win
+      #floatingQueue %= M.map (filter (/= win))
+      #fullscreenQueue %= M.map (filter (/= win))
       use focusedWorkspace >>= \case
         Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
         Nothing -> pure ()

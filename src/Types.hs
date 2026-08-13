@@ -244,6 +244,7 @@ data RivermonadConfig = RivermonadConfig
   , xCursorTheme :: (String, CUInt)
   , workspaceRules :: [(String, String, WorkspaceID)]
   , floatingRules :: [(String, String, WindowStatus)]
+  , windowSizeRules :: [(String, String, CInt, CInt)]
   , allPointerBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
   , allKeyBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
