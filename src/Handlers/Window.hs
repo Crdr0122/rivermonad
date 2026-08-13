@@ -115,7 +115,20 @@ hsWindowDimensions dataPtr winPtr w h = do
 hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
 hsWindowParent dataPtr win parent = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allWindows % at win %? #parentWindow ?~ parent)
+  -- modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allWindows % at win %? #parentWindow ?~ parent)
+  modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
+ where
+  transform = do
+    #allWindows % at win %? #parentWindow ?= parent
+    #allWorkspacesTiled %= BS.delete win
+    #allWorkspacesFloating %= BS.delete win
+    #allWorkspacesFullscreen %= BS.delete win
+    #newWindowQueue %= L.delete win
+    #floatingQueue %= M.map (filter (/= win))
+    #fullscreenQueue %= M.map (filter (/= win))
+    use focusedWorkspace >>= \case
+      Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
+      Nothing -> pure ()
 
 hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do

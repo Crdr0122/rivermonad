@@ -60,22 +60,26 @@ calculateFloatingPosition
         , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
         )
       (minW, minH, 0, 0) ->
-        let minY = (outHeight - minH) `div` 2
-            minX = (outWidth - minW) `div` 2
-         in ( Rect{rx = minX, ry = minY, rw = minW, rh = minH}
-            , riverWindowProposeDimensions win minW minH
-            , riverNodeSetPosition nodePtr (minX + outX) (minY + outY)
-            )
+        let
+          resW = max minW w
+          resH = max minH h
+          minY = (outHeight - resH) `div` 2
+          minX = (outWidth - resW) `div` 2
+         in
+          ( Rect{rx = minX, ry = minY, rw = resW, rh = resH}
+          , riverWindowProposeDimensions win resW resH
+          , riverNodeSetPosition nodePtr (minX + outX) (minY + outY)
+          )
       (_, _, maxW, maxH) ->
         let
           resW = min maxW w
           resH = min maxH h
-          maxY = (outHeight - resW) `div` 2
-          maxX = (outWidth - resH) `div` 2
+          maxY = (outHeight - resH) `div` 2
+          maxX = (outWidth - resW) `div` 2
          in
           ( Rect{rx = maxX, ry = maxY, rw = resW, rh = resH}
-          , riverWindowProposeDimensions win w h
-          , riverNodeSetPosition nodePtr (offsetX + outX) (offsetY + outY)
+          , riverWindowProposeDimensions win maxW maxH
+          , riverNodeSetPosition nodePtr (maxX + outX) (maxY + outY)
           )
     Just g@Rect{rx, ry, rw, rh} ->
       ( g
