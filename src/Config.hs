@@ -64,6 +64,7 @@ myConfig =
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus True))
               , ((keyGrave, modSuper), (cycleWindowFocus True))
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
+              , ((keyQ, modSuperShift), (closeAllWindowsOnWorkspace))
               , ((keyW, modSuper), (sendMessage Next))
               , ((keyS, modSuper), (zoomWindow))
               , ((keyEscape, modSuper), (sendMessage ToggleOverview))

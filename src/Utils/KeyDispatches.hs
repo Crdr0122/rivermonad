@@ -2,6 +2,7 @@
 
 module Utils.KeyDispatches (
   closeCurrentWindow,
+  closeAllWindowsOnWorkspace,
   cycleWindowFocus,
   cycleWindowSlaves,
   cycleWindows,
@@ -46,7 +47,6 @@ import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.CursorShapes
 import Utils.Helpers
-import Utils.Layouts (overview)
 import Wayland.ImportedFunctions
 
 doNothing :: Ptr RiverSeat -> MVar WMState -> IO ()
@@ -71,6 +71,18 @@ closeCurrentWindow _ stateMVar = do
     case state ^. #focusedWindow of
       Nothing -> pure state
       Just w -> pure $ state & #manageQueue <>~ riverWindowClose w
+
+closeAllWindowsOnWorkspace :: Ptr RiverSeat -> MVar WMState -> IO ()
+closeAllWindowsOnWorkspace _ stateMVar = do
+  modifyMVar_ stateMVar $ \state ->
+    case state ^. focusedWorkspace of
+      Nothing -> pure state
+      Just ws -> do
+        let wins = state ^. #allWorkspacesTiled % to (BS.lookupBs ws)
+            wins2 = state ^. #allWorkspacesFloating % to (BS.lookupBs ws)
+            wins3 = state ^. #allWorkspacesFullscreen % to (BS.lookupBs ws)
+            actions = foldl' (\b a -> b >> riverWindowClose a) (pure ())
+        pure $ state & #manageQueue <>~ (actions wins >> actions wins2 >> actions wins3)
 
 toggleFocusFloating :: Ptr RiverSeat -> MVar WMState -> IO ()
 toggleFocusFloating _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
