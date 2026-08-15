@@ -11,6 +11,7 @@ module Utils.Layouts (
   mirror,
   choose,
   magnifier,
+  overview,
 ) where
 
 import Control.Monad (msum)
@@ -136,6 +137,62 @@ instance Layout CircleLayout where
   layoutName _ = "Circle"
   handleMsg _ _ = Nothing
 
+overview :: Bool -> SomeLayout -> SomeLayout
+overview toggle c = SomeLayout $ OverviewLayout toggle c
+data OverviewLayout = OverviewLayout
+  { overviewToggled :: Bool
+  , originalLayout :: SomeLayout
+  }
+instance Layout OverviewLayout where
+  doLayout _ _ _ Empty = empty
+  doLayout OverviewLayout{overviewToggled = False, originalLayout} focused total xs =
+    applySomeLayout originalLayout focused total xs
+  doLayout OverviewLayout{overviewToggled = True} _ Rect{rx, ry, rw, rh} wins =
+    let
+      nwins = fromIntegral $ S.length wins
+      cols = ceiling (sqrt (fromIntegral nwins :: Double))
+      rows = (nwins + cols - 1) `div` cols
+
+      -- Base cell dimensions
+      cellW = rw `div` cols
+      cellH = rh `div` rows
+
+      -- Border/padding inside each grid cell (e.g., ~6% padding with a 6px minimum)
+      padX = max 6 (cellW `div` 16)
+      padY = max 6 (cellH `div` 16)
+
+      winW = cellW - (2 * padX)
+      winH = cellH - (2 * padY)
+
+      createRect i =
+        let col = fromIntegral $ i `mod` cols
+            row = fromIntegral $ i `div` cols
+            cellX = fromIntegral $ rx + (col * cellW)
+            cellY = fromIntegral $ ry + (row * cellH)
+         in Rect
+              { rx = cellX + padX
+              , ry = cellY + padY
+              , rw = winW
+              , rh = winH
+              }
+     in
+      mapWithIndex (\i win -> (win, createRect $ fromIntegral i)) wins
+
+  layoutName _ = "Overview"
+
+  -- handleMsg _ _ = Nothing
+  handleMsg o@(OverviewLayout t l) m =
+    msum
+      [ fmap toggle (fromMessage m)
+      , goInner
+      , Nothing
+      ]
+   where
+    toggle ToggleOverview = o{overviewToggled = not t}
+    goInner = case handleSomeMsg l m of
+      Nothing -> Nothing
+      Just newInner -> Just o{originalLayout = newInner}
+
 roledex :: SomeLayout
 roledex = SomeLayout RoledexLayout
 data RoledexLayout = RoledexLayout
@@ -151,10 +208,11 @@ instance Layout RoledexLayout where
   doLayout _ _ Rect{rx, ry, rw, rh} wins =
     let mW = rw * 8 `div` 15
         mH = rh * 8 `div` 15
-        iW = (rw - mW) `div` (fromIntegral (S.length wins) - 1)
-        iH = (rh - mH) `div` (fromIntegral (S.length wins) - 1)
-        gapW = (rw - iW * (fromIntegral (S.length wins) - 1) - mW) `div` 2
-        gapH = (rh - iH * (fromIntegral (S.length wins) - 1) - mH) `div` 2
+        nwins = S.length wins
+        iW = (rw - mW) `div` (fromIntegral nwins - 1)
+        iH = (rh - mH) `div` (fromIntegral nwins - 1)
+        gapW = (rw - iW * (fromIntegral nwins - 1) - mW) `div` 2
+        gapH = (rh - iH * (fromIntegral nwins - 1) - mH) `div` 2
         createRect i =
           Rect
             { rw = mW
@@ -239,7 +297,7 @@ instance Layout ChooseLayout where
             Just newInner ->
               let (before, after) = Prelude.splitAt i opts
                   rest = Prelude.drop 1 after
-               in Just $ c{layoutOptions = before ++ [newInner] ++ rest}
+               in Just $ c{layoutOptions = before ++ (newInner : rest)}
 
 magnifier :: Double -> SomeLayout -> SomeLayout
 magnifier ratio child = SomeLayout $ MagnifierLayout ratio child
@@ -256,10 +314,10 @@ instance Layout MagnifierLayout where
     Nothing -> applySomeLayout (mChildLayout l) focused total ws
     Just i ->
       let res = applySomeLayout (mChildLayout l) focused total ws
-          deleted = S.deleteAt i res
+          focusedWinDeleted = S.deleteAt i res
           (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
           newW = min rw (truncate (fromIntegral w * magnifierRatio l))
           newH = min rh (truncate (fromIntegral h * magnifierRatio l))
           newX = min (rx + rw) (max (x - ((newW - w) `div` 2)) rx)
           newY = min (ry + rh) (max (y - ((newH - h) `div` 2)) ry)
-       in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| deleted
+       in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted

@@ -118,6 +118,7 @@ data Window = Window
   , isMaximized :: Bool
   , floatingGeometry :: Maybe Rect
   , tilingGeometry :: Maybe Rect
+  , ruleSize :: Maybe (CInt, CInt)
   , dimensionsHint :: (CInt, CInt, CInt, CInt)
   , parentWindow :: Maybe (Ptr RiverWindow)
   }
@@ -172,6 +173,9 @@ instance Message Next
 instance Message IncMasterFrac
 instance Message IncMasterN
 instance Message SetMasterFrac
+
+data ToggleOverview = ToggleOverview deriving (Typeable)
+instance Message ToggleOverview
 
 data SomeLayout = forall l. (Layout l) => SomeLayout l
 

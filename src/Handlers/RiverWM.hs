@@ -47,6 +47,7 @@ hsWmWindow dataPtr _ win = do
             , winAppID = ""
             , floatingGeometry = Nothing
             , tilingGeometry = Nothing
+            , ruleSize = Nothing
             , dimensionsHint = (0, 0, 0, 0)
             , parentWindow = Nothing
             }

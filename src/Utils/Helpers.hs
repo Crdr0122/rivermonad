@@ -8,7 +8,6 @@ module Utils.Helpers (
   createKeymapFd,
   pairOfGetter,
   pairOf,
-  setMinSize,
   deleteWinPtrs,
 ) where
 
@@ -43,12 +42,6 @@ deleteWinPtrs win = do
   #fullscreenQueue %= M.map (filter (/= win))
   #workspaceFocusHistory %= M.filter (/= win)
 
-setMinSize :: Lens (a, b, c, d) (a', b', c, d) (a, b) (a', b')
-setMinSize =
-  lens
-    (\(a, b, _, _) -> (a, b)) -- Getter
-    (\(_, _, c, d) (a', b') -> (a', b', c, d)) -- Setter
-
 calculateFloatingPositions :: Rect -> [Window] -> Int -> ([Rect], IO (), IO ())
 calculateFloatingPositions o windows num = result
  where
@@ -63,28 +56,30 @@ calculateFloatingPosition :: Ptr RiverWindow -> Int -> Window -> Rect -> (Rect, 
 calculateFloatingPosition
   win
   num
-  Window{floatingGeometry, nodePtr, dimensionsHint}
+  Window{floatingGeometry, nodePtr, dimensionsHint, ruleSize}
   Rect{rh = outHeight, rw = outWidth, rx = outX, ry = outY} =
     let (resX, resY, resW, resH) = case floatingGeometry of
           Just Rect{rx, ry, rw, rh} -> (rx, ry, rw, rh)
-          Nothing -> case dimensionsHint of
-            (0, 0, _, _) -> (offsetX + dx, offsetY + dy, w, h)
-            (minW, minH, 0, 0) ->
-              let
-                maxW = max minW w
-                maxH = max minH h
-                minY = (outHeight - maxH) `div` 2
-                minX = (outWidth - maxW) `div` 2
-               in
-                (minX + dx, minY + dy, maxW, maxH)
-            (_, _, maxW, maxH) ->
-              let
-                minW = min maxW w
-                minH = min maxH h
-                maxY = (outHeight - minH) `div` 2
-                maxX = (outWidth - minW) `div` 2
-               in
-                (maxX + dx, maxY + dy, minW, minH)
+          Nothing -> case ruleSize of
+            Just (rw, rh) -> ((outWidth - rw) `div` 2 + dx, (outHeight - rh) `div` 2 + dy, rw, rh)
+            Nothing -> case dimensionsHint of
+              (0, 0, _, _) -> (offsetX + dx, offsetY + dy, w, h)
+              (minW, minH, 0, 0) ->
+                let
+                  maxW = max minW w
+                  maxH = max minH h
+                  minY = (outHeight - maxH) `div` 2
+                  minX = (outWidth - maxW) `div` 2
+                 in
+                  (minX + dx, minY + dy, maxW, maxH)
+              (_, _, maxW, maxH) ->
+                let
+                  minW = min maxW w
+                  minH = min maxH h
+                  maxY = (outHeight - minH) `div` 2
+                  maxX = (outWidth - minW) `div` 2
+                 in
+                  (maxX + dx, maxY + dy, minW, minH)
      in ( Rect{rx = resX, ry = resY, rw = resW, rh = resH}
         , riverWindowProposeDimensions win resW resH
         , riverNodeSetPosition nodePtr (outX + resX) (outY + resY) >> riverNodePlaceTop nodePtr

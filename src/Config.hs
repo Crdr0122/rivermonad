@@ -11,7 +11,7 @@ import Utils.Keysyms
 import Utils.Layouts
 
 myLayout :: Int -> SomeLayout
-myLayout i = choose i [monocle, tall 0.6 1, twoPane 0.6]
+myLayout i = overview False $ choose i [monocle, tall 0.6 1, twoPane 0.6]
 
 myConfig :: RivermonadConfig
 myConfig =
@@ -66,8 +66,8 @@ myConfig =
               , ((keyGrave, modSuperShift), (cycleWindowFocus False))
               , ((keyW, modSuper), (sendMessage Next))
               , ((keyS, modSuper), (zoomWindow))
+              , ((keyEscape, modSuper), (sendMessage ToggleOverview))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))
-              , ((keyP, modSuper), (togglePinWindow))
               , ((keyF, modSuperShift), (toggleMaximizeWindow))
               , ((keyEqual, modSuperShift), (sendMessage (IncMasterN 1)))
               , ((keyMinus, modSuperShift), (sendMessage (IncMasterN (-1))))

@@ -198,6 +198,9 @@ keyGrave = 0x0060
 keyDelete :: CUInt
 keyDelete = 0xff9f
 
+keyEscape :: CUInt
+keyEscape = 0xff1b
+
 keyXF86Calculator :: CUInt
 keyXF86Calculator = 0x1008FF1D
 

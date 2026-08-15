@@ -53,7 +53,6 @@ startLayout stateMVar = do
         Nothing -> pure ()
         Just win -> do
           let (targetWS, status) = (getWorkspace, getStatus)
-
               getWorkspace =
                 findOf
                   folded
@@ -76,7 +75,13 @@ startLayout stateMVar = do
                   ^. non ("", "", Tiled)
                   % _3
 
-              getSize =
+          case status of
+            Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
+            Floating -> #floatingQueue % at targetWS %?= (winPtr :)
+            Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
+            FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
+
+          let getSize =
                 findOf
                   folded
                   ( \(t, a, _, _) ->
@@ -87,15 +92,9 @@ startLayout stateMVar = do
                   ^. non ("", "", 0, 0)
                   % to ((^. _3) &&& (^. _4))
 
-          case status of
-            Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
-            Floating -> #floatingQueue % at targetWS %?= (winPtr :)
-            Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
-            FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
-
           case getSize of
             (0, 0) -> pure ()
-            size -> #allWindows % at winPtr %? #dimensionsHint % setMinSize .= size
+            size -> #allWindows % at winPtr %? #ruleSize ?= size
 
           when (targetWS == focusedWS) $ setFocusedWindowAndHistory focusedWS winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue <>= riverWindowHide winPtr
