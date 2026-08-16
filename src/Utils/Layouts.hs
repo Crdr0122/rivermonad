@@ -12,6 +12,7 @@ module Utils.Layouts (
   choose,
   magnifier,
   overview,
+  centerMaster,
 ) where
 
 import Control.Monad (msum)
@@ -141,12 +142,12 @@ overview :: Bool -> SomeLayout -> SomeLayout
 overview toggle c = SomeLayout $ OverviewLayout toggle c
 data OverviewLayout = OverviewLayout
   { overviewToggled :: Bool
-  , originalLayout :: SomeLayout
+  , overviewOriginalLayout :: SomeLayout
   }
 instance Layout OverviewLayout where
   doLayout _ _ _ Empty = empty
-  doLayout OverviewLayout{overviewToggled = False, originalLayout} focused total xs =
-    applySomeLayout originalLayout focused total xs
+  doLayout OverviewLayout{overviewToggled = False, overviewOriginalLayout} focused total xs =
+    applySomeLayout overviewOriginalLayout focused total xs
   doLayout OverviewLayout{overviewToggled = True} _ Rect{rx, ry, rw, rh} wins =
     let
       nwins = fromIntegral $ S.length wins
@@ -178,9 +179,8 @@ instance Layout OverviewLayout where
      in
       mapWithIndex (\i win -> (win, createRect $ fromIntegral i)) wins
 
-  layoutName _ = "Overview"
+  layoutName OverviewLayout{overviewOriginalLayout = o} = "Overview or " ++ layoutName' o
 
-  -- handleMsg _ _ = Nothing
   handleMsg o@(OverviewLayout t l) m =
     msum
       [ fmap toggle (fromMessage m)
@@ -191,7 +191,36 @@ instance Layout OverviewLayout where
     toggle ToggleOverview = o{overviewToggled = not t}
     goInner = case handleSomeMsg l m of
       Nothing -> Nothing
-      Just newInner -> Just o{originalLayout = newInner}
+      Just newInner -> Just o{overviewOriginalLayout = newInner}
+
+centerMaster :: SomeLayout -> SomeLayout
+centerMaster c = SomeLayout $ CenterMasterLayout c
+data CenterMasterLayout = CenterMasterLayout
+  { originalLayout :: SomeLayout
+  }
+instance Layout CenterMasterLayout where
+  doLayout _ _ _ Empty = empty
+  doLayout CenterMasterLayout{originalLayout = o} focused output@Rect{rx, ry, rw, rh} (master :<| wins) =
+    let
+      behind = case focused of
+        Just 0 -> applySomeLayout o Nothing output wins
+        Nothing -> applySomeLayout o Nothing output wins
+        Just idx -> applySomeLayout o (Just (idx - 1)) output wins
+
+      -- Base cell dimensions
+      winW = rw * 6 `div` 10
+      winH = rh * 6 `div` 10
+
+      winX = (rw - winW) `div` 2 + rx
+      winY = (rh - winH) `div` 2 + ry
+     in
+      (master, Rect{rx = winX, ry = winY, rw = winW, rh = winH}) :<| behind
+
+  layoutName CenterMasterLayout{originalLayout = o} = "Overview or " ++ layoutName' o
+
+  handleMsg o@(CenterMasterLayout l) m = case handleSomeMsg l m of
+    Nothing -> Nothing
+    Just newInner -> Just o{originalLayout = newInner}
 
 roledex :: SomeLayout
 roledex = SomeLayout RoledexLayout

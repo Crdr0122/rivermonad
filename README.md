@@ -42,6 +42,7 @@ Current protocols: River 0.4.7
 - [ ] Ext-workspace (wait for river)
 - [X] Cursor shape
 - [X] Multimonitor focus other outputs
+  - [ ] Use pointer_enter_output event rather than calculating windows when river publishes the event 
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
 - [ ] Libinput
