@@ -21,17 +21,19 @@ myConfig =
           (M.fromList [((btnRight, modSuper .|. modAlt), (exec "hyprpicker", doNothing))])
           (allPointerBindings defaultConfig)
     , defaultLayouts =
-        M.fromList
-          [ (1, myLayout 0)
-          , (2, myLayout 1)
-          , (3, myLayout 2)
-          , (4, myLayout 0)
-          , (5, myLayout 0)
-          , (6, myLayout 0)
-          , (7, myLayout 0)
-          , (8, myLayout 0)
-          , (9, myLayout 0)
-          ]
+        M.fromList $
+          zip
+            [1 ..]
+            [ myLayout 0
+            , myLayout 1
+            , myLayout 2
+            , myLayout 0
+            , myLayout 0
+            , myLayout 0
+            , myLayout 0
+            , myLayout 0
+            , myLayout 0
+            ]
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
         [ ("", "slack", 2)

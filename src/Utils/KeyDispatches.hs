@@ -246,19 +246,20 @@ zoomWindow _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
   transform = do
     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
-        use (#allWindows % at currentWin) >>= \case
-          Just w | not (view #isFloating w || view #isFullscreen w) -> #allWorkspacesTiled %= BS.changeSeqOrder ws (zoom currentWin)
-          _ -> pure ()
+        tiledWindows <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
+        let (newSeq, newFocus) = zoom currentWin tiledWindows
+        #allWorkspacesTiled %= BS.changeSeqOrder ws (const newSeq)
+        #focusedWindow ?= newFocus
       _ -> pure ()
 
-  zoom _ S.Empty = S.empty
+  zoom c S.Empty = (S.empty, c)
   zoom currentWin s@(w S.:<| ws)
     | w == currentWin = case ws of
-        S.Empty -> s
-        w2 S.:<| wss -> w2 S.<| (w S.<| wss)
+        S.Empty -> (s, currentWin)
+        w2 S.:<| wss -> (w2 S.<| (w S.<| wss), w2)
     | otherwise = case S.elemIndexL currentWin ws of
-        Nothing -> s
-        Just i -> currentWin S.<| S.update i w ws
+        Nothing -> (s, currentWin)
+        Just i -> (currentWin S.<| S.update i w ws, currentWin)
 
 -- Does not move floating windows on another monitor
 switchWorkspace :: WorkspaceID -> Ptr RiverSeat -> MVar WMState -> IO ()
