@@ -31,7 +31,7 @@ foreign export ccall "hs_xkb_keyboard_input_device"
 
 hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
 hsXkbKeyboardInputDevice dataPtr keyboard _ = do
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  _ <- deRefStablePtr (castPtrToStablePtr dataPtr)
   riverXkbKeyboardNumlockEnable keyboard
 
 foreign export ccall "hs_xkb_keymap_success"

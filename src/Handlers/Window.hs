@@ -5,7 +5,6 @@ import Control.Monad (msum, unless, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.ByteString qualified as BStr
-import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Sequence qualified as S

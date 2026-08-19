@@ -4,14 +4,16 @@ import Control.Concurrent.MVar
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
 import Foreign
+import Layouts.Basic
+import Layouts.Magnifier
+import Layouts.Overview
 import Types
 import Utils.DefaultConfig
 import Utils.KeyDispatches
 import Utils.Keysyms
-import Utils.Layouts
 
 myLayout :: Int -> SomeLayout
-myLayout i = overview False $ choose i [monocle, tall 0.6 1, twoPane 0.6]
+myLayout i = overview False $ choose i [monocle, magnifier2' 1.5 (tall 0.6 1), twoPane 0.6]
 
 myConfig :: RivermonadConfig
 myConfig =

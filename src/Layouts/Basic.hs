@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Utils.Layouts (
+module Layouts.Basic (
   tall,
   monocle,
   twoPane,
@@ -10,13 +10,13 @@ module Utils.Layouts (
   ifMax,
   mirror,
   choose,
-  magnifier,
-  overview,
   centerMaster,
 ) where
 
 import Control.Monad (msum)
 import Data.Sequence as S
+import Data.Typeable
+
 import Types
 
 tall :: Double -> Int -> SomeLayout
@@ -137,61 +137,6 @@ instance Layout CircleLayout where
      in (master, masterRect) <| slaveGeos
   layoutName _ = "Circle"
   handleMsg _ _ = Nothing
-
-overview :: Bool -> SomeLayout -> SomeLayout
-overview toggle c = SomeLayout $ OverviewLayout toggle c
-data OverviewLayout = OverviewLayout
-  { overviewToggled :: Bool
-  , overviewOriginalLayout :: SomeLayout
-  }
-instance Layout OverviewLayout where
-  doLayout _ _ _ Empty = empty
-  doLayout OverviewLayout{overviewToggled = False, overviewOriginalLayout} focused total xs =
-    applySomeLayout overviewOriginalLayout focused total xs
-  doLayout OverviewLayout{overviewToggled = True} _ Rect{rx, ry, rw, rh} wins =
-    let
-      nwins = fromIntegral $ S.length wins
-      cols = ceiling (sqrt (fromIntegral nwins :: Double))
-      rows = (nwins + cols - 1) `div` cols
-
-      -- Base cell dimensions
-      cellW = rw `div` cols
-      cellH = rh `div` rows
-
-      -- Border/padding inside each grid cell (e.g., ~6% padding with a 6px minimum)
-      padX = max 6 (cellW `div` 16)
-      padY = max 6 (cellH `div` 16)
-
-      winW = cellW - (2 * padX)
-      winH = cellH - (2 * padY)
-
-      createRect i =
-        let col = fromIntegral $ i `mod` cols
-            row = fromIntegral $ i `div` cols
-            cellX = fromIntegral $ rx + (col * cellW)
-            cellY = fromIntegral $ ry + (row * cellH)
-         in Rect
-              { rx = cellX + padX
-              , ry = cellY + padY
-              , rw = winW
-              , rh = winH
-              }
-     in
-      mapWithIndex (\i win -> (win, createRect $ fromIntegral i)) wins
-
-  layoutName OverviewLayout{overviewOriginalLayout = o} = "Overview or " ++ layoutName' o
-
-  handleMsg o@(OverviewLayout t l) m =
-    msum
-      [ fmap toggle (fromMessage m)
-      , goInner
-      , Nothing
-      ]
-   where
-    toggle ToggleOverview = o{overviewToggled = not t}
-    goInner = case handleSomeMsg l m of
-      Nothing -> Nothing
-      Just newInner -> Just o{overviewOriginalLayout = newInner}
 
 centerMaster :: SomeLayout -> SomeLayout
 centerMaster c = SomeLayout $ CenterMasterLayout c
@@ -327,26 +272,3 @@ instance Layout ChooseLayout where
               let (before, after) = Prelude.splitAt i opts
                   rest = Prelude.drop 1 after
                in Just $ c{layoutOptions = before ++ (newInner : rest)}
-
-magnifier :: Double -> SomeLayout -> SomeLayout
-magnifier ratio child = SomeLayout $ MagnifierLayout ratio child
-data MagnifierLayout = MagnifierLayout
-  { magnifierRatio :: Double
-  , mChildLayout :: SomeLayout
-  }
-instance Layout MagnifierLayout where
-  layoutName l = "Magnified " ++ layoutName' (mChildLayout l)
-  handleMsg l msg = case handleSomeMsg (mChildLayout l) msg of
-    Nothing -> Nothing
-    Just layout -> Just l{mChildLayout = layout}
-  doLayout l focused total@Rect{rx, ry, rh, rw} ws = case focused of
-    Nothing -> applySomeLayout (mChildLayout l) focused total ws
-    Just i ->
-      let res = applySomeLayout (mChildLayout l) focused total ws
-          focusedWinDeleted = S.deleteAt i res
-          (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
-          newW = min rw (truncate (fromIntegral w * magnifierRatio l))
-          newH = min rh (truncate (fromIntegral h * magnifierRatio l))
-          newX = min (rx + rw) (max (x - ((newW - w) `div` 2)) rx)
-          newY = min (ry + rh) (max (y - ((newH - h) `div` 2)) ry)
-       in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted

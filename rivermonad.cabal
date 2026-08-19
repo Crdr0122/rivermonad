@@ -68,16 +68,19 @@ executable rivermonad
     Handlers.LayerShell
     Handlers.Output
     Handlers.PointerBindings
+    Handlers.Registry
     Handlers.RiverWM
     Handlers.Seat
     Handlers.Window
     Handlers.WlSeat
+    Handlers.WlrOutput
     Handlers.XkbBindings
     Handlers.XkbConfig
-    Handlers.Registry
-    Handlers.WlrOutput
     IPC
     Layout
+    Layouts.Basic
+    Layouts.Magnifier
+    Layouts.Overview
     Types
     Utils.BiSeqMap
     Utils.CursorShapes
@@ -85,7 +88,6 @@ executable rivermonad
     Utils.Helpers
     Utils.KeyDispatches
     Utils.Keysyms
-    Utils.Layouts
     Wayland.Client
     Wayland.ImportedFunctions
 

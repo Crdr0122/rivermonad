@@ -174,8 +174,6 @@ instance Message IncMasterFrac
 instance Message IncMasterN
 instance Message SetMasterFrac
 
-data ToggleOverview = ToggleOverview deriving (Typeable)
-instance Message ToggleOverview
 
 data SomeLayout = forall l. (Layout l) => SomeLayout l
 

@@ -5,7 +5,7 @@ import Data.Map.Strict qualified as M
 import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
-import Utils.Layouts
+import Layouts.Basic
 
 defaultConfig :: RivermonadConfig
 defaultConfig =
