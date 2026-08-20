@@ -4,7 +4,8 @@
 module Layouts.Magnifier (
   magnifier,
   magnifier',
-  magnifier2',
+  magnifierNum,
+  magnifierNum',
 ) where
 
 -- import Control.Monad (msum)
@@ -17,8 +18,11 @@ magnifier ratio child = SomeLayout $ MagnifierLayout ratio child (AllWins 1)
 magnifier' :: Double -> SomeLayout -> SomeLayout
 magnifier' ratio child = SomeLayout $ MagnifierLayout ratio child (StackWins 1)
 
-magnifier2' :: Double -> SomeLayout -> SomeLayout
-magnifier2' ratio child = SomeLayout $ MagnifierLayout ratio child (StackWins 2)
+magnifierNum :: Double -> SomeLayout -> Int -> SomeLayout
+magnifierNum ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num)
+
+magnifierNum' :: Double -> SomeLayout -> Int -> SomeLayout
+magnifierNum' ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num)
 
 data MagnifyThis = AllWins !Int | StackWins !Int deriving (Read, Show)
 
@@ -36,25 +40,16 @@ instance Layout MagnifierLayout where
     Nothing -> applySomeLayout (childLayout l) focused total ws
     Just i ->
       let len = S.length ws
+          res = applySomeLayout (childLayout l) focused total ws
+          focusedWinDeleted = S.deleteAt i res
+          (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
+          newW = min rw (truncate (fromIntegral w * magnifierRatio l))
+          newH = min rh (truncate (fromIntegral h * magnifierRatio l))
+          newX = min (rx + rw - newW) (max (x - ((newW - w) `div` 2)) rx)
+          newY = min (ry + rh - newH) (max (y - ((newH - h) `div` 2)) ry)
        in case magnifyThis l of
-            AllWins cutoff
-              | len >= cutoff ->
-                  let res = applySomeLayout (childLayout l) focused total ws
-                      focusedWinDeleted = S.deleteAt i res
-                      (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
-                      newW = min rw (truncate (fromIntegral w * magnifierRatio l))
-                      newH = min rh (truncate (fromIntegral h * magnifierRatio l))
-                      newX = min (rx + rw) (max (x - ((newW - w) `div` 2)) rx)
-                      newY = min (ry + rh) (max (y - ((newH - h) `div` 2)) ry)
-                   in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted
+            AllWins cutoff | len >= cutoff -> (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted
             StackWins cutoff
               | len - 1 >= cutoff && i /= 0 -> -- Assume one master window, focused window should not be master
-                  let res = applySomeLayout (childLayout l) focused total ws
-                      focusedWinDeleted = S.deleteAt i res
-                      (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
-                      newW = min rw (truncate (fromIntegral w * magnifierRatio l))
-                      newH = min rh (truncate (fromIntegral h * magnifierRatio l))
-                      newX = min (rx + rw) (max (x - ((newW - w) `div` 2)) rx)
-                      newY = min (ry + rh) (max (y - ((newH - h) `div` 2)) ry)
-                   in (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted
-            _ -> applySomeLayout (childLayout l) focused total ws
+                  (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted
+            _ -> res

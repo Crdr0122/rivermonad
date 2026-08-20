@@ -47,6 +47,7 @@ Current protocols: River 0.4.7
 - [ ] Hotkey repetition
 - [ ] Libinput
 - [-] Multiseats (Not needed?)
-- [X] Overview (Grid view?)
+- [X] Overview (Grid view?) -> Implemented as a layout
 - [X] New floating windows offset to not exactly block previous window
 - [ ] Xkb bindings seat -> needed for key eating and modifier watch
+- [ ] wlrOutput for remembering outputs and restoring config

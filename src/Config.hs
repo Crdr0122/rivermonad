@@ -13,7 +13,7 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 
 myLayout :: Int -> SomeLayout
-myLayout i = overview False $ choose i [monocle, magnifier2' 1.5 (tall 0.6 1), twoPane 0.6]
+myLayout i = overview False $ choose i [monocle, magnifierNum' 1.5 (tall 0.6 1) 2, twoPane 0.6]
 
 myConfig :: RivermonadConfig
 myConfig =
@@ -28,7 +28,7 @@ myConfig =
             [1 ..]
             [ myLayout 0
             , myLayout 1
-            , myLayout 2
+            , threeCol 0.5
             , myLayout 0
             , myLayout 0
             , myLayout 0

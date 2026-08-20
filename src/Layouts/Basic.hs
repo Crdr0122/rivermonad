@@ -8,9 +8,11 @@ module Layouts.Basic (
   circle,
   roledex,
   ifMax,
-  mirror,
+  reflect,
   choose,
   centerMaster,
+  threeCol,
+  PassInner (..),
 ) where
 
 import Control.Monad (msum)
@@ -22,14 +24,14 @@ import Types
 tall :: Double -> Int -> SomeLayout
 tall frac n = SomeLayout $ TallLayout frac n
 data TallLayout = TallLayout
-  { masterWindowRatio :: Double
-  , masterWindowNum :: Int
+  { tallRatio :: Double
+  , tallNMaster :: Int
   }
 instance Layout TallLayout where
   layoutName _ = "Tall"
   doLayout _ _ _ Empty = empty
   doLayout _ _ total (w :<| Empty) = singleton (w, total)
-  doLayout TallLayout{masterWindowRatio = r, masterWindowNum = n} _ total wins
+  doLayout TallLayout{tallRatio = r, tallNMaster = n} _ total wins
     | S.length wins <= n = splitRect total wins
     | otherwise =
         let masterWidth = truncate $ fromIntegral (rw total) * r
@@ -51,7 +53,7 @@ instance Layout TallLayout where
               rest
        in headGeo <| slaveGeos
 
-  handleMsg TallLayout{..} m =
+  handleMsg l@TallLayout{..} m =
     msum
       [ fmap increaseFrac (fromMessage m)
       , fmap setFrac (fromMessage m)
@@ -59,14 +61,9 @@ instance Layout TallLayout where
       , Nothing
       ]
    where
-    setFrac (SetMasterFrac d) = TallLayout{masterWindowRatio = d, masterWindowNum = masterWindowNum}
-    increaseN (IncMasterN i) = TallLayout{masterWindowRatio = masterWindowRatio, masterWindowNum = max 1 (masterWindowNum + i)}
-    increaseFrac (IncMasterFrac d) =
-      TallLayout
-        { masterWindowRatio =
-            let clamp = masterWindowRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else masterWindowRatio
-        , masterWindowNum = masterWindowNum
-        }
+    setFrac (SetMasterFrac d) = l{tallRatio = d}
+    increaseN (IncMasterN i) = l{tallNMaster = max 1 (tallNMaster + i)}
+    increaseFrac (IncMasterFrac d) = l{tallRatio = let clamp = tallRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else tallRatio}
 
 monocle :: SomeLayout
 monocle = SomeLayout MonocleLayout
@@ -79,31 +76,92 @@ instance Layout MonocleLayout where
 twoPane :: Double -> SomeLayout
 twoPane frac = SomeLayout $ TwoPaneLayout frac
 data TwoPaneLayout = TwoPaneLayout
-  { masterWindowRatio :: Double
+  { twoPaneRatio :: Double
   }
 instance Layout TwoPaneLayout where
   doLayout _ _ _ Empty = empty
   doLayout _ _ total (w :<| Empty) = singleton (w, total)
-  doLayout TwoPaneLayout{masterWindowRatio = r} _ total (master :<| slaves) =
+  doLayout TwoPaneLayout{twoPaneRatio = r} _ total (master :<| slaves) =
     let masterWidth = truncate $ fromIntegral (rw total) * r
         masterRect = total{rw = masterWidth}
         stackRect = total{rx = rx total + masterWidth, rw = rw total - masterWidth}
         slaveGeos = fmap (\w -> (w, stackRect)) slaves
      in (master, masterRect) <| slaveGeos
   layoutName _ = "TwoPane"
-  handleMsg TwoPaneLayout{..} m =
+  handleMsg l@TwoPaneLayout{..} m =
     msum
       [ fmap increaseFrac (fromMessage m)
       , fmap setFrac (fromMessage m)
       , Nothing
       ]
    where
-    setFrac (SetMasterFrac d) = TwoPaneLayout{masterWindowRatio = d}
-    increaseFrac (IncMasterFrac d) =
-      TwoPaneLayout
-        { masterWindowRatio =
-            let clamp = masterWindowRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else masterWindowRatio
-        }
+    setFrac (SetMasterFrac d) = l{twoPaneRatio = d}
+    increaseFrac (IncMasterFrac d) = l{twoPaneRatio = let clamp = twoPaneRatio + d in if clamp > 0.15 && clamp < 0.85 then clamp else twoPaneRatio}
+
+threeCol :: Double -> SomeLayout
+threeCol frac = SomeLayout $ ThreeColLayout 1 frac
+data ThreeColLayout = ThreeColLayout
+  { threeColNMaster :: Int
+  , threeColFrac :: Double
+  }
+instance Layout ThreeColLayout where
+  doLayout _ _ _ Empty = empty
+  doLayout _ _ total (w :<| Empty) = singleton (w, total)
+  doLayout ThreeColLayout{threeColFrac = r, threeColNMaster = n} _ total wins
+    | S.length wins <= n = splitRect total wins
+    | S.length wins == (n + 1) = splitRect masterRectSingle masters >< splitRect slaveRectSingle slaves
+    | otherwise = masterGeos >< combineAlternating (slaveGeosRight, slaveGeosLeft)
+   where
+    splitRect _ S.Empty = S.empty
+    splitRect rect ws@(w :<| rest) =
+      let height = rh rect `div` (fromIntegral $ S.length ws)
+          leftOverHeight = rh rect `mod` (fromIntegral $ S.length ws)
+          headGeo = (w, rect{rh = height + leftOverHeight})
+          slaveG = mapWithIndex (\i win -> (win, rect{ry = ry rect + (fromIntegral (i + 1) * height) + leftOverHeight, rh = height})) rest
+       in headGeo <| slaveG
+
+    splitAlternating Empty = (Empty, Empty)
+    splitAlternating (w :<| Empty) = (singleton w, S.Empty)
+    splitAlternating (x :<| y :<| zs) =
+      let (xs, ys) = splitAlternating zs
+       in (x <| xs, y <| ys)
+
+    combineAlternating (Empty, ys) = ys
+    combineAlternating (xs, Empty) = xs
+    combineAlternating (x :<| xs, y :<| ys) = x <| y <| combineAlternating (xs, ys)
+
+    (masterWidth, slaveWidth, slaveWidthSingle) =
+      let m = truncate $ fromIntegral (rw total) * r
+          masterW = (rw total - m) `mod` 2 + m
+          singleRemain = rw total - masterW
+          halfRemain = singleRemain `div` 2
+       in (masterW, halfRemain, singleRemain)
+
+    masterRectSingle = total{rw = masterWidth}
+    masterRect = total{rx = rx total + slaveWidth, rw = masterWidth}
+    slaveRectSingle = total{rx = rx total + masterWidth, rw = slaveWidthSingle}
+    slaveRectLeft = total{rw = slaveWidth}
+    slaveRectRight = total{rx = rx total + masterWidth + slaveWidth, rw = slaveWidth}
+
+    (masters, slaves) = S.splitAt n wins
+    masterGeos = splitRect masterRect masters
+    (slavesRight, slavesLeft) = splitAlternating slaves
+    slaveGeosRight = splitRect slaveRectRight slavesRight
+    slaveGeosLeft = splitRect slaveRectLeft slavesLeft
+
+  layoutName _ = "Three Col"
+
+  handleMsg l@ThreeColLayout{..} m =
+    msum
+      [ fmap increaseFrac (fromMessage m)
+      , fmap increaseN (fromMessage m)
+      , fmap setFrac (fromMessage m)
+      , Nothing
+      ]
+   where
+    setFrac (SetMasterFrac d) = l{threeColFrac = d}
+    increaseN (IncMasterN i) = l{threeColNMaster = max 1 (threeColNMaster + i)}
+    increaseFrac (IncMasterFrac d) = l{threeColFrac = let clamp = threeColFrac + d in if clamp > 0.15 && clamp < 0.85 then clamp else threeColFrac}
 
 circle :: SomeLayout
 circle = SomeLayout CircleLayout
@@ -161,7 +219,7 @@ instance Layout CenterMasterLayout where
      in
       (master, Rect{rx = winX, ry = winY, rw = winW, rh = winH}) :<| behind
 
-  layoutName CenterMasterLayout{originalLayout = o} = "Overview or " ++ layoutName' o
+  layoutName CenterMasterLayout{originalLayout = o} = "Centered Master on " ++ layoutName' o
 
   handleMsg o@(CenterMasterLayout l) m = case handleSomeMsg l m of
     Nothing -> Nothing
@@ -221,16 +279,16 @@ instance Layout IfMaxLayout where
       Nothing -> secondChildLayout l
       Just layout -> layout
 
-mirror :: Bool -> Bool -> SomeLayout -> SomeLayout
-mirror hori vert child = SomeLayout $ MirrorLayout hori vert child
-data MirrorLayout = MirrorLayout
+reflect :: Bool -> Bool -> SomeLayout -> SomeLayout
+reflect hori vert child = SomeLayout $ ReflectLayout hori vert child
+data ReflectLayout = ReflectLayout
   { horizontal :: Bool
   , vertical :: Bool
-  , mirrorChildLayout :: SomeLayout
+  , reflectChildLayout :: SomeLayout
   }
-instance Layout MirrorLayout where
-  doLayout MirrorLayout{..} focused total@Rect{rx, ry, rh, rw} xs =
-    let before = applySomeLayout mirrorChildLayout focused total xs
+instance Layout ReflectLayout where
+  doLayout ReflectLayout{..} focused total@Rect{rx, ry, rh, rw} xs =
+    let before = applySomeLayout reflectChildLayout focused total xs
         calc rect@Rect{rx = x, ry = y, rh = h, rw = w}
           | horizontal && vertical = rect{rx = rx + rw - x - w + rx, ry = ry + rh - y - h + ry}
           | horizontal = rect{rx = rx + rw - x - w + rx}
@@ -238,10 +296,10 @@ instance Layout MirrorLayout where
           | otherwise = rect
      in fmap (\(win, rect) -> (win, calc rect)) before
 
-  layoutName l = "Mirrored " ++ layoutName' (mirrorChildLayout l)
-  handleMsg l msg = case handleSomeMsg (mirrorChildLayout l) msg of
+  layoutName l = "Reflected " ++ layoutName' (reflectChildLayout l)
+  handleMsg l msg = case handleSomeMsg (reflectChildLayout l) msg of
     Nothing -> Nothing
-    Just layout -> Just l{mirrorChildLayout = layout}
+    Just layout -> Just l{reflectChildLayout = layout}
 
 choose :: Int -> [SomeLayout] -> SomeLayout
 choose i opts = SomeLayout $ ChooseLayout i opts
@@ -258,17 +316,22 @@ instance Layout ChooseLayout where
   handleMsg c@(ChooseLayout i opts) m =
     msum
       [ fmap changeIndex (fromMessage m)
+      , fromMessage m >>= passInner
       , goInner
       , Nothing
       ]
    where
-    changeIndex Next =
-      c{currentLayout = (i + 1) `mod` Prelude.length opts}
-    goInner =
+    changeIndex Next = c{currentLayout = (i + 1) `mod` Prelude.length opts}
+    passInner (PassInner innerM) = toInner innerM
+    goInner = toInner m
+    toInner message =
       let inner = opts !! currentLayout c
-       in case handleSomeMsg inner m of
+       in case handleSomeMsg inner message of
             Nothing -> Nothing
             Just newInner ->
               let (before, after) = Prelude.splitAt i opts
                   rest = Prelude.drop 1 after
                in Just $ c{layoutOptions = before ++ (newInner : rest)}
+
+data PassInner = PassInner SomeMessage deriving (Typeable)
+instance Message PassInner
