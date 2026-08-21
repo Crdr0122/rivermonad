@@ -13,7 +13,7 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 
 myLayout :: Int -> SomeLayout
-myLayout i = overview False $ choose i [monocle, magnifierNum' 1.5 (tall 0.6 1) 2, twoPane 0.6]
+myLayout i = overview False $ choose i [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
 
 myConfig :: RivermonadConfig
 myConfig =
@@ -27,14 +27,14 @@ myConfig =
           zip
             [1 ..]
             [ myLayout 0
+            , myLayout 2
             , myLayout 1
-            , threeCol 0.5
+            , myLayout 1
             , myLayout 0
             , myLayout 0
             , myLayout 0
-            , myLayout 0
-            , myLayout 0
-            , myLayout 0
+            , myLayout 3
+            , myLayout 3
             ]
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
@@ -66,10 +66,9 @@ myConfig =
           ( M.fromList
               [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus False))
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus True))
-              , ((keyGrave, modSuper), (cycleWindowFocus True))
-              , ((keyGrave, modSuperShift), (cycleWindowFocus False))
+              , ((keyGrave, modSuper), (sendMessage FirstLayout))
               , ((keyQ, modSuperShift), (closeAllWindowsOnWorkspace))
-              , ((keyW, modSuper), (sendMessage Next))
+              , ((keyW, modSuper), (sendMessage NextLayout))
               , ((keyS, modSuper), (zoomWindow))
               , ((keyEscape, modSuper), (sendMessage ToggleOverview))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))

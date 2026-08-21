@@ -168,8 +168,8 @@ fromMessage (SomeMessage m) = cast m
 data IncMasterFrac = IncMasterFrac Double deriving (Typeable)
 data IncMasterN = IncMasterN Int deriving (Typeable)
 data SetMasterFrac = SetMasterFrac Double deriving (Typeable)
-data Next = Next deriving (Typeable)
-instance Message Next
+data NextLayout = NextLayout deriving (Typeable)
+instance Message NextLayout
 instance Message IncMasterFrac
 instance Message IncMasterN
 instance Message SetMasterFrac

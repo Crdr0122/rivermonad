@@ -13,6 +13,7 @@ module Layouts.Basic (
   centerMaster,
   threeCol,
   PassInner (..),
+  FirstLayout (..),
 ) where
 
 import Control.Monad (msum)
@@ -316,12 +317,14 @@ instance Layout ChooseLayout where
   handleMsg c@(ChooseLayout i opts) m =
     msum
       [ fmap changeIndex (fromMessage m)
+      , fmap setFirst (fromMessage m)
       , fromMessage m >>= passInner
       , goInner
       , Nothing
       ]
    where
-    changeIndex Next = c{currentLayout = (i + 1) `mod` Prelude.length opts}
+    changeIndex NextLayout = c{currentLayout = (i + 1) `mod` Prelude.length opts}
+    setFirst FirstLayout = c{currentLayout = 0}
     passInner (PassInner innerM) = toInner innerM
     goInner = toInner m
     toInner message =
@@ -335,3 +338,5 @@ instance Layout ChooseLayout where
 
 data PassInner = PassInner SomeMessage deriving (Typeable)
 instance Message PassInner
+data FirstLayout = FirstLayout deriving (Typeable)
+instance Message FirstLayout
