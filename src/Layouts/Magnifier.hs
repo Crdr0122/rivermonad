@@ -6,23 +6,25 @@ module Layouts.Magnifier (
   magnifier',
   magnifierNum,
   magnifierNum',
+  ToggleMagnifier (..),
 ) where
 
--- import Control.Monad (msum)
+import Control.Monad (msum)
 import Data.Sequence as S
+import Data.Typeable
 import Types
 
 magnifier :: Double -> SomeLayout -> SomeLayout
-magnifier ratio child = SomeLayout $ MagnifierLayout ratio child (AllWins 1)
+magnifier ratio child = SomeLayout $ MagnifierLayout ratio child (AllWins 1) True
 
 magnifier' :: Double -> SomeLayout -> SomeLayout
-magnifier' ratio child = SomeLayout $ MagnifierLayout ratio child (StackWins 1)
+magnifier' ratio child = SomeLayout $ MagnifierLayout ratio child (StackWins 1) True
 
 magnifierNum :: Double -> SomeLayout -> Int -> SomeLayout
-magnifierNum ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num)
+magnifierNum ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num) True
 
 magnifierNum' :: Double -> SomeLayout -> Int -> SomeLayout
-magnifierNum' ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num)
+magnifierNum' ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num) True
 
 data MagnifyThis = AllWins !Int | StackWins !Int deriving (Read, Show)
 
@@ -30,17 +32,27 @@ data MagnifierLayout = MagnifierLayout
   { magnifierRatio :: Double
   , childLayout :: SomeLayout
   , magnifyThis :: MagnifyThis
+  , magnifierOn :: Bool
   }
 instance Layout MagnifierLayout where
   layoutName l = "Magnified " ++ layoutName' (childLayout l)
-  handleMsg l msg = case handleSomeMsg (childLayout l) msg of
-    Nothing -> Nothing
-    Just layout -> Just l{childLayout = layout}
-  doLayout l focused total@Rect{rx, ry, rh, rw} ws = case focused of
-    Nothing -> applySomeLayout (childLayout l) focused total ws
-    Just i ->
+
+  handleMsg l@MagnifierLayout{..} m =
+    msum
+      [ fmap toggle (fromMessage m)
+      , goInner
+      , Nothing
+      ]
+   where
+    toggle ToggleMagnifier = l{magnifierOn = not magnifierOn}
+    goInner = case handleSomeMsg childLayout m of
+      Nothing -> Nothing
+      Just newInner -> Just l{childLayout = newInner}
+  doLayout l focused total@Rect{rx, ry, rh, rw} ws = case (focused, magnifierOn l) of
+    (Nothing, _) -> res
+    (_, False) -> res
+    (Just i, _) ->
       let len = S.length ws
-          res = applySomeLayout (childLayout l) focused total ws
           focusedWinDeleted = S.deleteAt i res
           (focusedWindow, Rect{rx = x, ry = y, rh = h, rw = w}) = S.index res i
           newW = min rw (truncate (fromIntegral w * magnifierRatio l))
@@ -53,3 +65,8 @@ instance Layout MagnifierLayout where
               | len - 1 >= cutoff && i /= 0 -> -- Assume one master window, focused window should not be master
                   (focusedWindow, Rect{rx = newX, ry = newY, rw = newW, rh = newH}) S.<| focusedWinDeleted
             _ -> res
+   where
+    res = applySomeLayout (childLayout l) focused total ws
+
+data ToggleMagnifier = ToggleMagnifier deriving (Typeable)
+instance Message ToggleMagnifier

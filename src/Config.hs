@@ -2,6 +2,7 @@ module Config (myConfig) where
 
 import Control.Concurrent.MVar
 import Data.Bimap qualified as B
+import Data.List
 import Data.Map.Strict qualified as M
 import Foreign
 import Layouts.Basic
@@ -11,9 +12,6 @@ import Types
 import Utils.DefaultConfig
 import Utils.KeyDispatches
 import Utils.Keysyms
-
-myLayout :: Int -> SomeLayout
-myLayout i = overview False $ choose i [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
 
 myConfig :: RivermonadConfig
 myConfig =
@@ -26,16 +24,18 @@ myConfig =
         M.fromList $
           zip
             [1 ..]
-            [ myLayout 0
-            , myLayout 2
-            , myLayout 1
-            , myLayout 1
-            , myLayout 0
-            , myLayout 0
-            , myLayout 0
-            , myLayout 3
-            , myLayout 3
-            ]
+            ( overview False
+                <$> [ choose 0 [monocle, twoPane 0.6]
+                    , magnifierNum' 1.5 (tall 0.6 1) 2
+                    , choose 0 [monocle, twoPane 0.6]
+                    , choose 0 [monocle, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    , choose 0 [twoPane 0.6, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    , choose 0 [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    , choose 0 [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    , choose 0 [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    , choose 0 [monocle, twoPane 0.6, magnifierNum' 1.5 (tall 0.6 1) 2, magnifierNum' 1.5 (threeCol 0.5) 4]
+                    ]
+            )
     , xCursorTheme = ("Himehina", 24)
     , workspaceRules =
         [ ("", "slack", 2)
@@ -66,9 +66,10 @@ myConfig =
           ( M.fromList
               [ ((keyTab, modSuper), (cycleWindowsOrSlavesOrFocus False))
               , ((keyTab, modSuperShift), (cycleWindowsOrSlavesOrFocus True))
-              , ((keyGrave, modSuper), (sendMessage FirstLayout))
+              , ((keyGrave, modSuper), (sendMessage NextLayout))
+              , ((keyGrave, modSuperShift), (sendMessage FirstLayout))
+              , ((keyW, modSuper), (sendMessage ToggleMagnifier))
               , ((keyQ, modSuperShift), (closeAllWindowsOnWorkspace))
-              , ((keyW, modSuper), (sendMessage NextLayout))
               , ((keyS, modSuper), (zoomWindow))
               , ((keyEscape, modSuper), (sendMessage ToggleOverview))
               , ((keyR, modSuperShift), (reloadWindowManager (statePath defaultConfig)))
@@ -114,9 +115,10 @@ cycleWindowsOrSlaves forward seat stateMVar = do
   state <- readMVar stateMVar
   case B.lookup (focusedOutput state) (allOutputWorkspaces state) of
     Nothing -> pure ()
-    Just fO -> case layoutName' (workspaceLayouts state M.! fO) of
-      "TwoPane" -> cycleWindowSlaves forward seat stateMVar
-      _ -> cycleWindows forward seat stateMVar
+    Just fO ->
+      if "TwoPane" `isInfixOf` (layoutName' (workspaceLayouts state M.! fO))
+        then cycleWindowSlaves forward seat stateMVar
+        else cycleWindows forward seat stateMVar
 
 cycleWindowsOrSlavesOrFocus :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()
 cycleWindowsOrSlavesOrFocus forward seat stateMVar = do

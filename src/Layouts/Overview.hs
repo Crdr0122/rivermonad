@@ -16,12 +16,12 @@ overview :: Bool -> SomeLayout -> SomeLayout
 overview toggle c = SomeLayout $ OverviewLayout toggle c
 data OverviewLayout = OverviewLayout
   { overviewToggled :: Bool
-  , overviewOriginalLayout :: SomeLayout
+  , childLayout :: SomeLayout
   }
 instance Layout OverviewLayout where
   doLayout _ _ _ Empty = empty
-  doLayout OverviewLayout{overviewToggled = False, overviewOriginalLayout} focused total xs =
-    applySomeLayout overviewOriginalLayout focused total xs
+  doLayout OverviewLayout{overviewToggled = False, childLayout} focused total xs =
+    applySomeLayout childLayout focused total xs
   doLayout OverviewLayout{overviewToggled = True} _ Rect{rx, ry, rw, rh} wins =
     let
       nwins = fromIntegral $ S.length wins
@@ -53,7 +53,7 @@ instance Layout OverviewLayout where
      in
       mapWithIndex (\i win -> (win, createRect $ fromIntegral i)) wins
 
-  layoutName OverviewLayout{overviewOriginalLayout = o} = "Overview or " ++ layoutName' o
+  layoutName OverviewLayout{childLayout = o} = "Overview or " ++ layoutName' o
 
   handleMsg o@(OverviewLayout t l) m =
     msum
@@ -65,7 +65,7 @@ instance Layout OverviewLayout where
     toggle ToggleOverview = o{overviewToggled = not t}
     goInner = case handleSomeMsg l m of
       Nothing -> Nothing
-      Just newInner -> Just o{overviewOriginalLayout = newInner}
+      Just newInner -> Just o{childLayout = newInner}
 
 data ToggleOverview = ToggleOverview deriving (Typeable)
 instance Message ToggleOverview

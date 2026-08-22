@@ -236,8 +236,8 @@ cycleWindowSlaves forward _ stateMVar = modifyMVar_ stateMVar $ pure . execState
           _ -> pure ()
       _ -> pure ()
 
-  cycleW True (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
-  cycleW False (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
+  cycleW True (h S.:<| (slaveH S.:<| hs)) = h S.<| (hs S.|> slaveH)
+  cycleW False (h S.:<| (hs S.:|> slaveH)) = h S.<| (slaveH S.<| hs)
   cycleW _ hs = hs
 
 zoomWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
