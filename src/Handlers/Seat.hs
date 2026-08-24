@@ -5,7 +5,7 @@ import Control.Monad (forM_, msum, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Foreign
 import Foreign.C
 import Optics.Core
@@ -53,23 +53,9 @@ hsSeatRemoved dataPtr seat = do
     execStateT transform state
  where
   transform = do
-    preuse (#allSeats % at seat %? #seatName) >>= \case
-      Nothing -> pure ()
-      Just n -> do
-        preuse (#allWlSeats % at n %? #wlCursorShapeDevice % _Just) >>= \case
-          Nothing -> pure ()
-          Just pointerPtr -> liftIO $ cursorShapeDeviceDestroy pointerPtr
-        preuse (#allWlSeats % at n %? #wlPointer % _Just) >>= \case
-          Nothing -> pure ()
-          Just pointerPtr -> liftIO $ wlPointerRelease pointerPtr
-        preuse (#allWlSeats % at n %? #wlSeatPtr) >>= \case
-          Nothing -> pure ()
-          Just pointerPtr -> liftIO $ wlSeatRelease pointerPtr
-
-        #allWlSeats %= M.delete n
-
     #allSeats %= M.delete seat
-    #focusedSeat %= (\oldS -> if oldS == seat then nullPtr else oldS)
+    newFocusedSeat <- use (#allSeats % to ((fromMaybe nullPtr) . listToMaybe . (fst <$>) . M.toList))
+    #focusedSeat %= (\oldS -> if oldS == seat then newFocusedSeat else oldS)
 
 hsSeatPointerEnter :: Ptr () -> Ptr RiverSeat -> Ptr RiverWindow -> IO ()
 hsSeatPointerEnter dataPtr _ _ = do

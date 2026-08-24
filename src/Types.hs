@@ -135,7 +135,7 @@ data Output = Output
 data WlSeatData = WlSeatData
   { wlSeatPtr :: Ptr WlSeat
   , wlSeatCapabilities :: CUInt
-  , wlSeatListenerHsPtr :: StablePtr (MVar WMState, CUInt)
+  , wlSeatListenerHsPtr :: Maybe (StablePtr (MVar WMState, CUInt))
   , wlPointer :: Maybe (Ptr WlPointer)
   , wlPointerSerial :: CUInt
   , wlCursorShapeDevice :: Maybe (Ptr CursorShapeDevice)

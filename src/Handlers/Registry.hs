@@ -1,12 +1,14 @@
 module Handlers.Registry where
 
 import Control.Concurrent.MVar
+import Control.Monad (forM_)
 import Data.Map qualified as M
 import Foreign
 import Foreign.C
 import Optics.Core
 import Types
 import Wayland.Client
+import Wayland.ImportedFunctions
 
 type RegistryGlobalCallback = Ptr () -> Ptr WlRegistry -> CUInt -> CString -> CUInt -> IO ()
 type RegistryGlobalRemoveCallback = Ptr () -> Ptr WlRegistry -> CUInt -> IO ()
@@ -60,7 +62,7 @@ registryGlobal dataPtr registry name interfacePtr version = do
         let wlSeat =
               WlSeatData
                 { wlSeatPtr = (castPtr seatPtr)
-                , wlSeatListenerHsPtr = doublePtr
+                , wlSeatListenerHsPtr = Just doublePtr
                 , wlSeatCapabilities = 0
                 , wlPointerSerial = 0
                 , wlPointer = Nothing
@@ -101,4 +103,16 @@ registryGlobal dataPtr registry name interfacePtr version = do
     _ -> pure ()
 
 registryGlobalRemove :: Ptr () -> Ptr WlRegistry -> CUInt -> IO ()
-registryGlobalRemove _ _ _ = pure ()
+registryGlobalRemove dataPtr _ name = do
+  (stateMVar :: MVar WMState) <- deRefStablePtr (castPtrToStablePtr dataPtr)
+  modifyMVar_ stateMVar $ \state -> do
+    case M.lookup name (state ^. #allWlSeats) of -- Seat Removed
+      Nothing -> pure state
+      Just wlSeat -> do
+        forM_ (wlSeat ^. #wlCursorShapeDevice) cursorShapeDeviceDestroy
+        forM_ (wlSeat ^. #wlPointer) wlPointerRelease
+        forM_ (wlSeat ^. #wlSeatListenerHsPtr) freeStablePtr
+
+        wlSeatRelease (wlSeat ^. #wlSeatPtr)
+
+        pure $ state & #allWlSeats %~ M.delete name
