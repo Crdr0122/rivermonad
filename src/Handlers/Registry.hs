@@ -56,15 +56,16 @@ registryGlobal dataPtr registry name interfacePtr version = do
     "wl_seat" -> do
       seatPtr <- wlRegistryBind registry name wl_seat_interface (min 9 version)
       modifyMVar_ stateMVar $ \state -> do
+        doublePtr <- newStablePtr (stateMVar, name)
         let wlSeat =
               WlSeatData
                 { wlSeatPtr = (castPtr seatPtr)
+                , wlSeatListenerHsPtr = doublePtr
                 , wlSeatCapabilities = 0
                 , wlPointerSerial = 0
                 , wlPointer = Nothing
                 , wlCursorShapeDevice = Nothing
                 }
-        doublePtr <- newStablePtr (stateMVar, name)
         _ <- wlProxyAddListener (castPtr seatPtr) getWlSeatListener (castStablePtrToPtr doublePtr)
         pure $ (state & #allWlSeats %~ M.insert name wlSeat)
       putStrLn $ "Bound wl_seat: " ++ show name

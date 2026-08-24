@@ -27,8 +27,7 @@ foreign export ccall "hs_wl_seat_name"
 hsWlSeatCapabilities :: Ptr () -> Ptr WlSeat -> CUInt -> IO ()
 hsWlSeatCapabilities dataPtr wlSeat capabilities = do
   (stateMVar, name) <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \(s :: WMState) ->
-    execStateT (transform name) s
+  modifyMVar_ stateMVar $ \(s :: WMState) -> execStateT (transform name) s
  where
   transform name = do
     #allWlSeats % at name %? #wlSeatCapabilities .= capabilities

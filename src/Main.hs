@@ -31,13 +31,11 @@ main = do
     then putStrLn "Failed to get registry"
     else putStrLn "Got registry!"
 
-  exists <- doesFileExist (statePath myConfig)
   (oldWindows, oldOutputs) <-
-    if not exists
-      then pure (M.empty, M.empty)
-      else do
-        content <- Byte.readFile (statePath myConfig)
-        case decode content of
+    doesFileExist (statePath myConfig) >>= \case
+      False -> pure (M.empty, M.empty)
+      True ->
+        decode <$> (Byte.readFile (statePath myConfig)) >>= \case
           Just PersistedState{persistedWindows, persistedOutputs} -> do
             removeFile (statePath myConfig)
             pure (persistedWindows, persistedOutputs)
