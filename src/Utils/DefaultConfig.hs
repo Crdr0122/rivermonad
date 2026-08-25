@@ -109,13 +109,5 @@ defaultConfig =
           , ((keyXF86MonBrightnessDown, modNone), (exec "ddcutil setvcp 10 - 10"))
           , ((keyXF86MonBrightnessUp, modNone), (exec "ddcutil setvcp 10 + 10"))
           ]
-    , composeKeyMap =
-        "xkb_keymap {\
-        \    xkb_keycodes  { include \"evdev+aliases(qwerty)\" };\
-        \    xkb_types     { include \"complete\" };\
-        \    xkb_compat    { include \"complete\" };\
-        \    xkb_symbols   { include \"pc+us+inet(evdev)\" };\
-        \    xkb_geometry  { include \"pc(pc105)\" };\
-        \};\n"
     , keyboardOptions = HsXkbRuleNames Nothing Nothing Nothing Nothing Nothing
     }

@@ -49,7 +49,7 @@ Current protocols: River 0.4.7
 - [-] Multiseats (Not needed?)
   - [-] Multiseat Focus
   - [ ] Cursorshape manager for multi seat
-  - [ ] Global Remove
+  - [X] Global Remove
 - [X] Overview (Grid view?) -> Implemented as a layout
 - [X] New floating windows offset to not exactly block previous window
 - [ ] Xkb bindings seat -> needed for key eating and modifier watch

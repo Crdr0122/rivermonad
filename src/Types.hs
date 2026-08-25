@@ -261,7 +261,6 @@ data RivermonadConfig = RivermonadConfig
   , allPointerBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
   , allKeyBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
-  , composeKeyMap :: String
   , keyboardOptions :: HsXkbRuleNames
   }
   deriving (Generic)
