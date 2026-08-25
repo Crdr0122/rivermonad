@@ -53,7 +53,7 @@ data WMState = WMState
   , persistedStateWindows :: Map String (WorkspaceID, WindowStatus)
   , persistedStateOutputs :: Map Word32 WorkspaceID
   , workspaceFocusHistory :: Map WorkspaceID (Ptr RiverWindow)
-  , currentKeymapFd :: CInt
+  , currentKeymapFd :: Maybe CInt
   , subscribers :: [Socket]
   }
   deriving (Generic)

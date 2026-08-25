@@ -1,7 +1,8 @@
 module Handlers.XkbConfig (hsXkbConfigFinished, hsXkbConfigXkbKeyboard, hsXkbKeymapSuccess, hsXkbKeymapFailure) where
 
 import Control.Concurrent.MVar
-import Foreign
+import Control.Monad (void)
+import Foreign hiding (void)
 import Foreign.C
 import Types
 import Wayland.Client
@@ -19,11 +20,13 @@ hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -
 hsXkbConfigXkbKeyboard dataPtr config keyboard = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
+    case currentKeymapFd of
+      Nothing -> pure ()
+      Just fd -> do
+        keymap <- riverXkbConfigCreateKeymap config fd 1
+        void $ wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
-    keymap <- riverXkbConfigCreateKeymap config currentKeymapFd 1
-    _ <- wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
     riverXkbKeyboardNumlockEnable keyboard
-    -- riverXkbKeyboardCapslockEnable keyboard
     pure state
 
 foreign export ccall "hs_xkb_keyboard_input_device"
