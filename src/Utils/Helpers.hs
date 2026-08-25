@@ -1,3 +1,6 @@
+{-# LANGUAGE CApiFFI #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Utils.Helpers (
   calculateFloatingPosition,
   calculateFloatingPositions,
@@ -5,10 +8,10 @@ module Utils.Helpers (
   focusedWorkspace,
   setFocusedWindowAndHistory,
   focusedOutputGeom,
-  createKeymapFd,
   pairOfGetter,
   pairOf,
   deleteWinPtrs,
+  rmlvoToKeymapFd,
 ) where
 
 import Control.Monad.State
@@ -130,12 +133,90 @@ pairOf la lb = lens getter setter
 pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
 pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
 
--- You'll need to import these from a library like 'unix' or bind them via FFI
+-- XkbKeymap Creation Stuff
 foreign import ccall unsafe "memfd_create"
   c_memfd_create :: CString -> CUInt -> IO CInt
 
 foreign import ccall unsafe "fcntl"
   c_fcntl :: CInt -> CInt -> CInt -> IO CInt
+
+foreign import ccall unsafe "strlen"
+  c_strlen :: CString -> IO CSize
+
+foreign import capi "xkbcommon/xkbcommon.h xkb_context_new"
+  xkb_context_new :: CUInt -> IO (Ptr XkbContext)
+
+foreign import capi "xkbcommon/xkbcommon.h xkb_keymap_new_from_names"
+  xkb_keymap_new_from_names :: Ptr XkbContext -> Ptr XkbRuleNames -> CUInt -> IO (Ptr XkbKeymap)
+
+foreign import capi "xkbcommon/xkbcommon.h xkb_keymap_get_as_string"
+  xkb_keymap_get_as_string :: Ptr XkbKeymap -> CUInt -> IO CString
+
+foreign import capi "xkbcommon/xkbcommon.h xkb_keymap_unref"
+  xkb_keymap_unref :: Ptr XkbKeymap -> IO ()
+
+foreign import capi "xkbcommon/xkbcommon.h xkb_context_unref"
+  xkb_context_unref :: Ptr XkbContext -> IO ()
+
+data XkbRuleNames = XkbRuleNames
+  { _xkbRules :: CString
+  , _xkbModel :: CString
+  , _xkbLayout :: CString
+  , _xkbVariant :: CString
+  , _xkbOptions :: CString
+  }
+
+instance Storable XkbRuleNames where
+  sizeOf _ = sizeOf (nullPtr :: CString) * 5
+  alignment _ = alignment (nullPtr :: CString)
+  peek ptr = do
+    r <- peekByteOff ptr (0 * sz)
+    m <- peekByteOff ptr (1 * sz)
+    l <- peekByteOff ptr (2 * sz)
+    v <- peekByteOff ptr (3 * sz)
+    o <- peekByteOff ptr (4 * sz)
+    pure $ XkbRuleNames r m l v o
+   where
+    sz = sizeOf (nullPtr :: CString)
+  poke ptr (XkbRuleNames r m l v o) = do
+    pokeByteOff ptr (0 * sz) r
+    pokeByteOff ptr (1 * sz) m
+    pokeByteOff ptr (2 * sz) l
+    pokeByteOff ptr (3 * sz) v
+    pokeByteOff ptr (4 * sz) o
+   where
+    sz = sizeOf (nullPtr :: CString)
+
+rmlvoToKeymapFd :: HsXkbRuleNames -> IO (Maybe CInt)
+rmlvoToKeymapFd HsXkbRuleNames{..} = do
+  ctx <- xkb_context_new 0
+  if ctx == nullPtr
+    then pure Nothing
+    else do
+      let withNullableStr mStr act = case mStr of
+            Nothing -> act nullPtr
+            Just s -> withCString s act
+      withNullableStr hsXkbRules $ \cRules ->
+        withNullableStr hsXkbModel $ \cModel ->
+          withNullableStr hsXkbLayout $ \cLayout ->
+            withNullableStr hsXkbVariant $ \cVariant ->
+              withNullableStr hsXkbOptions $ \cOptions -> do
+                let names = XkbRuleNames cRules cModel cLayout cVariant cOptions
+                with names $ \namesPtr -> do
+                  keymap <- xkb_keymap_new_from_names ctx namesPtr 0
+                  if keymap == nullPtr
+                    then do
+                      xkb_context_unref ctx
+                      pure Nothing
+                    else do
+                      cKeymapStr <- xkb_keymap_get_as_string keymap 1 -- XKB_KEYMAP_FORMAT_TEXT_V1 = 1
+                      fd <- createKeymapFd cKeymapStr
+                      -- Clean up C allocations
+                      free cKeymapStr
+                      xkb_keymap_unref keymap
+                      xkb_context_unref ctx
+
+                      pure (Just fd)
 
 -- Constants for sealing
 mfd_allow_sealing :: CUInt
@@ -147,20 +228,33 @@ f_seal_grow = 0x0004
 f_seal_write = 0x0008
 f_seal_seal = 0x0010
 
-createKeymapFd :: String -> IO CInt
-createKeymapFd content = do
+-- createKeymapFd :: String -> IO CInt
+-- createKeymapFd content = do
+--   -- 1. Create anonymous file in RAM
+--   withCString "river-keymap" $ \name -> do
+--     fd <- c_memfd_create name mfd_allow_sealing
+--     let fd_ = Fd fd
+--
+--     -- 2. Write the content
+--     let bytes = castCharToCChar <$> content
+--     withArrayLen bytes $ \len ptr -> do
+--       _ <- fdWriteBuf fd_ (castPtr ptr) (fromIntegral len)
+--       _ <- fdSeek fd_ AbsoluteSeek 0
+--       -- 3. Seal the file so it's read-only for the compositor
+--       -- This is required by the river_xkb_config_v1 protocol
+--       _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
+--
+--       return fd
+
+createKeymapFd :: CString -> IO CInt
+createKeymapFd cStr = do
   -- 1. Create anonymous file in RAM
-  withCString "river-keymap" $ \name -> do
-    fd <- c_memfd_create name mfd_allow_sealing
-    let fd_ = Fd fd
+  len <- c_strlen cStr
+  fd <- withCString "river-keymap" $ \name -> c_memfd_create name mfd_allow_sealing
+  let fd_ = Fd fd
+  _ <- fdWriteBuf fd_ (castPtr cStr) (fromIntegral len)
+  _ <- fdSeek fd_ AbsoluteSeek 0
+  _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
+  -- 2. Write the content
 
-    -- 2. Write the content
-    let bytes = castCharToCChar <$> content
-    withArrayLen bytes $ \len ptr -> do
-      _ <- fdWriteBuf fd_ (castPtr ptr) (fromIntegral len)
-      _ <- fdSeek fd_ AbsoluteSeek 0
-      -- 3. Seal the file so it's read-only for the compositor
-      -- This is required by the river_xkb_config_v1 protocol
-      _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
-
-      return fd
+  return fd

@@ -2,10 +2,10 @@ module Utils.DefaultConfig where
 
 import Data.Bits ((.|.))
 import Data.Map.Strict qualified as M
+import Layouts.Basic
 import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
-import Layouts.Basic
 
 defaultConfig :: RivermonadConfig
 defaultConfig =
@@ -117,4 +117,5 @@ defaultConfig =
         \    xkb_symbols   { include \"pc+us+inet(evdev)\" };\
         \    xkb_geometry  { include \"pc(pc105)\" };\
         \};\n"
+    , keyboardOptions = HsXkbRuleNames Nothing Nothing Nothing Nothing Nothing
     }

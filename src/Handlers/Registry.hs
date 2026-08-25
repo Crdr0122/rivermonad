@@ -44,7 +44,7 @@ instance Storable WlRegistryListener where
     pure $ WlRegistryListener reg regRemove
   poke p listener = do
     poke (castPtr p) (wlRegistryGlobal listener)
-    poke (castPtr p `plusPtr` sizeOf (nullPtr :: Ptr ())) (wlRegistryGlobalRemove listener)
+    pokeByteOff (castPtr p) (sizeOf (nullPtr :: Ptr ())) (wlRegistryGlobalRemove listener)
 
 registryGlobal :: Ptr () -> Ptr WlRegistry -> CUInt -> CString -> CUInt -> IO ()
 registryGlobal dataPtr registry name interfacePtr version = do

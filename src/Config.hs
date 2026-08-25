@@ -108,6 +108,14 @@ myConfig =
         \    xkb_symbols   { include \"pc+us+inet(evdev)+compose(rctrl)\" };\
         \    xkb_geometry  { include \"pc(pc105)\" };\
         \};\n"
+    , keyboardOptions =
+        HsXkbRuleNames
+          { hsXkbRules = Nothing
+          , hsXkbModel = Nothing
+          , hsXkbLayout = Nothing
+          , hsXkbVariant = Nothing
+          , hsXkbOptions = Just "compose:rctrl"
+          }
     }
 
 cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()

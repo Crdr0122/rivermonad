@@ -120,6 +120,9 @@ executable rivermonad
   include-dirs:
     generated
 
-  extra-libraries: wayland-client
+  extra-libraries:
+    wayland-client
+    xkbcommon
+
   -- Base language which the package is written in.
   default-language: GHC2024

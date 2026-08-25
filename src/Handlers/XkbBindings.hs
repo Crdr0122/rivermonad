@@ -19,9 +19,9 @@ instance Storable XkbBindingListener where
   alignment _ = alignment (nullPtr :: Ptr ())
   poke ptr (XkbBindingListener p r s) = do
     let pSize = sizeOf (nullPtr :: Ptr ())
-    poke (ptr `plusPtr` (pSize * 0)) p
-    poke (ptr `plusPtr` (pSize * 1)) r
-    poke (ptr `plusPtr` (pSize * 2)) s
+    pokeByteOff ptr (pSize * 0) p
+    pokeByteOff ptr (pSize * 1) r
+    pokeByteOff ptr (pSize * 2) s
   peek ptr = do
     let offset = sizeOf (nullPtr :: Ptr ())
     pressed <- peek (castPtr ptr) :: IO (FunPtr XkbCallback)

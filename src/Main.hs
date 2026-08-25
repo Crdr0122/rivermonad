@@ -41,7 +41,7 @@ main = do
             pure (persistedWindows, persistedOutputs)
           _ -> pure (M.empty, M.empty)
 
-  fd <- createKeymapFd (composeKeyMap myConfig)
+  fd <- rmlvoToKeymapFd (keyboardOptions myConfig)
   queue <- atomically $ newTQueue
   st <-
     newMVar

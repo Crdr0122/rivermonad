@@ -106,6 +106,17 @@ data RiverLibinputAccelConfig
 data RiverLibinputDevice
 data RiverLibinputResult
 
+data XkbKeymap
+data XkbContext
+
+data HsXkbRuleNames = HsXkbRuleNames
+  { hsXkbRules :: Maybe String
+  , hsXkbModel :: Maybe String
+  , hsXkbLayout :: Maybe String
+  , hsXkbVariant :: Maybe String
+  , hsXkbOptions :: Maybe String
+  }
+
 data Window = Window
   { winPtr :: Ptr RiverWindow
   , nodePtr :: Ptr RiverNode
@@ -251,6 +262,7 @@ data RivermonadConfig = RivermonadConfig
   , allKeyBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
   , composeKeyMap :: String
+  , keyboardOptions :: HsXkbRuleNames
   }
   deriving (Generic)
 
