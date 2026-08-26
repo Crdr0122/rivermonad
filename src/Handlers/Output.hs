@@ -41,7 +41,7 @@ hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput dataPtr output wlOutput = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
- where -- This is useless, wl output numbers change, change to get name from wl output side later to decide
+ where -- This is only for restarting wm in same session
   transform = do
     #allOutputs % at output %? #outWlOutput .= wlOutput
     oWs <- use #allOutputWorkspaces

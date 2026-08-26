@@ -19,6 +19,7 @@ import Network.Socket
 import Optics.Core
 import Optics.State
 import Utils.BiSeqMap
+import Utils.Keysyms
 
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq, Generic)
 type WorkspaceID = Int
@@ -243,8 +244,8 @@ data RivermonadConfig = RivermonadConfig
   , workspaceRules :: [(String, String, WorkspaceID)]
   , floatingRules :: [(String, String, WindowStatus)]
   , windowSizeRules :: [(String, String, CInt, CInt)]
-  , allPointerBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
-  , allKeyBindings :: Map (CUInt, CUInt) (Ptr RiverSeat -> MVar WMState -> IO ())
+  , allPointerBindings :: Map (PointerBtn, KeyMod) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
+  , allKeyBindings :: Map (Keysym, KeyMod) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
   , keyboardOptions :: HsXkbRuleNames
   }

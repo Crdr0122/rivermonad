@@ -2,9 +2,9 @@ module Handlers.XkbBindings where
 
 import Control.Concurrent.MVar
 import Foreign
-import Foreign.C
 import Optics.Core
 import Types
+import Utils.Keysyms
 import Wayland.Client
 import Wayland.ImportedFunctions
 
@@ -32,8 +32,8 @@ instance Storable XkbBindingListener where
 foreign import ccall "wrapper"
   mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
 
-registerKeybind :: Ptr () -> Ptr RiverSeat -> (CUInt, CUInt) -> (Ptr RiverSeat -> MVar WMState -> IO ()) -> IO ()
-registerKeybind dataPtr seat (key, modifier) onPressed = do
+registerKeybind :: Ptr () -> Ptr RiverSeat -> (Keysym, KeyMod) -> (Ptr RiverSeat -> MVar WMState -> IO ()) -> IO ()
+registerKeybind dataPtr seat (Keysym key, KeyMod modifier) onPressed = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ stateMVar $ \state -> do
     pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)

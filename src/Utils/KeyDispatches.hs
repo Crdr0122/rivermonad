@@ -38,7 +38,6 @@ import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
 import Foreign hiding (void)
-import Foreign.C
 import IPC
 import Optics.Core
 import Optics.State
@@ -478,7 +477,7 @@ dragWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState transform
     forM_ mWin $ \win -> do
       mWinRec <- use (#allWindows % at win)
       forM_ mWinRec $ \winRec -> unless (winRec ^. #isFullscreen) $ do
-        setCursorShape seat cursorGrabbing
+        setCursorShape seat CursorGrabbing
         #manageQueue <>= riverSeatOpStartPointer seat
         if winRec ^. #isFloating
           then #opDeltaState .= Dragging
@@ -517,7 +516,7 @@ stopDragging seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeD
     #opDeltaState .= None
     #currentOpDelta .= (0, 0, 0, 0)
     #manageQueue <>= riverSeatOpEnd seat
-    setCursorShape seat cursorDefault
+    setCursorShape seat CursorDefault
 
 resizeWindow :: Ptr RiverSeat -> MVar WMState -> IO ()
 resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResize
@@ -533,18 +532,18 @@ resizeWindow seat stateMVar = modifyMVar_ stateMVar $ pure . execState startResi
           | winRec ^. #isFloating -> forM_ (winRec ^. #floatingGeometry) $ \Rect{rx, ry, rw, rh} -> do
               (cX, cY) <- use #cursorPosition
               let (edge, shape)
-                    | cX < firstX && cY < firstY = (edgeTopLeft, cursorNwResize)
-                    | cX < secondX && cY < firstY = (edgeTop, cursorNResize)
-                    | cY < firstY = (edgeTopRight, cursorNeResize)
-                    | cX < firstX && cY < secondY = (edgeLeft, cursorWResize)
-                    | cX < oneHalfX && cY < oneHalfY = (edgeTopLeft, cursorNwResize)
-                    | cX < secondX && cY < oneHalfY = (edgeTopRight, cursorNeResize)
-                    | cX < oneHalfX && cY < secondY = (edgeBottomLeft, cursorSwResize)
-                    | cX < secondX && cY < secondY = (edgeBottomRight, cursorSeResize)
-                    | cY < secondY = (edgeRight, cursorEResize)
-                    | cX < firstX = (edgeBottomLeft, cursorSwResize)
-                    | cX < secondX = (edgeBottom, cursorSResize)
-                    | otherwise = (edgeBottomRight, cursorSeResize)
+                    | cX < firstX && cY < firstY = (edgeTopLeft, CursorNwResize)
+                    | cX < secondX && cY < firstY = (edgeTop, CursorNResize)
+                    | cY < firstY = (edgeTopRight, CursorNeResize)
+                    | cX < firstX && cY < secondY = (edgeLeft, CursorWResize)
+                    | cX < oneHalfX && cY < oneHalfY = (edgeTopLeft, CursorNwResize)
+                    | cX < secondX && cY < oneHalfY = (edgeTopRight, CursorNeResize)
+                    | cX < oneHalfX && cY < secondY = (edgeBottomLeft, CursorSwResize)
+                    | cX < secondX && cY < secondY = (edgeBottomRight, CursorSeResize)
+                    | cY < secondY = (edgeRight, CursorEResize)
+                    | cX < firstX = (edgeBottomLeft, CursorSwResize)
+                    | cX < secondX = (edgeBottom, CursorSResize)
+                    | otherwise = (edgeBottomRight, CursorSeResize)
                    where
                     oneThirdW = rw `div` 3
                     oneThirdH = rh `div` 3
@@ -572,12 +571,12 @@ stopResizing seat stateMVar = modifyMVar_ stateMVar $ pure . execState finalizeR
         _ -> pure ()
 
       #manageQueue <>= riverSeatOpEnd seat
-      setCursorShape seat cursorDefault
+      setCursorShape seat CursorDefault
       #manageQueue <>= riverWindowInformResizeEnd win
       #opDeltaState .= None
       #currentOpDelta .= (0, 0, 0, 0)
 
-setCursorShape :: Ptr RiverSeat -> CUInt -> State WMState ()
+setCursorShape :: Ptr RiverSeat -> CursorShape -> State WMState ()
 setCursorShape seat shape = do
   preuse (#allSeats % at seat %? #seatName) >>= \case
     Nothing -> pure ()
@@ -586,7 +585,7 @@ setCursorShape seat shape = do
         Just device ->
           preuse (#allWlSeats % at name %? #wlPointerSerial) >>= \case
             Nothing -> pure ()
-            Just serial -> #manageQueue <>= cursorShapeDeviceSetShape device serial shape
+            Just serial -> #manageQueue <>= cursorShapeDeviceSetShape device serial (cursorToCUInt shape)
         _ -> pure ()
 
 setOutputPresentationMode :: OutputPresentationMode -> Ptr RiverSeat -> MVar WMState -> IO ()
