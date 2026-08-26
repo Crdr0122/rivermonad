@@ -41,7 +41,7 @@ hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
 hsOutputWlOutput dataPtr output wlOutput = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
- where
+ where -- This is useless, wl output numbers change, change to get name from wl output side later to decide
   transform = do
     #allOutputs % at output %? #outWlOutput .= wlOutput
     oWs <- use #allOutputWorkspaces
@@ -60,7 +60,7 @@ hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
 hsOutputRemoved dataPtr removedOutput = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
   modifyMVar_ (stateMVar :: MVar WMState) $ execStateT transform
- where
+ where -- Add remember workspace
   transform = do
     liftIO $ riverOutputDestroy removedOutput
 

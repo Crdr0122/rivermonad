@@ -25,6 +25,7 @@ module Utils.KeyDispatches (
   toggleMaximizeWindow,
   togglePinWindow,
   zoomWindow,
+  setOutputPresentationMode,
 ) where
 
 import Control.Concurrent
@@ -587,3 +588,14 @@ setCursorShape seat shape = do
             Nothing -> pure ()
             Just serial -> #manageQueue <>= cursorShapeDeviceSetShape device serial shape
         _ -> pure ()
+
+setOutputPresentationMode :: OutputPresentationMode -> Ptr RiverSeat -> MVar WMState -> IO ()
+setOutputPresentationMode mode _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
+ where
+  transform = do
+    let i = case mode of
+          VsyncPresentationMode -> 0
+          AsyncPresentationMode -> 1
+    o <- use #focusedOutput
+    unless (o == nullPtr) $ do
+      #renderQueue <>= riverOutputSetPresentationMode o i
