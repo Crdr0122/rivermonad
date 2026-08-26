@@ -21,6 +21,12 @@ hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
 foreign export ccall "hs_layer_shell_seat_focus_none"
   hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 
+foreign export ccall "hs_layer_shell_seat_focus_exclusive"
+  hsLayerShellSeatFocusExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
+
+foreign export ccall "hs_layer_shell_seat_focus_non_exclusive"
+  hsLayerShellSeatFocusNonExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
+
 hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 hsLayerShellSeatFocusNone dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
@@ -34,17 +40,10 @@ hsLayerShellSeatFocusNone dataPtr _ = do
           Nothing -> pure $ s & #focusedWindow .~ Nothing
           Just w -> pure $ s & #focusedWindow ?~ w
 
-foreign export ccall "hs_layer_shell_seat_focus_exclusive"
-  hsLayerShellSeatFocusExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
-
 hsLayerShellSeatFocusExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 hsLayerShellSeatFocusExclusive dataPtr _ = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  -- Note if ClearFocus clears focus from layer shells, need testing later
   modifyMVar_ stateMVar $ \(s :: WMState) -> pure $ s & #focusedWindow .~ Nothing
-
-foreign export ccall "hs_layer_shell_seat_focus_non_exclusive"
-  hsLayerShellSeatFocusNonExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 
 hsLayerShellSeatFocusNonExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
 hsLayerShellSeatFocusNonExclusive dataPtr _ = do

@@ -72,12 +72,6 @@ data WlSeat
 data WlPointer
 type WlFixedT = CInt
 
-data WlrOutputManager
-data WlrOutputConfiguration
-data WlrOutputConfigurationHead
-data WlrOutputHead
-data WlrOutputMode
-
 data CursorShapeManager
 data CursorShapeDevice
 
@@ -160,17 +154,6 @@ data Seat = Seat
   , pointerBindings :: [Ptr RiverPointerBinding]
   }
   deriving (Generic)
-
-data WlrOutputModeData = WlrOutputModeData
-  { wlrOutputModeSize :: (CInt, CInt)
-  , wlrOutputModeRefresh :: CInt
-  , wlrOutputModePreferred :: Bool
-  }
-  deriving (Generic)
-
-data WlrOutputHeadData = WlrOutputHeadData
-  { wlrOutputHeadName :: String
-  }
 
 class (Typeable m) => Message m
 data SomeMessage = forall m. (Message m) => SomeMessage m

@@ -73,7 +73,6 @@ executable rivermonad
     Handlers.Seat
     Handlers.Window
     Handlers.WlSeat
-    Handlers.WlrOutput
     Handlers.XkbBindings
     Handlers.XkbConfig
     IPC

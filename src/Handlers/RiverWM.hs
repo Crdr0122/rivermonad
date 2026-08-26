@@ -60,8 +60,8 @@ hsWmSeat dataPtr _ seat = do
     _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
     newLayerShellSeatPtr <- riverLayerShellGetSeat (state ^. #currentLayerShell) seat
     _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
-    theme <- newCString (myConfig ^. #xCursorTheme % _1)
-    riverSeatSetXcursorTheme seat theme (myConfig ^. #xCursorTheme % _2)
+    withCString (myConfig ^. #xCursorTheme % _1) $ \theme ->
+      riverSeatSetXcursorTheme seat theme (myConfig ^. #xCursorTheme % _2)
     let s =
           Seat
             { seatPtr = seat

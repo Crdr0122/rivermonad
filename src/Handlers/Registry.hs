@@ -32,7 +32,6 @@ foreign import ccall "&river_input_manager_v1_interface" river_input_manager_v1_
 foreign import ccall "&river_libinput_config_v1_interface" river_libinput_config_v1_interface :: Ptr WlInterface
 foreign import ccall "&river_xkb_config_v1_interface" river_xkb_config_v1_interface :: Ptr WlInterface
 foreign import ccall "&wp_cursor_shape_manager_v1_interface" cursor_shape_manager_v1_interface :: Ptr WlInterface
-foreign import ccall "&zwlr_output_manager_v1_interface" zwlr_output_manager_v1_interface :: Ptr WlInterface
 
 instance Storable WlRegistryListener where
   sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 2
@@ -96,10 +95,6 @@ registryGlobal dataPtr registry name interfacePtr version = do
       xkbConfig <- wlRegistryBind registry name river_xkb_config_v1_interface (min 2 version)
       _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener dataPtr
       putStrLn $ "Bound Xkb Config"
-    "zwlr_output_manager_v1" -> do
-      wlrOutputManager <- wlRegistryBind registry name zwlr_output_manager_v1_interface (min 4 version)
-      _ <- wlProxyAddListener (castPtr wlrOutputManager) getWlrOutputManagerListener dataPtr
-      putStrLn $ "Bound Wlr Output"
     _ -> pure ()
 
 registryGlobalRemove :: Ptr () -> Ptr WlRegistry -> CUInt -> IO ()
