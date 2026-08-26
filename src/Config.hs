@@ -108,6 +108,7 @@ myConfig =
           , hsXkbVariant = Nothing
           , hsXkbOptions = Just "compose:rctrl"
           }
+    , keyboardRepeatInfo = Nothing
     }
 
 cycleWindowsOrSlaves :: Bool -> Ptr RiverSeat -> MVar WMState -> IO ()

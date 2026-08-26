@@ -189,10 +189,9 @@ instance Storable XkbRuleNames where
 
 rmlvoToKeymapFd :: HsXkbRuleNames -> IO (Maybe CInt)
 rmlvoToKeymapFd HsXkbRuleNames{..} = do
-  ctx <- xkb_context_new 0
-  if ctx == nullPtr
-    then pure Nothing
-    else do
+  xkb_context_new 0 >>= \case
+    ctx | ctx == nullPtr -> pure Nothing
+    ctx -> do
       let withNullableStr mStr act = case mStr of
             Nothing -> act nullPtr
             Just s -> withCString s act
@@ -228,24 +227,6 @@ f_seal_grow = 0x0004
 f_seal_write = 0x0008
 f_seal_seal = 0x0010
 
--- createKeymapFd :: String -> IO CInt
--- createKeymapFd content = do
---   -- 1. Create anonymous file in RAM
---   withCString "river-keymap" $ \name -> do
---     fd <- c_memfd_create name mfd_allow_sealing
---     let fd_ = Fd fd
---
---     -- 2. Write the content
---     let bytes = castCharToCChar <$> content
---     withArrayLen bytes $ \len ptr -> do
---       _ <- fdWriteBuf fd_ (castPtr ptr) (fromIntegral len)
---       _ <- fdSeek fd_ AbsoluteSeek 0
---       -- 3. Seal the file so it's read-only for the compositor
---       -- This is required by the river_xkb_config_v1 protocol
---       _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
---
---       return fd
-
 createKeymapFd :: CString -> IO CInt
 createKeymapFd cStr = do
   -- 1. Create anonymous file in RAM
@@ -255,6 +236,5 @@ createKeymapFd cStr = do
   _ <- fdWriteBuf fd_ (castPtr cStr) (fromIntegral len)
   _ <- fdSeek fd_ AbsoluteSeek 0
   _ <- c_fcntl fd f_add_seals (f_seal_shrink + f_seal_grow + f_seal_write + f_seal_seal)
-  -- 2. Write the content
 
   return fd

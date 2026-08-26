@@ -75,6 +75,7 @@ executable rivermonad
     Handlers.WlSeat
     Handlers.XkbBindings
     Handlers.XkbConfig
+    Handlers.InputManagement
     IPC
     Layout
     Layouts.Basic
