@@ -21,8 +21,9 @@ hsInputManagerFinished _ manager = riverInputManagerDestroy manager
 hsInputManagerInputDevice :: Ptr () -> Ptr RiverInputManager -> Ptr RiverInputDevice -> IO ()
 hsInputManagerInputDevice dataPtr _ device = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \_ -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
     void $ wlProxyAddListener (castPtr device) getRiverInputDeviceListener dataPtr
+    pure state
 
 foreign export ccall "hs_input_device_name"
   hsInputDeviceName :: Ptr () -> Ptr RiverInputDevice -> CString -> IO ()
@@ -42,7 +43,7 @@ hsInputDeviceName _ _ _ = pure ()
 hsInputDeviceType :: Ptr () -> Ptr RiverInputDevice -> CUInt -> IO ()
 hsInputDeviceType dataPtr device t = do
   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \_ -> do
+  modifyMVar_ stateMVar $ \(state :: WMState) -> do
     case t of
       -- Keyboard
       0 -> forM_ (myConfig ^. #keyboardRepeatInfo) $ \(rate, delay) -> riverInputDeviceSetRepeatInfo device rate delay
@@ -54,6 +55,7 @@ hsInputDeviceType dataPtr device t = do
       3 -> pure ()
       -- Error
       _ -> pure ()
+    pure state
 
 hsInputDeviceDone :: Ptr () -> Ptr RiverInputDevice -> IO ()
 hsInputDeviceDone _ _ = pure ()
