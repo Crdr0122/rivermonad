@@ -592,9 +592,6 @@ setOutputPresentationMode :: OutputPresentationMode -> Ptr RiverSeat -> MVar WMS
 setOutputPresentationMode mode _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
  where
   transform = do
-    let i = case mode of
-          VsyncPresentationMode -> 0
-          AsyncPresentationMode -> 1
     o <- use #focusedOutput
     unless (o == nullPtr) $ do
-      #renderQueue <>= riverOutputSetPresentationMode o i
+      #renderQueue <>= riverOutputSetPresentationMode o (fromIntegral $ fromEnum mode)

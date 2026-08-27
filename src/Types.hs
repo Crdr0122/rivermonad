@@ -230,7 +230,7 @@ edgeRight = 8
 
 data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
 
-data OutputPresentationMode = VsyncPresentationMode | AsyncPresentationMode
+data OutputPresentationMode = VsyncPresentationMode | AsyncPresentationMode deriving (Enum, Eq)
 
 data RivermonadConfig = RivermonadConfig
   { defaultLayouts :: Map WorkspaceID SomeLayout
