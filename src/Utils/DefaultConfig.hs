@@ -110,5 +110,4 @@ defaultConfig =
           , ((KeyXF86MonBrightnessUp, ModNone), (exec "ddcutil setvcp 10 + 10"))
           ]
     , keyboardOptions = HsXkbRuleNames Nothing Nothing Nothing Nothing Nothing
-    , keyboardRepeatInfo = Nothing
     }

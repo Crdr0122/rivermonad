@@ -1,34 +1,34 @@
 #include "../generated/river-input-management.h"
 #include <wayland-client-core.h>
 
-extern void
-hs_input_manager_input_device(void *data,
-                              struct river_input_manager_v1 *manager,
-                              struct river_input_device_v1 *device);
-extern void hs_input_manager_finished(void *data,
-                                      struct river_input_manager_v1 *manager);
+static void handle_input_device(void *data,
+                                struct river_input_manager_v1 *manager,
+                                struct river_input_device_v1 *device) {}
+static void handle_manager_finished(void *data,
+                                    struct river_input_manager_v1 *manager) {
+  river_input_manager_v1_destroy(manager);
+}
 static const struct river_input_manager_v1_listener
     river_input_manager_listener = {
-        .input_device = hs_input_manager_input_device,
-        .finished = hs_input_manager_finished,
+        .input_device = handle_input_device,
+        .finished = handle_manager_finished,
 };
-extern void hs_input_device_name(void *data,
-                                 struct river_input_device_v1 *device,
-                                 const char *name);
-extern void hs_input_device_removed(void *data,
-                                    struct river_input_device_v1 *device);
-extern void hs_input_device_type(void *data,
-                                 struct river_input_device_v1 *device,
-                                 uint32_t type);
-extern void hs_input_device_done(void *data,
-                                 struct river_input_device_v1 *device);
+static void handle_name(void *data, struct river_input_device_v1 *device,
+                        const char *name) {}
+static void handle_removed(void *data, struct river_input_device_v1 *device) {
+
+  river_input_device_v1_destroy(device);
+}
+static void handle_type(void *data, struct river_input_device_v1 *device,
+                        uint32_t type) {}
+static void handle_done(void *data, struct river_input_device_v1 *device) {}
 
 static const struct river_input_device_v1_listener river_input_device_listener =
     {
-        .name = hs_input_device_name,
-        .removed = hs_input_device_removed,
-        .type = hs_input_device_type,
-        .done = hs_input_device_done,
+        .name = handle_name,
+        .removed = handle_removed,
+        .type = handle_type,
+        .done = handle_done,
 };
 
 const struct river_input_manager_v1_listener *

@@ -248,7 +248,6 @@ data RivermonadConfig = RivermonadConfig
   , allKeyBindings :: Map (Keysym, KeyMod) (Ptr RiverSeat -> MVar WMState -> IO ())
   , statePath :: FilePath
   , keyboardOptions :: HsXkbRuleNames
-  , keyboardRepeatInfo :: Maybe (CInt, CInt)
   }
   deriving (Generic)
 
