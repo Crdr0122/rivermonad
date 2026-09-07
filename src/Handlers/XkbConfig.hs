@@ -1,53 +1,51 @@
-module Handlers.XkbConfig (hsXkbConfigFinished, hsXkbConfigXkbKeyboard, hsXkbKeymapSuccess, hsXkbKeymapFailure) where
+module Handlers.XkbConfig where
 
 import Control.Concurrent.MVar
 import Control.Monad (void)
 import Foreign hiding (void)
 import Foreign.C
 import Types
-import Wayland.Client
-import Wayland.ImportedFunctions
 
-foreign export ccall "hs_xkb_config_finished"
-  hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
-foreign export ccall "hs_xkb_config_xkb_keyboard"
-  hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
-
-hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
-hsXkbConfigFinished _ config = riverXkbConfigDestroy config
-
-hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
-hsXkbConfigXkbKeyboard dataPtr config keyboard = do
-  stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
-    case currentKeymapFd of
-      Nothing -> pure ()
-      Just fd -> do
-        keymap <- riverXkbConfigCreateKeymap config fd 1
-        void $ wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
-    _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
-    riverXkbKeyboardNumlockEnable keyboard
-    pure state
-
-foreign export ccall "hs_xkb_keyboard_input_device"
-  hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
-
-hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
-hsXkbKeyboardInputDevice dataPtr keyboard _ = do
-  _ <- deRefStablePtr (castPtrToStablePtr dataPtr)
-  riverXkbKeyboardNumlockEnable keyboard
-
-foreign export ccall "hs_xkb_keymap_success"
-  hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
-foreign export ccall "hs_xkb_keymap_failure"
-  hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
-
-hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
-hsXkbKeymapSuccess keyboard keymap = do
-  riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
-  riverXkbKeyboardNumlockEnable (castPtr keyboard)
-
-hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
-hsXkbKeymapFailure _ _ errorMsg = do
-  e <- peekCString errorMsg
-  print $ "Failed creating keymap" ++ e
+-- foreign export ccall "hs_xkb_config_finished"
+--   hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
+-- foreign export ccall "hs_xkb_config_xkb_keyboard"
+--   hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
+--
+-- hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
+-- hsXkbConfigFinished _ config = riverXkbConfigDestroy config
+--
+-- hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
+-- hsXkbConfigXkbKeyboard dataPtr config keyboard = do
+--   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+--   modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
+--     case currentKeymapFd of
+--       Nothing -> pure ()
+--       Just fd -> do
+--         keymap <- riverXkbConfigCreateKeymap config fd 1
+--         void $ wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
+--     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
+--     riverXkbKeyboardNumlockEnable keyboard
+--     pure state
+--
+-- foreign export ccall "hs_xkb_keyboard_input_device"
+--   hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
+--
+-- hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
+-- hsXkbKeyboardInputDevice dataPtr keyboard _ = do
+--   _ <- deRefStablePtr (castPtrToStablePtr dataPtr)
+--   riverXkbKeyboardNumlockEnable keyboard
+--
+-- foreign export ccall "hs_xkb_keymap_success"
+--   hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
+-- foreign export ccall "hs_xkb_keymap_failure"
+--   hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
+--
+-- hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
+-- hsXkbKeymapSuccess keyboard keymap = do
+--   riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
+--   riverXkbKeyboardNumlockEnable (castPtr keyboard)
+--
+-- hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
+-- hsXkbKeymapFailure _ _ errorMsg = do
+--   e <- peekCString errorMsg
+--   print $ "Failed creating keymap" ++ e

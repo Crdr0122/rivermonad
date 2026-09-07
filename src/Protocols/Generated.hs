@@ -7,4 +7,3 @@ module Protocols.Generated where
 import Wayland.Generated
 
 $(generateModules "protocols")
-

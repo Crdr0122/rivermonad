@@ -33,21 +33,12 @@ license-file: LICENSE
 -- maintainer:
 -- A copyright notice.
 -- copyright:
-build-type: Custom
+build-type: Simple
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files: CHANGELOG.md
-extra-source-files:
-  c_src/*.c
-  protocols/*.xml
-
-custom-setup
-  setup-depends:
-    Cabal,
-    Cabal-hooks,
-    base >=4.18,
-    directory,
-    filepath,
-    process
+extra-doc-files: README.md
+-- extra-source-files:
+--   c_src/*.c
+--   protocols/*.xml
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 common warnings
@@ -76,12 +67,12 @@ executable rivermonad
     Handlers.WlSeat
     Handlers.XkbBindings
     Handlers.XkbConfig
-    Protocols.Generated
     IPC
     Layout
     Layouts.Basic
     Layouts.Magnifier
     Layouts.Overview
+    Protocols.Generated
     Types
     Utils.BiSeqMap
     Utils.CursorShapes
@@ -89,15 +80,15 @@ executable rivermonad
     Utils.Helpers
     Utils.KeyDispatches
     Utils.Keysyms
-    Wayland.Client
-    Wayland.ImportedFunctions
 
+  -- Wayland.Client
+  -- Wayland.ImportedFunctions
   -- LANGUAGE extensions used by modules in this package.
-  -- other-extensions: OverloadedLabels
   default-extensions: OverloadedLabels
   -- Other library packages from which modules are imported.
   build-depends:
     aeson,
+    async,
     base ^>=4.20.2.0,
     bimap,
     bytestring,
@@ -119,12 +110,12 @@ executable rivermonad
   hs-source-dirs:
     src
 
-  include-dirs:
-    generated
+  -- include-dirs:
+  --   generated
 
   extra-libraries:
-    wayland-client
-    xkbcommon
+    -- wayland-client
+    -- xkbcommon
 
   -- Base language which the package is written in.
   default-language: GHC2024
