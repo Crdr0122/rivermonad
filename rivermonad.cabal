@@ -36,10 +36,10 @@ license-file: LICENSE
 build-type: Simple
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
 extra-doc-files: README.md
+
 -- extra-source-files:
 --   c_src/*.c
 --   protocols/*.xml
-
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 common warnings
   ghc-options: -Wall
@@ -84,7 +84,10 @@ executable rivermonad
   -- Wayland.Client
   -- Wayland.ImportedFunctions
   -- LANGUAGE extensions used by modules in this package.
-  default-extensions: OverloadedLabels
+  default-extensions:
+    OverloadedLabels
+    OverloadedStrings
+
   -- Other library packages from which modules are imported.
   build-depends:
     aeson,
@@ -112,10 +115,8 @@ executable rivermonad
 
   -- include-dirs:
   --   generated
-
   extra-libraries:
-    -- wayland-client
-    -- xkbcommon
-
+  -- wayland-client
+  -- xkbcommon
   -- Base language which the package is written in.
   default-language: GHC2024

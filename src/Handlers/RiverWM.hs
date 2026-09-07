@@ -11,6 +11,7 @@ import Layout
 import Optics.Core
 import Types
 
+mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
 -- foreign export ccall "hs_wm_window"
 --   hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 -- foreign export ccall "hs_wm_output"

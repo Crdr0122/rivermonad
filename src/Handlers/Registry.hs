@@ -1,50 +1,35 @@
 module Handlers.Registry where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
+import Control.Monad.IO.Class (liftIO)
 import Data.Map qualified as M
+import Data.Text hiding (show)
 import Foreign
 import Foreign.C
 import Optics.Core
 import Protocols.Generated
 import Types
 import Wayland.Generated
+import Wayland.Types
 
--- type RegistryGlobalCallback = Ptr () -> Ptr WlRegistry -> CUInt -> CString -> CUInt -> IO ()
--- type RegistryGlobalRemoveCallback = Ptr () -> Ptr WlRegistry -> CUInt -> IO ()
---
--- foreign import ccall "wrapper"
---   makeRegistryGlobalCallback :: RegistryGlobalCallback -> IO (FunPtr RegistryGlobalCallback)
--- foreign import ccall "wrapper"
---   makeRegistryGlobalRemoveCallback :: RegistryGlobalRemoveCallback -> IO (FunPtr RegistryGlobalRemoveCallback)
---
--- data WlRegistryListener = WlRegistryListener
---   { wlRegistryGlobal :: FunPtr RegistryGlobalCallback
---   , wlRegistryGlobalRemove :: FunPtr RegistryGlobalRemoveCallback
---   }
---
--- foreign import ccall "&wl_seat_interface" wl_seat_interface :: Ptr WlInterface
--- foreign import ccall "&wl_compositor_interface" wl_compositor_interface :: Ptr WlInterface
--- foreign import ccall "&river_window_manager_v1_interface" river_window_manager_v1_interface :: Ptr WlInterface
--- foreign import ccall "&river_xkb_bindings_v1_interface" river_xkb_bindings_v1_interface :: Ptr WlInterface
--- foreign import ccall "&river_layer_shell_v1_interface" river_layer_shell_v1_interface :: Ptr WlInterface
--- foreign import ccall "&river_input_manager_v1_interface" river_input_manager_v1_interface :: Ptr WlInterface
--- foreign import ccall "&river_libinput_config_v1_interface" river_libinput_config_v1_interface :: Ptr WlInterface
--- foreign import ccall "&river_xkb_config_v1_interface" river_xkb_config_v1_interface :: Ptr WlInterface
--- foreign import ccall "&wp_cursor_shape_manager_v1_interface" cursor_shape_manager_v1_interface :: Ptr WlInterface
---
--- instance Storable WlRegistryListener where
---   sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 2
---   alignment _ = alignment (nullPtr :: Ptr ())
---   peek ptr = do
---     let offset = sizeOf (nullPtr :: Ptr ())
---     reg <- peek (castPtr ptr) :: IO (FunPtr RegistryGlobalCallback)
---     regRemove <- peekByteOff ptr offset :: IO (FunPtr RegistryGlobalRemoveCallback)
---     pure $ WlRegistryListener reg regRemove
---   poke p listener = do
---     poke (castPtr p) (wlRegistryGlobal listener)
---     pokeByteOff (castPtr p) (sizeOf (nullPtr :: Ptr ())) (wlRegistryGlobalRemove listener)
---
+mkRegistryHandlers :: MVar WMState -> WlRegistryHandlers
+mkRegistryHandlers mvar =
+  WlRegistryHandlers
+    { onWlRegistryGlobal = bindCompositor
+    , onWlRegistryGlobalRemove = removeGlobals
+    }
+
+bindCompositor :: Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
+bindCompositor obj name iface version = case iface of
+  "wl_compositor" -> do
+    compositor <- wlRegistryBind obj name version WlCompositorHandlers{}
+    liftIO $ putStrLn ("bound wl_compositor as " <> show compositor)
+  _ -> pure ()
+
+removeGlobals :: Object WlRegistry -> Word32 -> W ()
+removeGlobals _ _ = pure ()
+
 -- registryGlobal :: Ptr () -> Ptr WlRegistry -> CUInt -> CString -> CUInt -> IO ()
 -- registryGlobal dataPtr registry name interfacePtr version = do
 --   (stateMVar :: MVar WMState) <- deRefStablePtr (castPtrToStablePtr dataPtr)

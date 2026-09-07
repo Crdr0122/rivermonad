@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Main where
 
 import Config
@@ -28,16 +26,6 @@ import Utils.KeyDispatches
 import Wayland.Connection
 import Wayland.Generated
 import Wayland.Types as Ty
-
-bindCompositor :: Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
-bindCompositor obj name iface version = do
-  env <- ask
-  when (iface == "wl_compositor") $ liftIO $ do
-    compositor <-
-      runReaderT
-        (wlRegistryBind obj name version WlCompositorHandlers{})
-        env
-    putStrLn ("bound wl_compositor as " <> show compositor)
 
 main :: IO ()
 main = do

@@ -26,7 +26,7 @@ import Wayland.Generated
 data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq, Generic)
 
 -- type WorkspaceID = Int
--- data WMState = WMState
+data WMState = WMState
 --   { manageQueue :: IO ()
 --   , renderQueue :: IO ()
 --   , allWindows :: Map (Ptr RiverWindow) Window
