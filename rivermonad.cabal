@@ -65,6 +65,7 @@ executable rivermonad
 
   other-modules:
     Config
+    Handlers.InputManagement
     Handlers.LayerShell
     Handlers.Output
     Handlers.PointerBindings
@@ -75,7 +76,7 @@ executable rivermonad
     Handlers.WlSeat
     Handlers.XkbBindings
     Handlers.XkbConfig
-    Handlers.InputManagement
+    Protocols.Generated
     IPC
     Layout
     Layouts.Basic
@@ -111,7 +112,8 @@ executable rivermonad
     stm,
     text,
     unix,
-    unordered-containers
+    unordered-containers,
+    waywire
 
   -- Directories containing source files.
   hs-source-dirs:
