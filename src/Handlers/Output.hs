@@ -1,81 +1,72 @@
-module Handlers.Output where
+module Handlers.Output (mkOutputHandler) where
 
 import Control.Concurrent.MVar
 import Control.Monad (when)
-import Control.Monad.State hiding (state)
+import Control.Monad.State
 import Data.Bimap qualified as B
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe
-import Foreign
-import Foreign.C
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
+import Protocols.Generated
 import Types
 import Utils.Helpers
+import Wayland.Connection
 
--- foreign export ccall "hs_output_position"
---   hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
--- foreign export ccall "hs_output_dimensions"
---   hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
--- foreign export ccall "hs_output_removed"
---   hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
--- foreign export ccall "hs_output_wl_output"
---   hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
--- foreign export ccall "hs_output_capture_sessions"
---   hsOutputCaptureSessions :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
---
--- hsOutputDimensions :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
--- hsOutputDimensions dataPtr output width height = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outGeometry %~ \g -> g & #rw .~ width & #rh .~ height)
---
--- hsOutputPosition :: Ptr () -> Ptr RiverOutput -> CInt -> CInt -> IO ()
--- hsOutputPosition dataPtr output x y = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ pure . (#allOutputs % at output %? #outGeometry %~ \g -> g & #rx .~ x & #ry .~ y)
---
--- hsOutputWlOutput :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
--- hsOutputWlOutput dataPtr output wlOutput = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
---  where -- This is only for restarting wm in same session
---   transform = do
---     #allOutputs % at output %? #outWlOutput .= wlOutput
---     oWs <- use #allOutputWorkspaces
---     use (#persistedStateOutputs % at (cuintToWord32 wlOutput)) >>= \case
---       Just oldW | B.notMemberR oldW oWs -> do
---         #allOutputWorkspaces %= B.insert output oldW
---         #persistedStateOutputs % at (cuintToWord32 wlOutput) .= Nothing
---       _ -> do
---         let remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ oWs) [1 ..]
---         #allOutputWorkspaces %= B.insert output remainingWorkspace
---
---     fO <- use #focusedOutput
---     when (fO == nullPtr) $ #focusedOutput .= output
---
--- hsOutputRemoved :: Ptr () -> Ptr RiverOutput -> IO ()
--- hsOutputRemoved dataPtr removedOutput = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ execStateT transform
---  where -- Add remember workspace
---   transform = do
---     liftIO $ riverOutputDestroy removedOutput
---
---     use (#allOutputs % at removedOutput) >>= \case
---       Nothing -> pure ()
---       Just o -> do
---         #allLayerShellOutputs %= M.delete (o ^. #outLayerShell)
---         liftIO $ riverLayerShellOutputDestroy (o ^. #outLayerShell)
---         #allOutputs %= M.delete removedOutput
---
---     #allOutputWorkspaces %= B.delete removedOutput
---     -- Delete first then check remaining
---     use (pairOfGetter #focusedOutput (#allOutputWorkspaces % to B.keys)) >>= \case
---       (currentFocusedOutput, []) | currentFocusedOutput == removedOutput -> #focusedOutput .= nullPtr
---       (currentFocusedOutput, h : _) | currentFocusedOutput == removedOutput -> #focusedOutput .= h
---       _ -> pure ()
---
--- hsOutputCaptureSessions :: Ptr () -> Ptr RiverOutput -> CUInt -> IO ()
--- hsOutputCaptureSessions _ _ _ = pure ()
+mkOutputHandler :: MVar WMState -> RiverOutputV1Handlers
+mkOutputHandler mvar =
+  RiverOutputV1Handlers
+    { onRiverOutputV1Dimensions = dimensions mvar
+    , onRiverOutputV1Position = position mvar
+    , onRiverOutputV1CaptureSessions = \_ _ -> pure ()
+    , onRiverOutputV1Removed = removed mvar
+    , onRiverOutputV1WlOutput = wlOutput mvar
+    }
+
+dimensions :: MVar WMState -> Object RiverOutputV1 -> Int32 -> Int32 -> W ()
+dimensions mvar out width height = do
+  modifyMVarW_ mvar $ pure . (#allOutputs % at out %? #outGeo %~ \g -> g & #rw .~ width & #rh .~ height)
+
+position :: MVar WMState -> Object RiverOutputV1 -> Int32 -> Int32 -> W ()
+position mvar out x y = do
+  modifyMVarW_ mvar $ pure . (#allOutputs % at out %? #outGeo %~ \g -> g & #rx .~ x & #ry .~ y)
+
+wlOutput :: MVar WMState -> Object RiverOutputV1 -> Word32 -> W ()
+wlOutput mvar out wlOut = do
+  modifyMVarW_ mvar $ pure . execState transform
+ where
+  transform = do
+    #allOutputs % at out %? #outWlOut .= wlOut
+    oWs <- use #allOutputWorkspaces
+    use (#persistedStateOutputs % at wlOut) >>= \case
+      Just oldW | B.notMemberR oldW oWs -> do
+        #allOutputWorkspaces %= B.insert out oldW
+      _ -> do
+        let remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ oWs) [1 ..]
+        #allOutputWorkspaces %= B.insert out remainingWorkspace
+
+    #persistedStateOutputs % at wlOut .= Nothing
+    fO <- use #focusedOut
+    when (fO == nonObject) $ #focusedOut .= out
+
+removed :: MVar WMState -> Object RiverOutputV1 -> W ()
+removed mvar out = do
+  riverOutputV1Destroy out
+  modifyMVarW_ mvar $ pure . execState transform
+ where
+  transform = do
+    use (#allOutputs % at out) >>= \case
+      Nothing -> pure ()
+      Just o -> do
+        #allLayerShellOutputs %= M.delete (o ^. #outLayerShellObj)
+        #manageQueue >>>= riverLayerShellOutputV1Destroy (o ^. #outLayerShellObj)
+        #allOutputs %= M.delete out
+
+    #allOutputWorkspaces %= B.delete out
+    -- Delete first then check remaining
+    use (pairOfGetter #focusedOut (#allOutputWorkspaces % to B.keys)) >>= \case
+      (currentFocusedOutput, []) | currentFocusedOutput == out -> #focusedOut .= nonObject
+      (currentFocusedOutput, h : _) | currentFocusedOutput == out -> #focusedOut .= h
+      _ -> pure ()
