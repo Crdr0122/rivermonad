@@ -1,4 +1,4 @@
-module Handlers.Window where
+module Handlers.Window (mkWindowHandler) where
 
 import Control.Concurrent.MVar
 import Control.Monad (msum, unless, when)
@@ -16,9 +16,35 @@ import Foreign.C
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
+import Protocols.Generated
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
+import Wayland.Connection
+
+mkWindowHandler :: MVar WMState -> RiverWindowV1Handlers
+mkWindowHandler mvar =
+  RiverWindowV1Handlers
+    { onRiverWindowV1CaptureSessions = \_ _ -> pure ()
+    , onRiverWindowV1Closed = \_ -> pure ()
+    , onRiverWindowV1AppId = \_ _ -> pure ()
+    , onRiverWindowV1Dimensions = \_ _ _ -> pure ()
+    , onRiverWindowV1DimensionsHint = \_ _ _ _ _ -> pure ()
+    , onRiverWindowV1DecorationHint = \_ _ -> pure ()
+    , onRiverWindowV1Title = \_ _ -> pure ()
+    , onRiverWindowV1FullscreenRequested = \_ _ -> pure ()
+    , onRiverWindowV1ExitFullscreenRequested = \_ -> pure ()
+    , onRiverWindowV1Parent = \_ _ -> pure ()
+    , onRiverWindowV1PointerMoveRequested = \_ _ -> pure ()
+    , onRiverWindowV1PointerResizeRequested = \_ _ _ -> pure ()
+    , onRiverWindowV1Identifier = \_ _ -> pure ()
+    , onRiverWindowV1MaximizeRequested = \_ -> pure ()
+    , onRiverWindowV1UnmaximizeRequested = \_ -> pure ()
+    , onRiverWindowV1MinimizeRequested = \_ -> pure ()
+    , onRiverWindowV1ShowWindowMenuRequested = \_ _ _ -> pure ()
+    , onRiverWindowV1PresentationHint = \_ _ -> pure ()
+    , onRiverWindowV1UnreliablePid = \_ _ -> pure ()
+    }
 
 -- foreign export ccall "hs_window_closed"
 --   hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()

@@ -14,7 +14,12 @@ import Utils.KeyDispatches
 import Utils.Keysyms
 import Wayland.Generated
 
--- myConfig :: RivermonadConfig
+myConfig :: RivermonadConfig
+myConfig =
+  defaultConfig
+    { xCursorTheme = ("Himehina", 24)
+    }
+
 -- myConfig =
 --   defaultConfig
 --     { allPointerBindings =

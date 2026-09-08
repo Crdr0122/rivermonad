@@ -5,8 +5,6 @@ import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Map qualified as M
 import Data.Text hiding (show)
-import Foreign
-import Foreign.C
 import Optics.Core
 import Protocols.Generated
 import Types

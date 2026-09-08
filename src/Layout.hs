@@ -17,11 +17,17 @@ import Foreign.C
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
+import Protocols.Generated
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
+import Wayland.Connection
+import Wayland.Generated
 
--- startLayout :: MVar WMState -> IO ()
+startLayout :: MVar WMState -> W ()
+startLayout mvar = do
+  pure ()
+
 -- startLayout stateMVar = do
 --   modifyMVar_ stateMVar $ \state -> do
 --     let newState = execState sortNewWindows state

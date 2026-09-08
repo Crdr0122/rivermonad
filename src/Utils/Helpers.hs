@@ -4,12 +4,21 @@
 module Utils.Helpers (
   -- calculateFloatingPosition,
   -- calculateFloatingPositions,
-  -- workspaceWindows,
-  -- focusedWorkspace,
-  -- setFocusedWindowAndHistory,
-  -- focusedOutputGeom,
+  workspaceWindows,
+  focusedWorkspace,
+  setFocusedWindowAndHistory,
+  focusedOutputGeom,
   pairOfGetter,
   pairOf,
+  edgeRight,
+  edgeTop,
+  edgeLeft,
+  edgeBottom,
+  edgeTopRight,
+  edgeTopLeft,
+  edgeBottomRight,
+  edgeBottomLeft,
+  allEdges,
   -- deleteWinPtrs,
   -- rmlvoToKeymapFd,
 ) where
@@ -20,20 +29,22 @@ import Data.Bimap qualified as B
 import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Sequence qualified as S
-import Foreign
-import Foreign.C
+import Data.Set qualified as Se
 import Optics.Core
 import Optics.State.Operators
+import Protocols.Generated
 import System.IO
 import System.Posix.IO
 import System.Posix.Types (Fd (..))
 import Types
 import Utils.BiSeqMap qualified as BS
+import Wayland.Connection
 
--- setFocusedWindowAndHistory :: (MonadState WMState m) => WorkspaceID -> Ptr RiverWindow -> m ()
--- setFocusedWindowAndHistory ws w = do
---   #focusedWindow ?= w
---   #workspaceFocusHistory % at ws ?= w
+setFocusedWindowAndHistory :: (MonadState WMState m) => WorkspaceID -> Object RiverWindowV1 -> m ()
+setFocusedWindowAndHistory ws w = do
+  #focusedWin ?= w
+  #workspaceFocusHistory % at ws ?= w
+
 --
 -- deleteWinPtrs :: (MonadState WMState m) => Ptr RiverWindow -> m ()
 -- deleteWinPtrs win = do
@@ -112,18 +123,18 @@ import Utils.BiSeqMap qualified as BS
 --     dx = multX * scaleX
 --     dy = multY * scaleY
 --
--- workspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Ptr RiverWindow))
--- workspaceWindows ws = to $ \s ->
---   (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
---     S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
---     S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
---
--- focusedWorkspace :: Getter WMState (Maybe WorkspaceID)
--- focusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOutput)) % _Just
---
--- focusedOutputGeom :: Getter WMState (Maybe Rect)
--- focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOutput) %? #outGeometry
---
+workspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Object RiverWindowV1))
+workspaceWindows ws = to $ \s ->
+  (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
+    S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
+    S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
+
+focusedWorkspace :: Getter WMState (Maybe WorkspaceID)
+focusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOut)) % _Just
+
+focusedOutputGeom :: Getter WMState (Maybe Rect)
+focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOut) %? #outGeo
+
 pairOf :: Lens' s a -> Lens' s b -> Lens' s (a, b)
 pairOf la lb = lens getter setter
  where
@@ -132,6 +143,18 @@ pairOf la lb = lens getter setter
 
 pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
 pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
+
+edgeRight, edgeTop, edgeLeft, edgeBottom, edgeTopRight, edgeTopLeft, edgeBottomRight, edgeBottomLeft :: Se.Set RiverWindowV1EdgesFlag -> Bool
+edgeRight = (==) (Se.fromList [RiverWindowV1EdgesRight])
+edgeTop = (==) (Se.fromList [RiverWindowV1EdgesTop])
+edgeLeft = (==) (Se.fromList [RiverWindowV1EdgesLeft])
+edgeBottom = (==) (Se.fromList [RiverWindowV1EdgesBottom])
+edgeTopRight = (==) (Se.fromList [RiverWindowV1EdgesRight, RiverWindowV1EdgesTop])
+edgeTopLeft = (==) (Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesTop])
+edgeBottomRight = (==) (Se.fromList [RiverWindowV1EdgesRight, RiverWindowV1EdgesBottom])
+edgeBottomLeft = (==) (Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom])
+allEdges :: Se.Set RiverWindowV1EdgesFlag
+allEdges = Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom, RiverWindowV1EdgesTop, RiverWindowV1EdgesRight]
 
 --
 -- -- XkbKeymap Creation Stuff

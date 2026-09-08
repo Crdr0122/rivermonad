@@ -1,51 +1,49 @@
-module Handlers.LayerShell where
+module Handlers.LayerShell (mkLayerShellOutputHandler, mkLayerShellSeatHandler) where
 
 import Control.Concurrent.MVar
-import Foreign
-import Foreign.C
 import Optics.Core
+import Protocols.Generated
 import Types
 import Utils.Helpers
+import Wayland.Connection
 
--- foreign export ccall "hs_layer_shell_output_non_exclusive_area"
---   hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
---
--- hsLayerShellOutputNonExclusiveArea :: Ptr () -> Ptr RiverLayerShellOutput -> CInt -> CInt -> CInt -> CInt -> IO ()
--- hsLayerShellOutputNonExclusiveArea dataPtr lsOutput x y width height = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) ->
---     case state ^. #allLayerShellOutputs % at lsOutput of
---       Nothing -> pure state
---       Just oPtr -> pure $ state & #allOutputs % at oPtr %? #outGeometry .~ Rect x y width height
---
--- foreign export ccall "hs_layer_shell_seat_focus_none"
---   hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
---
--- foreign export ccall "hs_layer_shell_seat_focus_exclusive"
---   hsLayerShellSeatFocusExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
---
--- foreign export ccall "hs_layer_shell_seat_focus_non_exclusive"
---   hsLayerShellSeatFocusNonExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
---
--- hsLayerShellSeatFocusNone :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
--- hsLayerShellSeatFocusNone dataPtr _ = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> do
---     if s ^. #focusedOutput == nullPtr
---       then
---         pure $ s & #focusedWindow .~ Nothing
---       else case s ^. focusedWorkspace of
---         Nothing -> pure $ s & #focusedWindow .~ Nothing
---         Just ws -> case s ^. #workspaceFocusHistory % at ws of
---           Nothing -> pure $ s & #focusedWindow .~ Nothing
---           Just w -> pure $ s & #focusedWindow ?~ w
---
--- hsLayerShellSeatFocusExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
--- hsLayerShellSeatFocusExclusive dataPtr _ = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> pure $ s & #focusedWindow .~ Nothing
---
--- hsLayerShellSeatFocusNonExclusive :: Ptr () -> Ptr RiverLayerShellSeat -> IO ()
--- hsLayerShellSeatFocusNonExclusive dataPtr _ = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> pure $ s & #focusedWindow .~ Nothing
+mkLayerShellOutputHandler :: MVar WMState -> RiverLayerShellOutputV1Handlers
+mkLayerShellOutputHandler mvar =
+  RiverLayerShellOutputV1Handlers
+    { onRiverLayerShellOutputV1NonExclusiveArea = nonExclusiveArea mvar
+    }
+
+nonExclusiveArea :: MVar WMState -> Object RiverLayerShellOutputV1 -> Int32 -> Int32 -> Int32 -> Int32 -> W ()
+nonExclusiveArea mvar lsOut x y w h =
+  modifyMVarW_ mvar $ \s -> do
+    case s ^. #allLayerShellOutputs % at lsOut of
+      Nothing -> pure s
+      Just out -> pure $ s & #allOutputs % at out %? #outGeo .~ Rect x y w h
+
+mkLayerShellSeatHandler :: MVar WMState -> RiverLayerShellSeatV1Handlers
+mkLayerShellSeatHandler mvar =
+  RiverLayerShellSeatV1Handlers
+    { onRiverLayerShellSeatV1FocusExclusive = focusExclusive mvar
+    , onRiverLayerShellSeatV1FocusNonExclusive = focusNonExclusive mvar
+    , onRiverLayerShellSeatV1FocusNone = focusNone mvar
+    }
+
+focusExclusive :: MVar WMState -> Object RiverLayerShellSeatV1 -> W ()
+focusExclusive mvar _ = do
+  modifyMVarW_ mvar $ \s -> pure $ s & #focusedWin .~ Nothing
+
+focusNonExclusive :: MVar WMState -> Object RiverLayerShellSeatV1 -> W ()
+focusNonExclusive mvar _ = do
+  modifyMVarW_ mvar $ \s -> pure $ s & #focusedWin .~ Nothing
+
+focusNone :: MVar WMState -> Object RiverLayerShellSeatV1 -> W ()
+focusNone mvar _ = do
+  modifyMVarW_ mvar $ \s -> do
+    if s ^. #focusedOut == nonObject
+      then
+        pure $ s & #focusedWin .~ Nothing
+      else case s ^. focusedWorkspace of
+        Nothing -> pure $ s & #focusedWin .~ Nothing
+        Just ws -> case s ^. #workspaceFocusHistory % at ws of
+          Nothing -> pure $ s & #focusedWin .~ Nothing
+          Just w -> pure $ s & #focusedWin ?~ w

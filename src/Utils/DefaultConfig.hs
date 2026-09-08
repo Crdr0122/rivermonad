@@ -7,9 +7,14 @@ import Types
 import Utils.KeyDispatches
 import Utils.Keysyms
 
--- defaultConfig :: RivermonadConfig
--- defaultConfig =
---   RivermonadConfig
+defaultConfig :: RivermonadConfig
+defaultConfig =
+  RivermonadConfig
+    { borderPx = 2
+    , gapPx = 0
+    , xCursorTheme = ("", 24)
+    }
+
 --     { allPointerBindings =
 --         M.fromList
 --           [ ((BtnLeft, ModSuper), (dragWindow, stopDragging))

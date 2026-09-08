@@ -5,12 +5,17 @@ import Config
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
+import Handlers.LayerShell
+import Handlers.Output
 import Handlers.PointerBindings
+import Handlers.Seat
+import Handlers.Window
 import Handlers.XkbBindings
 import Layout
 import Optics.Core
 import Protocols.Generated
 import Types
+import Utils.Helpers
 import Wayland.Connection
 
 mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
@@ -18,7 +23,7 @@ mkRiverWMHandler mvar =
   RiverWindowManagerV1Handlers
     { onRiverWindowManagerV1Finished = \_ -> pure ()
     , onRiverWindowManagerV1Unavailable = \_ -> liftIO $ putStrLn "River unavailable, another WM running"
-    , onRiverWindowManagerV1ManageStart = \_ -> pure ()
+    , onRiverWindowManagerV1ManageStart = manageStart mvar
     , onRiverWindowManagerV1RenderStart = renderStart mvar
     , onRiverWindowManagerV1SessionLocked = sessionLocked mvar
     , onRiverWindowManagerV1SessionUnlocked = sessionUnlocked mvar
@@ -27,100 +32,69 @@ mkRiverWMHandler mvar =
     , onRiverWindowManagerV1Output = newOutput mvar
     }
 
--- foreign export ccall "hs_wm_window"
---   hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
--- foreign export ccall "hs_wm_output"
---   hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
--- foreign export ccall "hs_wm_seat"
---   hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
--- foreign export ccall "hs_wm_manage_start"
---   hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
--- foreign export ccall "hs_wm_render_start"
---   hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
--- foreign export ccall "hs_wm_session_locked"
---   hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
--- foreign export ccall "hs_wm_session_unlocked"
---   hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
---
 newWindow :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverWindowV1 -> W (Maybe RiverWindowV1Handlers)
-newWindow mvar wm win = do
-  pure Nothing
-newOutput :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverOutputV1 -> W (Maybe RiverOutputV1Handlers)
-newOutput mvar wm out = do
-  pure Nothing
-newSeat :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverSeatV1 -> W (Maybe RiverSeatV1Handlers)
-newSeat mvar wm seat = do
-  pure Nothing
+newWindow mvar _ win = do
+  node <- riverWindowV1GetNode win (RiverNodeV1Handlers{})
+  let w =
+        Window
+          { winObj = win
+          , winNodeObj = node
+          , winFloat = False
+          , winFull = False
+          , winPinned = False
+          , winMaximized = False
+          , winIdentifier = ""
+          , winTitle = ""
+          , winAppId = ""
+          , winFloatGeo = Nothing
+          , winTileGeo = Nothing
+          , winSizeRule = Nothing
+          , winDimHint = (0, 0, 0, 0)
+          , winParent = Nothing
+          }
+  modifyMVarW_ mvar $ \s -> do
+    pure $ s & (#allWindows % at win ?~ w) & (#manageQueue >>~ startupApplyManage win)
+  pure $ Just $ mkWindowHandler mvar
 
--- hsWmWindow dataPtr _ win = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> do
---     node <- riverWindowGetNode win
---     _ <- wlProxyAddListener (castPtr win) getRiverWindowListener dataPtr
---     let w =
---           Window
---             { winPtr = win
---             , nodePtr = node
---             , isFloating = False
---             , isFullscreen = False
---             , isPinned = False
---             , isMaximized = False
---             , winIdentifier = ""
---             , winTitle = ""
---             , winAppID = ""
---             , floatingGeometry = Nothing
---             , tilingGeometry = Nothing
---             , ruleSize = Nothing
---             , dimensionsHint = (0, 0, 0, 0)
---             , parentWindow = Nothing
---             }
---     pure $ s & (#allWindows % at win ?~ w) & (#manageQueue <>~ startupApplyManage win)
---
--- hsWmSeat :: Ptr () -> Ptr RiverWMManager -> Ptr RiverSeat -> IO ()
--- hsWmSeat dataPtr _ seat = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) -> do
---     _ <- wlProxyAddListener (castPtr seat) getRiverSeatListener dataPtr
---     newLayerShellSeatPtr <- riverLayerShellGetSeat (state ^. #currentLayerShell) seat
---     _ <- wlProxyAddListener (castPtr newLayerShellSeatPtr) getRiverLayerShellSeatListener dataPtr
---     withCString (myConfig ^. #xCursorTheme % _1) $ \theme ->
---       riverSeatSetXcursorTheme seat theme (myConfig ^. #xCursorTheme % _2)
---     let s =
---           Seat
---             { seatPtr = seat
---             , seatName = 0
---             , xkbBindings = []
---             , pointerBindings = []
---             }
---     pure $ state & #focusedSeat .~ seat & #allSeats % at' seat ?~ s
---   itraverseOf_ (#allKeyBindings % itraversed) (registerKeybind dataPtr seat) myConfig
---   itraverseOf_ (#allPointerBindings % itraversed) (registerPointerbind dataPtr seat) myConfig
---
--- hsWmOutput :: Ptr () -> Ptr RiverWMManager -> Ptr RiverOutput -> IO ()
--- hsWmOutput dataPtr _ output = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) -> do
---     _ <- wlProxyAddListener (castPtr output) getRiverOutputListener dataPtr
---     newLayerShellOutputPtr <- riverLayerShellGetOutput (state ^. #currentLayerShell) output
---     _ <- wlProxyAddListener (castPtr newLayerShellOutputPtr) getRiverLayerShellOutputListener dataPtr
---     let o =
---           Output
---             { outPtr = output
---             , outLayerShell = newLayerShellOutputPtr
---             , outGeometry = (Rect 0 0 0 0)
---             , outWlOutput = 0
---             }
---     pure $
---       state
---         & (#allOutputs % at' output ?~ o)
---         & (#allLayerShellOutputs % at' newLayerShellOutputPtr ?~ output)
---
--- hsWmManageStart :: Ptr () -> Ptr RiverWMManager -> IO ()
--- hsWmManageStart dataPtr wm = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   startLayout stateMVar
---   riverWindowManagerManageFinish wm
---
+newOutput :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverOutputV1 -> W (Maybe RiverOutputV1Handlers)
+newOutput mvar _ out = do
+  modifyMVarW_ mvar $ \s -> do
+    ls <- riverLayerShellV1GetOutput (s ^. #currentLayerShell) out (mkLayerShellOutputHandler mvar)
+    let o =
+          Output
+            { outObj = out
+            , outLayerShellObj = ls
+            , outGeo = (Rect 0 0 0 0)
+            , outWlOut = 0
+            }
+    pure $
+      s
+        & (#allOutputs % at' out ?~ o)
+        & (#allLayerShellOutputs % at' ls ?~ out)
+  pure $ Just $ mkOutputHandler mvar
+
+newSeat :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverSeatV1 -> W (Maybe RiverSeatV1Handlers)
+newSeat mvar _ seat = do
+  modifyMVarW_ mvar $ \s -> do
+    _ <- riverLayerShellV1GetSeat (s ^. #currentLayerShell) seat (mkLayerShellSeatHandler mvar)
+    riverSeatV1SetXcursorTheme seat (myConfig ^. #xCursorTheme % _1) (myConfig ^. #xCursorTheme % _2)
+    let sRec =
+          Seat
+            { seatObj = seat
+            , seatWlSeat = 0
+            , seatXkbBinds = []
+            , seatPtrBinds = []
+            }
+    pure $ s & #focusedSeat .~ seat & #allSeats % at' seat ?~ sRec
+  -- itraverseOf_ (#allKeyBindings % itraversed) (registerKeybind dataPtr seat) myConfig
+  -- itraverseOf_ (#allPointerBindings % itraversed) (registerPointerbind dataPtr seat) myConfig
+  pure $ Just $ mkSeatHandler mvar
+
+manageStart :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
+manageStart mvar wm = do
+  startLayout mvar
+  riverWindowManagerV1ManageFinish wm
+
 renderStart :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
 renderStart mvar wm = do
   modifyMVarW_ mvar $ \s -> do
@@ -128,12 +102,6 @@ renderStart mvar wm = do
     riverWindowManagerV1RenderFinish wm
     pure $ s & #renderQueue .~ pure ()
 
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> do
---     s ^. #renderQueue
---     riverWindowManagerRenderFinish wm
---     pure $ s & #renderQueue .~ pure ()
---
 sessionLocked :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
 sessionLocked mvar _ = do
   modifyMVarW_ mvar $ \s ->
@@ -154,41 +122,12 @@ sessionUnlocked mvar _ = do
                 >> traverseOf_ (#allSeats % traversed % #seatPtrBinds % traversed) riverPointerBindingV1Enable s
             )
 
--- hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
--- hsWmSessionLocked dataPtr _ = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) ->
---     pure $
---       state
---         & #manageQueue
---         <>~ ( traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingDisable state
---                 >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingDisable state
---             )
---
--- hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
--- hsWmSessionUnlocked dataPtr _ = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) ->
---     pure $
---       state
---         & #manageQueue
---         <>~ ( traverseOf_ (#allSeats % traversed % #xkbBindings % traversed) riverXkbBindingEnable state
---                 >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingEnable state
---             )
---
 startupApplyManage :: Object RiverWindowV1 -> W ()
 startupApplyManage w = do
   let use_ssd = riverWindowV1UseSsd w
-      set_tiled =
-        riverWindowV1SetTiled
-          w
-          [ RiverWindowV1EdgesTop
-          , RiverWindowV1EdgesLeft
-          , RiverWindowV1EdgesRight
-          , RiverWindowV1EdgesBottom
-          ]
+      set_tiled = riverWindowV1SetTiled w allEdges
   set_tiled >> use_ssd
 
 --
--- startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()
+-- startupApplyRender :: Object RiverWindowV1 -> Object RiverNodeV1 -> W ()
 -- startupApplyRender _ _ = pure ()
