@@ -10,8 +10,8 @@ import Foreign.C
 import Optics.Core
 import Protocols.Generated
 import Types
+import Wayland.Connection
 import Wayland.Generated
-import Wayland.Types
 
 mkRegistryHandlers :: MVar WMState -> WlRegistryHandlers
 mkRegistryHandlers mvar =

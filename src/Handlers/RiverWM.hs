@@ -3,15 +3,30 @@ module Handlers.RiverWM where
 import Config
 
 import Control.Concurrent.MVar
-import Foreign
-import Foreign.C
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader
 import Handlers.PointerBindings
 import Handlers.XkbBindings
 import Layout
 import Optics.Core
+import Protocols.Generated
 import Types
+import Wayland.Connection
 
 mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
+mkRiverWMHandler mvar =
+  RiverWindowManagerV1Handlers
+    { onRiverWindowManagerV1Finished = \_ -> pure ()
+    , onRiverWindowManagerV1Unavailable = \_ -> liftIO $ putStrLn "River unavailable, another WM running"
+    , onRiverWindowManagerV1ManageStart = \_ -> pure ()
+    , onRiverWindowManagerV1RenderStart = renderStart mvar
+    , onRiverWindowManagerV1SessionLocked = sessionLocked mvar
+    , onRiverWindowManagerV1SessionUnlocked = sessionUnlocked mvar
+    , onRiverWindowManagerV1Window = newWindow mvar
+    , onRiverWindowManagerV1Seat = newSeat mvar
+    , onRiverWindowManagerV1Output = newOutput mvar
+    }
+
 -- foreign export ccall "hs_wm_window"
 --   hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
 -- foreign export ccall "hs_wm_output"
@@ -27,7 +42,16 @@ mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
 -- foreign export ccall "hs_wm_session_unlocked"
 --   hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 --
--- hsWmWindow :: Ptr () -> Ptr RiverWMManager -> Ptr RiverWindow -> IO ()
+newWindow :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverWindowV1 -> W (RiverWindowV1Handlers)
+newWindow mvar wm win = do
+  pure ()
+newOutput :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverOutputV1 -> W (RiverOutputV1Handlers)
+newOutput mvar wm out = do
+  pure ()
+newSeat :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverSeatV1 -> W (RiverSeatV1Handlers)
+newSeat mvar wm seat = do
+  pure ()
+
 -- hsWmWindow dataPtr _ win = do
 --   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
 --   modifyMVar_ stateMVar $ \(s :: WMState) -> do
@@ -97,14 +121,39 @@ mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
 --   startLayout stateMVar
 --   riverWindowManagerManageFinish wm
 --
--- hsWmRenderStart :: Ptr () -> Ptr RiverWMManager -> IO ()
--- hsWmRenderStart dataPtr wm = do
+renderStart :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
+renderStart mvar wm = do
+  modifyMVarW_ mvar $ \s -> do
+    s ^. #renderQueue
+    riverWindowManagerV1RenderFinish wm
+    pure $ s & #renderQueue .~ pure ()
+
 --   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
 --   modifyMVar_ stateMVar $ \(s :: WMState) -> do
 --     s ^. #renderQueue
 --     riverWindowManagerRenderFinish wm
 --     pure $ s & #renderQueue .~ pure ()
 --
+sessionLocked :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
+sessionLocked mvar _ = do
+  modifyMVarW_ mvar $ \s ->
+    pure $
+      s
+        & #manageQueue
+        >>~ ( traverseOf_ (#allSeats % traversed % #seatXkbBinds % traversed) riverXkbBindingV1Disable s
+                >> traverseOf_ (#allSeats % traversed % #seatPtrBinds % traversed) riverPointerBindingV1Disable s
+            )
+
+sessionUnlocked :: MVar WMState -> Object RiverWindowManagerV1 -> W ()
+sessionUnlocked mvar _ = do
+  modifyMVarW_ mvar $ \s ->
+    pure $
+      s
+        & #manageQueue
+        >>~ ( traverseOf_ (#allSeats % traversed % #seatXkbBinds % traversed) riverXkbBindingV1Enable s
+                >> traverseOf_ (#allSeats % traversed % #seatPtrBinds % traversed) riverPointerBindingV1Enable s
+            )
+
 -- hsWmSessionLocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 -- hsWmSessionLocked dataPtr _ = do
 --   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
@@ -127,11 +176,19 @@ mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
 --                 >> traverseOf_ (#allSeats % traversed % #pointerBindings % traversed) riverPointerBindingEnable state
 --             )
 --
--- startupApplyManage :: Ptr RiverWindow -> IO ()
--- startupApplyManage w = do
---   let use_ssd = riverWindowUseSsd w
---       set_tiled = riverWindowSetTiled w edgeAll
---   set_tiled >> use_ssd
+startupApplyManage :: Object RiverWindowV1 -> W ()
+startupApplyManage w = do
+  let use_ssd = riverWindowV1UseSsd w
+      set_tiled =
+        riverWindowV1SetTiled
+          w
+          [ RiverWindowV1EdgesTop
+          , RiverWindowV1EdgesLeft
+          , RiverWindowV1EdgesRight
+          , RiverWindowV1EdgesBottom
+          ]
+  set_tiled >> use_ssd
+
 --
 -- startupApplyRender :: Ptr RiverWindow -> Ptr RiverNode -> IO ()
 -- startupApplyRender _ _ = pure ()

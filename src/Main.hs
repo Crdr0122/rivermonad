@@ -25,7 +25,6 @@ import Utils.Helpers
 import Utils.KeyDispatches
 import Wayland.Connection
 import Wayland.Generated
-import Wayland.Types as Ty
 
 main :: IO ()
 main = do

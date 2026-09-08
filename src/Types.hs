@@ -5,9 +5,10 @@
 
 module Types where
 
-import Control.Concurrent
+import Control.Concurrent.MVar
+import Control.Monad.Reader
 import Control.Monad.State (MonadState)
-import Data.Aeson
+import Data.Aeson hiding (Object)
 import Data.Bimap
 import Data.Map.Strict
 import Data.Sequence
@@ -21,12 +22,35 @@ import Optics.State
 import Protocols.Generated
 import Utils.BiSeqMap
 import Utils.Keysyms
+import Wayland.Connection
 import Wayland.Generated
 
-data Rect = Rect {rx, ry, rw, rh :: CInt} deriving (Show, Eq, Generic)
+data Rect = Rect {rx, ry, rw, rh :: Int} deriving (Show, Eq, Generic)
 
--- type WorkspaceID = Int
+modifyMVarW :: MVar a -> (a -> W (a, b)) -> W b
+modifyMVarW mvar f = do
+  env <- ask
+  liftIO $ modifyMVar mvar $ \x -> do
+    (x', result) <- runReaderT (f x) env
+    pure (x', result)
+
+modifyMVarW_ :: MVar a -> (a -> W a) -> W ()
+modifyMVarW_ mvar f = do
+  env <- ask
+  liftIO $ modifyMVar_ mvar $ \x -> do
+    runReaderT (f x) env
+
+type WorkspaceID = Int
 data WMState = WMState
+  { manageQueue :: W ()
+  , renderQueue :: W ()
+  , allWindows :: Map (Object RiverWindowV1) Window
+  , allOutputs :: Map (Object RiverOutputV1) Output
+  , allSeats :: Map (Object RiverSeatV1) Seat
+  , focusedWin :: Maybe (Object RiverWindowV1)
+  }
+  deriving (Generic)
+
 --   { manageQueue :: IO ()
 --   , renderQueue :: IO ()
 --   , allWindows :: Map (Ptr RiverWindow) Window
@@ -107,15 +131,31 @@ data WMState = WMState
 -- data XkbKeymap
 -- data XkbContext
 
--- data HsXkbRuleNames = HsXkbRuleNames
---   { hsXkbRules :: Maybe String
---   , hsXkbModel :: Maybe String
---   , hsXkbLayout :: Maybe String
---   , hsXkbVariant :: Maybe String
---   , hsXkbOptions :: Maybe String
---   }
---
--- data Window = Window
+data HsXkbRuleNames = HsXkbRuleNames
+  { hsXkbRules :: Maybe String
+  , hsXkbModel :: Maybe String
+  , hsXkbLayout :: Maybe String
+  , hsXkbVariant :: Maybe String
+  , hsXkbOptions :: Maybe String
+  }
+
+data Window = Window
+  { winObj :: Object RiverWindowV1
+  , winNodeObj :: Object RiverNodeV1
+  , winIdentifier :: String
+  , winAppId :: String
+  , winFloat :: Bool
+  , winFull :: Bool
+  , winPinned :: Bool
+  , winMaximized :: Bool
+  , winFloatGeo :: Maybe Rect
+  , winTileGeo :: Maybe Rect
+  , winSizeRule :: Maybe (Int, Int)
+  , winDimHint :: (Int, Int, Int, Int)
+  , winParent :: Maybe (Object RiverWindowV1)
+  }
+  deriving (Generic)
+
 --   { winPtr :: Ptr RiverWindow
 --   , nodePtr :: Ptr RiverNode
 --   , winIdentifier :: String
@@ -133,7 +173,13 @@ data WMState = WMState
 --   }
 --   deriving (Generic)
 --
--- data Output = Output
+data Output = Output
+  { outObj :: Object Output
+  , outLayerShellObj :: Object RiverLayerShellOutputV1
+  , outGeo :: Rect
+  }
+  deriving (Generic, Eq)
+
 --   { outPtr :: Ptr RiverOutput
 --   , outLayerShell :: Ptr RiverLayerShellOutput
 --   , outGeometry :: Rect
@@ -151,7 +197,14 @@ data WMState = WMState
 --   }
 --   deriving (Generic)
 --
--- data Seat = Seat
+data Seat = Seat
+  { seatObj :: Object RiverSeatV1
+  , seatName :: Word32
+  , seatXkbBinds :: [Object RiverXkbBindingV1]
+  , seatPtrBinds :: [Object RiverPointerBindingV1]
+  }
+  deriving (Generic)
+
 --   { seatPtr :: Ptr RiverSeat
 --   , seatName :: CUInt
 --   , xkbBindings :: [Ptr RiverXkbBinding]
@@ -159,53 +212,53 @@ data WMState = WMState
 --   }
 --   deriving (Generic)
 --
--- class (Typeable m) => Message m
--- data SomeMessage = forall m. (Message m) => SomeMessage m
--- fromMessage :: (Message m) => SomeMessage -> Maybe m
--- fromMessage (SomeMessage m) = cast m
---
--- data IncMasterFrac = IncMasterFrac Double deriving (Typeable)
--- data IncMasterN = IncMasterN Int deriving (Typeable)
--- data SetMasterFrac = SetMasterFrac Double deriving (Typeable)
--- data NextLayout = NextLayout deriving (Typeable)
--- instance Message NextLayout
--- instance Message IncMasterFrac
--- instance Message IncMasterN
--- instance Message SetMasterFrac
---
--- data SomeLayout = forall l. (Layout l) => SomeLayout l
---
--- class Layout l where
---   doLayout ::
---     l ->
---     Maybe Int -> -- index of focused window, or Nothing
---     Rect -> -- available geometry
---     Seq Window -> -- all windows on this workspace
---     Seq (Window, Rect)
---
---   -- Human readable name (shown in status bar, etc.)
---   layoutName :: l -> String
---
---   -- Handle messages → possibly produce new layout value
---   -- Returns Nothing if message not understood → no change, no refresh
---   handleMsg :: l -> SomeMessage -> Maybe l
---
--- layoutName' :: SomeLayout -> String
--- layoutName' (SomeLayout l) = layoutName l
---
--- applySomeLayout ::
---   SomeLayout ->
---   Maybe Int ->
---   Rect ->
---   Seq Window ->
---   Seq (Window, Rect)
--- applySomeLayout (SomeLayout l) foc rect ws = doLayout l foc rect ws
---
--- handleSomeMsg :: SomeLayout -> SomeMessage -> Maybe SomeLayout
--- handleSomeMsg (SomeLayout l) msg =
---   case handleMsg l msg of
---     Nothing -> Nothing
---     Just new_l -> Just (SomeLayout new_l)
+class (Typeable m) => Message m
+data SomeMessage = forall m. (Message m) => SomeMessage m
+fromMessage :: (Message m) => SomeMessage -> Maybe m
+fromMessage (SomeMessage m) = cast m
+
+data IncMasterFrac = IncMasterFrac Double deriving (Typeable)
+data IncMasterN = IncMasterN Int deriving (Typeable)
+data SetMasterFrac = SetMasterFrac Double deriving (Typeable)
+data NextLayout = NextLayout deriving (Typeable)
+instance Message NextLayout
+instance Message IncMasterFrac
+instance Message IncMasterN
+instance Message SetMasterFrac
+
+data SomeLayout = forall l. (Layout l) => SomeLayout l
+
+class Layout l where
+  doLayout ::
+    l ->
+    Maybe Int -> -- index of focused window, or Nothing
+    Rect -> -- available geometry
+    Seq Window -> -- all windows on this workspace
+    Seq (Window, Rect)
+
+  -- Human readable name (shown in status bar, etc.)
+  layoutName :: l -> String
+
+  -- Handle messages → possibly produce new layout value
+  -- Returns Nothing if message not understood → no change, no refresh
+  handleMsg :: l -> SomeMessage -> Maybe l
+
+layoutName' :: SomeLayout -> String
+layoutName' (SomeLayout l) = layoutName l
+
+applySomeLayout ::
+  SomeLayout ->
+  Maybe Int ->
+  Rect ->
+  Seq Window ->
+  Seq (Window, Rect)
+applySomeLayout (SomeLayout l) foc rect ws = doLayout l foc rect ws
+
+handleSomeMsg :: SomeLayout -> SomeMessage -> Maybe SomeLayout
+handleSomeMsg (SomeLayout l) msg =
+  case handleMsg l msg of
+    Nothing -> Nothing
+    Just new_l -> Just (SomeLayout new_l)
 
 --
 -- type RiverEdge = CUInt
@@ -268,22 +321,22 @@ data WMState = WMState
 -- instance ToJSON PersistedState
 -- instance FromJSON PersistedState
 --
--- data WindowStatus = Tiled | Floating | Fullscreen | FullscreenFloating deriving (Show, Eq, Generic)
--- instance ToJSON WindowStatus
--- instance FromJSON WindowStatus
---
--- (<>~) :: (Is k A_Setter, Semigroup b) => Optic k is s t b b -> b -> s -> t
--- o <>~ m = over o (<> m)
--- infixr 4 <>~
---
--- (<>=) :: (Is k A_Setter, MonadState s m, Semigroup b) => Optic k is s s b b -> b -> m ()
--- o <>= m = modifying o (<> m)
--- infix 4 <>=
---
--- (%?~) :: (JoinKinds k1 A_Prism k2, Is k2 A_Setter) => Optic k1 is s t (Maybe a) (Maybe b) -> (a -> b) -> s -> t
--- o %?~ a = over (o % _Just) a
--- infix 4 %?~
---
--- (%?=) :: (JoinKinds k1 A_Prism k2, MonadState s m, Is k2 A_Setter) => Optic k1 is s s (Maybe a) (Maybe b) -> (a -> b) -> m ()
--- o %?= a = modifying (o % _Just) a
--- infix 4 %?=
+data WindowStatus = Tiled | Floating | Fullscreen | FullscreenFloating deriving (Show, Eq, Generic)
+instance ToJSON WindowStatus
+instance FromJSON WindowStatus
+
+(>>~) :: (Is k A_Setter, Monad m) => Optic k is s t (m b) (m b) -> (m b) -> s -> t
+o >>~ m = over o (>> m)
+infixr 4 >>~
+
+(>>=) :: (Is k A_Setter, MonadState s m, Monad m') => Optic k is s s (m' b) (m' b) -> (m' b) -> m ()
+o >>= m = modifying o (>> m)
+infix 4 >>=
+
+(%?~) :: (JoinKinds k1 A_Prism k2, Is k2 A_Setter) => Optic k1 is s t (Maybe a) (Maybe b) -> (a -> b) -> s -> t
+o %?~ a = over (o % _Just) a
+infix 4 %?~
+
+(%?=) :: (JoinKinds k1 A_Prism k2, MonadState s m, Is k2 A_Setter) => Optic k1 is s s (Maybe a) (Maybe b) -> (a -> b) -> m ()
+o %?= a = modifying (o % _Just) a
+infix 4 %?=

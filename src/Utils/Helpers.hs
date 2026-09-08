@@ -2,19 +2,19 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Utils.Helpers (
--- calculateFloatingPosition,
--- calculateFloatingPositions,
--- workspaceWindows,
--- focusedWorkspace,
--- setFocusedWindowAndHistory,
--- focusedOutputGeom,
--- pairOfGetter,
--- pairOf,
--- deleteWinPtrs,
--- rmlvoToKeymapFd,
-
+  -- calculateFloatingPosition,
+  -- calculateFloatingPositions,
+  -- workspaceWindows,
+  -- focusedWorkspace,
+  -- setFocusedWindowAndHistory,
+  -- focusedOutputGeom,
+  pairOfGetter,
+  pairOf,
+  -- deleteWinPtrs,
+  -- rmlvoToKeymapFd,
 ) where
 
+import Control.Concurrent.MVar
 import Control.Monad.State
 import Data.Bimap qualified as B
 import Data.List qualified as L
@@ -124,14 +124,15 @@ import Utils.BiSeqMap qualified as BS
 -- focusedOutputGeom :: Getter WMState (Maybe Rect)
 -- focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOutput) %? #outGeometry
 --
--- pairOf :: Lens' s a -> Lens' s b -> Lens' s (a, b)
--- pairOf la lb = lens getter setter
---  where
---   getter s = (s ^. la, s ^. lb)
---   setter s (x, y) = s & la .~ x & lb .~ y
---
--- pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
--- pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
+pairOf :: Lens' s a -> Lens' s b -> Lens' s (a, b)
+pairOf la lb = lens getter setter
+ where
+  getter s = (s ^. la, s ^. lb)
+  setter s (x, y) = s & la .~ x & lb .~ y
+
+pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
+pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
+
 --
 -- -- XkbKeymap Creation Stuff
 -- foreign import ccall unsafe "memfd_create"
