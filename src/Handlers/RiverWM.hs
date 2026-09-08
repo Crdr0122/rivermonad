@@ -42,15 +42,15 @@ mkRiverWMHandler mvar =
 -- foreign export ccall "hs_wm_session_unlocked"
 --   hsWmSessionUnlocked :: Ptr () -> Ptr RiverWMManager -> IO ()
 --
-newWindow :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverWindowV1 -> W (RiverWindowV1Handlers)
+newWindow :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverWindowV1 -> W (Maybe RiverWindowV1Handlers)
 newWindow mvar wm win = do
-  pure ()
-newOutput :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverOutputV1 -> W (RiverOutputV1Handlers)
+  pure Nothing
+newOutput :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverOutputV1 -> W (Maybe RiverOutputV1Handlers)
 newOutput mvar wm out = do
-  pure ()
-newSeat :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverSeatV1 -> W (RiverSeatV1Handlers)
+  pure Nothing
+newSeat :: MVar WMState -> Object RiverWindowManagerV1 -> Object RiverSeatV1 -> W (Maybe RiverSeatV1Handlers)
 newSeat mvar wm seat = do
-  pure ()
+  pure Nothing
 
 -- hsWmWindow dataPtr _ win = do
 --   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
