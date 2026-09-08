@@ -6,7 +6,7 @@ module Utils.KeyDispatches (
   -- cycleWindowFocus,
   -- cycleWindowSlaves,
   -- cycleWindows,
-  -- doNothing,
+  doNothing,
   -- dragWindow,
   -- exec,
   -- exitSession,
@@ -37,20 +37,22 @@ import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe
 import Data.Sequence qualified as S
-import Foreign hiding (void)
 import IPC
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
+import Protocols.Generated
 import System.Process
 import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.CursorShapes
 import Utils.Helpers
+import Wayland.Connection
+import Wayland.Generated
 
--- doNothing :: Ptr RiverSeat -> MVar WMState -> IO ()
--- doNothing _ _ = pure ()
---
+doNothing :: Object RiverSeatV1 -> MVar WMState -> W ()
+doNothing _ _ = pure ()
+
 -- sendMessage :: (Message m) => m -> Ptr RiverSeat -> MVar WMState -> IO ()
 -- sendMessage msg _ stateMVar = modifyMVar_ stateMVar $ pure . execState transform
 --  where

@@ -1,51 +1,24 @@
-module Handlers.XkbBindings where
+module Handlers.XkbBindings (registerKeybind) where
 
 import Control.Concurrent.MVar
-import Foreign
+import Data.Set (Set)
 import Optics.Core
+import Protocols.Generated
 import Types
 import Utils.Keysyms
+import Wayland.Connection
 
--- data XkbBindingListener = XkbBindingListener
---   { xkbPressed :: FunPtr XkbCallback
---   , xkbReleased :: FunPtr XkbCallback
---   , xkbStopRepeat :: FunPtr XkbCallback
---   }
---
--- instance Storable XkbBindingListener where
---   sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 3
---   alignment _ = alignment (nullPtr :: Ptr ())
---   poke ptr (XkbBindingListener p r s) = do
---     let pSize = sizeOf (nullPtr :: Ptr ())
---     pokeByteOff ptr (pSize * 0) p
---     pokeByteOff ptr (pSize * 1) r
---     pokeByteOff ptr (pSize * 2) s
---   peek ptr = do
---     let offset = sizeOf (nullPtr :: Ptr ())
---     pressed <- peek (castPtr ptr) :: IO (FunPtr XkbCallback)
---     released <- peekByteOff ptr offset :: IO (FunPtr XkbCallback)
---     stopRepeat <- peekByteOff ptr (offset * 2) :: IO (FunPtr XkbCallback)
---     pure $ XkbBindingListener pressed released stopRepeat
---
--- foreign import ccall "wrapper"
---   mkXkbCallback :: XkbCallback -> IO (FunPtr XkbCallback)
---
--- registerKeybind :: Ptr () -> Ptr RiverSeat -> (Keysym, KeyMod) -> (Ptr RiverSeat -> MVar WMState -> IO ()) -> IO ()
--- registerKeybind dataPtr seat (Keysym key, KeyMod modifier) onPressed = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \state -> do
---     pressedPtr <- mkXkbCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)
---     releasedPtr <- mkXkbCallback (\_ _ -> pure ())
---     stopRepeatPtr <- mkXkbCallback (\_ _ -> pure ())
---
---     let listener = XkbBindingListener pressedPtr releasedPtr stopRepeatPtr
---         bindingManager = currentXkbBindings state
---     listenerPtr <- malloc :: IO (Ptr XkbBindingListener)
---     poke listenerPtr listener
---     newBinding <- riverXkbBindingsGetXkbBinding bindingManager seat key modifier
---     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
---
---     pure $
---       state
---         & (#manageQueue <>~ riverXkbBindingEnable newBinding)
---         & (#allSeats % at seat %? #xkbBindings %~ (newBinding :))
+registerKeybind :: MVar WMState -> Object RiverSeatV1 -> (Keysym, Set RiverSeatV1ModifiersFlag) -> (Object RiverSeatV1 -> MVar WMState -> W ()) -> W ()
+registerKeybind mvar seat (Keysym key, modifiers) onPressed = do
+  modifyMVarW_ mvar $ \s -> do
+    let handler =
+          RiverXkbBindingV1Handlers
+            { onRiverXkbBindingV1Pressed = \_ -> onPressed seat mvar
+            , onRiverXkbBindingV1Released = \_ -> pure ()
+            , onRiverXkbBindingV1StopRepeat = \_ -> pure ()
+            }
+    newBinding <- riverXkbBindingsV1GetXkbBinding (s ^. #currentXkbBindings) seat key modifiers handler
+    pure $
+      s
+        & (#manageQueue >>~ riverXkbBindingV1Enable newBinding)
+        & (#allSeats % at seat %? #seatXkbBinds %~ (newBinding :))

@@ -86,8 +86,8 @@ newSeat mvar _ seat = do
             , seatPtrBinds = []
             }
     pure $ s & #focusedSeat .~ seat & #allSeats % at' seat ?~ sRec
-  -- itraverseOf_ (#allKeyBindings % itraversed) (registerKeybind dataPtr seat) myConfig
-  -- itraverseOf_ (#allPointerBindings % itraversed) (registerPointerbind dataPtr seat) myConfig
+  itraverseOf_ (#allKeyBindings % itraversed) (registerKeybind mvar seat) myConfig
+  itraverseOf_ (#allPointerBindings % itraversed) (registerPtrbind mvar seat) myConfig
   pure $ Just $ mkSeatHandler mvar
 
 manageStart :: MVar WMState -> Object RiverWindowManagerV1 -> W ()

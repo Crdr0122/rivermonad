@@ -4,6 +4,7 @@ import Data.Bits ((.|.))
 import Data.Map.Strict qualified as M
 import Layouts.Basic
 import Types
+import Utils.Helpers
 import Utils.KeyDispatches
 import Utils.Keysyms
 
@@ -13,6 +14,12 @@ defaultConfig =
     { borderPx = 2
     , gapPx = 0
     , xCursorTheme = ("", 24)
+    , allPointerBindings = M.fromList []
+    , -- [ ((BtnLeft, modSuper), (dragWindow, stopDragging))
+      -- , ((BtnRight, modSuper), (resizeWindow, stopResizing))
+      -- , ((BtnRight, modSuper .|. modAlt), (exec "hyprpicker", doNothing))
+      -- ]
+      allKeyBindings = M.fromList []
     }
 
 --     { allPointerBindings =

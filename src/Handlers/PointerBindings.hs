@@ -1,46 +1,23 @@
-module Handlers.PointerBindings where
+module Handlers.PointerBindings (registerPtrbind) where
 
 import Control.Concurrent.MVar
-import Foreign
+import Data.Set (Set)
 import Optics.Core
+import Protocols.Generated
 import Types
 import Utils.Keysyms
+import Wayland.Connection
 
--- data PointerBindingListener = PointerBindingListener
---   { pointerPressed :: FunPtr PointerCallback
---   , pointerReleased :: FunPtr PointerCallback
---   }
---
--- instance Storable PointerBindingListener where
---   sizeOf _ = sizeOf (nullPtr :: Ptr ()) * 2
---   alignment _ = alignment (nullPtr :: Ptr ())
---   poke ptr (PointerBindingListener p r) = do
---     let pSize = sizeOf (nullPtr :: Ptr ())
---     pokeByteOff ptr (pSize * 0) p
---     pokeByteOff ptr (pSize * 1) r
---   peek ptr = do
---     let offset = sizeOf (nullPtr :: Ptr ())
---     pressed <- peek (castPtr ptr) :: IO (FunPtr PointerCallback)
---     released <- peekByteOff ptr offset :: IO (FunPtr PointerCallback)
---     pure $ PointerBindingListener pressed released
---
--- foreign import ccall "wrapper"
---   mkPointerCallback :: PointerCallback -> IO (FunPtr PointerCallback)
---
--- registerPointerbind :: Ptr () -> Ptr RiverSeat -> (PointerBtn, KeyMod) -> (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ()) -> IO ()
--- registerPointerbind dataPtr seat (PointerBtn key, KeyMod modifier) (onPressed, onReleased) = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) -> do
---     pressedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onPressed seat)
---     releasedPtr <- mkPointerCallback (\d _ -> deRefStablePtr (castPtrToStablePtr d) >>= onReleased seat)
---
---     let listener = PointerBindingListener pressedPtr releasedPtr
---     listenerPtr <- malloc :: IO (Ptr PointerBindingListener)
---     poke listenerPtr listener
---     newBinding <- riverSeatGetPointerBinding seat key modifier
---     _ <- wlProxyAddListener (castPtr newBinding) (castPtr listenerPtr) dataPtr
---
---     pure $
---       state
---         & (#manageQueue <>~ riverPointerBindingEnable newBinding)
---         & (#allSeats % at seat %? #pointerBindings %~ (newBinding :))
+registerPtrbind :: MVar WMState -> Object RiverSeatV1 -> (PointerBtn, Set RiverSeatV1ModifiersFlag) -> (Object RiverSeatV1 -> MVar WMState -> W (), Object RiverSeatV1 -> MVar WMState -> W ()) -> W ()
+registerPtrbind mvar seat (PointerBtn ptr, modifiers) (onPressed, onReleased) = do
+  modifyMVarW_ mvar $ \s -> do
+    let handler =
+          RiverPointerBindingV1Handlers
+            { onRiverPointerBindingV1Pressed = \_ -> onPressed seat mvar
+            , onRiverPointerBindingV1Released = \_ -> onReleased seat mvar
+            }
+    newBinding <- riverSeatV1GetPointerBinding seat ptr modifiers handler
+    pure $
+      s
+        & (#manageQueue >>~ riverPointerBindingV1Enable newBinding)
+        & (#allSeats % at seat %? #seatPtrBinds %~ (newBinding :))

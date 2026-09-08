@@ -3,18 +3,14 @@
 
 module Utils.Keysyms where
 
-import Data.Bits (Bits, (.|.))
-import Foreign.C
+import Data.Bits (Bits)
+import Data.Word
 
-newtype Keysym = Keysym {unKeySym :: CUInt}
+newtype Keysym = Keysym {unKeySym :: Word32}
   deriving stock (Eq, Ord, Show, Read)
   deriving newtype (Num, Integral, Real, Enum, Bits)
 
-newtype KeyMod = KeyMod {unKeyMod :: CUInt}
-  deriving stock (Eq, Ord, Show, Read)
-  deriving newtype (Num, Integral, Real, Enum, Bits)
-
-newtype PointerBtn = PointerBtn {unPointerBtn :: CUInt}
+newtype PointerBtn = PointerBtn {unPointerBtn :: Word32}
   deriving stock (Eq, Ord, Show, Read)
   deriving newtype (Num, Integral, Real, Enum, Bits)
 
@@ -147,22 +143,3 @@ pattern BtnRight = PointerBtn 0x111
 pattern BtnMiddle = PointerBtn 0x112
 pattern BtnSide = PointerBtn 0x113
 pattern BtnExtra = PointerBtn 0x114
-
--- Modifiers
-pattern ModNone = KeyMod 0x00
-
-pattern ModShift = KeyMod 0x01
-
-pattern ModControl = KeyMod 0x04
-
-pattern ModAlt = KeyMod 0x08
-
-pattern ModSuper = KeyMod 0x40
-
--- modSuper = 0x08
-
-modSuperShift :: KeyMod
-modSuperShift = ModSuper .|. ModShift
-
-modSuperAlt :: KeyMod
-modSuperAlt = ModSuper .|. ModAlt

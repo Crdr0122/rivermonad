@@ -279,6 +279,8 @@ data RivermonadConfig = RivermonadConfig
   { gapPx :: Int32
   , borderPx :: Int32
   , xCursorTheme :: (Text, Word32)
+  , allKeyBindings :: Map (Keysym, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W ())
+  , allPointerBindings :: Map (PointerBtn, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W (), Object RiverSeatV1 -> MVar WMState -> W ())
   }
   deriving (Generic)
 

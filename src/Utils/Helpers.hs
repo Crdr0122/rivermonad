@@ -19,6 +19,13 @@ module Utils.Helpers (
   edgeBottomRight,
   edgeBottomLeft,
   allEdges,
+  modSuper,
+  modAlt,
+  modShift,
+  modCtrl,
+  modSuperShift,
+  modSuperCtrl,
+  modSuperAlt,
   -- deleteWinPtrs,
   -- rmlvoToKeymapFd,
 ) where
@@ -155,6 +162,15 @@ edgeBottomRight = (==) (Se.fromList [RiverWindowV1EdgesRight, RiverWindowV1Edges
 edgeBottomLeft = (==) (Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom])
 allEdges :: Se.Set RiverWindowV1EdgesFlag
 allEdges = Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom, RiverWindowV1EdgesTop, RiverWindowV1EdgesRight]
+
+modSuper, modAlt, modShift, modCtrl, modSuperShift, modSuperCtrl, modSuperAlt :: Se.Set RiverSeatV1ModifiersFlag
+modSuper = Se.singleton RiverSeatV1ModifiersMod4
+modAlt = Se.singleton RiverSeatV1ModifiersMod1
+modShift = Se.singleton RiverSeatV1ModifiersShift
+modCtrl = Se.singleton RiverSeatV1ModifiersCtrl
+modSuperShift = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersShift]
+modSuperCtrl = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersCtrl]
+modSuperAlt = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersMod1]
 
 --
 -- -- XkbKeymap Creation Stuff
