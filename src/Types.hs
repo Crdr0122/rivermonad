@@ -23,6 +23,7 @@ import Network.Socket
 import Optics.Core
 import Optics.State
 import Protocols.Generated
+import System.Posix.Types (Fd)
 import Utils.BiSeqMap
 import Utils.Keysyms
 import Wayland.Connection
@@ -79,7 +80,7 @@ data WMState = WMState
   , currentOpDelta :: (Int32, Int32, Int32, Int32)
   , subscribers :: [Socket]
   , persistedStateWindows :: Map Text (WorkspaceID, WindowStatus)
-  , currentKeymapFd :: Maybe CInt
+  , currentKeymapFd :: Maybe Fd
   }
   deriving (Generic)
 

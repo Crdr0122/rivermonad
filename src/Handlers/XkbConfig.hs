@@ -1,51 +1,46 @@
-module Handlers.XkbConfig where
+module Handlers.XkbConfig (mkXkbConfigHandler) where
 
 import Control.Concurrent.MVar
 import Control.Monad (void)
-import Foreign hiding (void)
-import Foreign.C
+import Control.Monad.IO.Class (liftIO)
+import Protocols.Generated
 import Types
+import Wayland.Connection
 
--- foreign export ccall "hs_xkb_config_finished"
---   hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
--- foreign export ccall "hs_xkb_config_xkb_keyboard"
---   hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
---
--- hsXkbConfigFinished :: Ptr () -> Ptr RiverXkbConfig -> IO ()
--- hsXkbConfigFinished _ config = riverXkbConfigDestroy config
---
--- hsXkbConfigXkbKeyboard :: Ptr () -> Ptr RiverXkbConfig -> Ptr RiverXkbKeyboard -> IO ()
--- hsXkbConfigXkbKeyboard dataPtr config keyboard = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \state@WMState{currentKeymapFd} -> do
---     case currentKeymapFd of
---       Nothing -> pure ()
---       Just fd -> do
---         keymap <- riverXkbConfigCreateKeymap config fd 1
---         void $ wlProxyAddListener (castPtr keymap) getRiverXkbKeymapListener (castPtr keyboard)
---     _ <- wlProxyAddListener (castPtr keyboard) getRiverXkbKeyboardListener dataPtr
---     riverXkbKeyboardNumlockEnable keyboard
---     pure state
---
--- foreign export ccall "hs_xkb_keyboard_input_device"
---   hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
---
--- hsXkbKeyboardInputDevice :: Ptr () -> Ptr RiverXkbKeyboard -> Ptr () -> IO ()
--- hsXkbKeyboardInputDevice dataPtr keyboard _ = do
---   _ <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   riverXkbKeyboardNumlockEnable keyboard
---
--- foreign export ccall "hs_xkb_keymap_success"
---   hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
--- foreign export ccall "hs_xkb_keymap_failure"
---   hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
---
--- hsXkbKeymapSuccess :: Ptr () -> Ptr RiverXkbKeymap -> IO ()
--- hsXkbKeymapSuccess keyboard keymap = do
---   riverXkbKeyboardSetKeymap (castPtr keyboard) keymap
---   riverXkbKeyboardNumlockEnable (castPtr keyboard)
---
--- hsXkbKeymapFailure :: Ptr () -> Ptr RiverXkbKeymap -> CString -> IO ()
--- hsXkbKeymapFailure _ _ errorMsg = do
---   e <- peekCString errorMsg
---   print $ "Failed creating keymap" ++ e
+mkXkbConfigHandler :: MVar WMState -> RiverXkbConfigV1Handlers
+mkXkbConfigHandler mvar =
+  RiverXkbConfigV1Handlers
+    { onRiverXkbConfigV1Finished = \config -> riverXkbConfigV1Destroy config
+    , onRiverXkbConfigV1XkbKeyboard = configKbd mvar
+    }
+
+configKbd :: MVar WMState -> Object RiverXkbConfigV1 -> Object RiverXkbKeyboardV1 -> W (Maybe RiverXkbKeyboardV1Handlers)
+configKbd mvar config kbd = do
+  modifyMVarW_ mvar $ \state@WMState{currentKeymapFd} -> do
+    case currentKeymapFd of
+      Nothing -> pure ()
+      Just fd -> do
+        void $ riverXkbConfigV1CreateKeymap config fd RiverXkbConfigV1KeymapFormatTextV1 (keymapHandler kbd)
+    riverXkbKeyboardV1NumlockEnable kbd
+    pure state
+  pure $ Just kbdHandler
+
+kbdHandler :: RiverXkbKeyboardV1Handlers
+kbdHandler =
+  RiverXkbKeyboardV1Handlers
+    { onRiverXkbKeyboardV1Removed = \kbd -> riverXkbKeyboardV1Destroy kbd
+    , onRiverXkbKeyboardV1InputDevice = \kbd _ -> riverXkbKeyboardV1NumlockEnable kbd
+    , onRiverXkbKeyboardV1Layout = \_ _ _ -> pure ()
+    , onRiverXkbKeyboardV1CapslockEnabled = \_ -> pure ()
+    , onRiverXkbKeyboardV1CapslockDisabled = \_ -> pure ()
+    , onRiverXkbKeyboardV1NumlockEnabled = \_ -> pure ()
+    , onRiverXkbKeyboardV1NumlockDisabled = \_ -> pure ()
+    , onRiverXkbKeyboardV1Done = \_ -> pure ()
+    }
+
+keymapHandler :: Object RiverXkbKeyboardV1 -> RiverXkbKeymapV1Handlers
+keymapHandler kbd =
+  RiverXkbKeymapV1Handlers
+    { onRiverXkbKeymapV1Success = \keymap -> riverXkbKeyboardV1SetKeymap kbd keymap >> riverXkbKeyboardV1NumlockEnable kbd
+    , onRiverXkbKeymapV1Failure = \_ e -> liftIO $ print e
+    }

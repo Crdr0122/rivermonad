@@ -20,7 +20,7 @@ import Wayland.Connection
 mkRiverWMHandler :: MVar WMState -> RiverWindowManagerV1Handlers
 mkRiverWMHandler mvar =
   RiverWindowManagerV1Handlers
-    { onRiverWindowManagerV1Finished = \_ -> pure ()
+    { onRiverWindowManagerV1Finished = \wm -> riverWindowManagerV1Destroy wm
     , onRiverWindowManagerV1Unavailable = \_ -> liftIO $ putStrLn "River unavailable, another WM running"
     , onRiverWindowManagerV1ManageStart = manageStart mvar
     , onRiverWindowManagerV1RenderStart = renderStart mvar
