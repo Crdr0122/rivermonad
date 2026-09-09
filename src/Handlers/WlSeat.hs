@@ -35,15 +35,14 @@ seatCapa mvar name wlSeat capabilities = do
         #allWlSeats % at name %? #wlCursorShapeDevice ?= device
         #allWlSeats % at name %? #wlPointer ?= pointer
       else do
-        #allWlSeats % at name %? #wlPointer .= Nothing
-        #allWlSeats % at name %? #wlCursorShapeDevice .= Nothing
-
         preuse (#allWlSeats % at name %? #wlCursorShapeDevice % _Just) >>= \case
           Nothing -> pure ()
           Just pointer -> lift $ wpCursorShapeDeviceV1Destroy pointer
         preuse (#allWlSeats % at name %? #wlPointer % _Just) >>= \case
           Nothing -> pure ()
           Just pointer -> lift $ wlPointerRelease pointer
+        #allWlSeats % at name %? #wlPointer .= Nothing
+        #allWlSeats % at name %? #wlCursorShapeDevice .= Nothing
 
 ptrHandler :: MVar WMState -> Word32 -> WlPointerHandlers
 ptrHandler mvar name =

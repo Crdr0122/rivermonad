@@ -17,7 +17,6 @@ defaultConfig =
         M.fromList
           [ ((BtnLeft, modSuper), (dragWindow, stopDragging))
           , ((BtnRight, modSuper), (resizeWindow, stopResizing))
-          , ((BtnRight, modSuperAlt), (exec "hyprpicker", doNothing))
           ]
     , allKeyBindings =
         M.fromList

@@ -14,7 +14,7 @@ mkLibInputHandlers _ =
 deviceHandler :: RiverLibinputDeviceV1Handlers
 deviceHandler =
   RiverLibinputDeviceV1Handlers
-    { onRiverLibinputDeviceV1Removed = \_ -> pure ()
+    { onRiverLibinputDeviceV1Removed = \d -> riverLibinputDeviceV1Destroy d
     , onRiverLibinputDeviceV1InputDevice = \_ _ -> pure ()
     , onRiverLibinputDeviceV1SendEventsSupport = \_ _ -> pure ()
     , onRiverLibinputDeviceV1SendEventsDefault = \_ _ -> pure ()
