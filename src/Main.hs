@@ -4,7 +4,7 @@ import Config
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.STM.TQueue
-import Control.Monad (forever, when)
+import Control.Monad (forever)
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Control.Monad.STM (atomically)
@@ -12,16 +12,12 @@ import Data.Aeson hiding (Object)
 import Data.Bimap qualified as B
 import Data.ByteString.Lazy qualified as Byte
 import Data.Map.Strict qualified as M
-import Data.Text (Text)
-import Foreign
 import Handlers.Registry
 import IPC
-import Protocols.Generated
 import System.Directory
-import System.IO
+import System.Posix.Types (Fd (..))
 import Types
 import Utils.BiSeqMap qualified as BS
-import Utils.Helpers
 import Utils.KeyDispatches
 import Utils.Keymap
 import Wayland.Connection
@@ -41,91 +37,63 @@ main = do
   fd <- rmlvoToKeymapFd (keyboardOptions myConfig)
   queue <- atomically $ newTQueue
 
+  mvar <-
+    newMVar
+      WMState
+        { manageQueue = pure ()
+        , renderQueue = pure ()
+        , allWindows = M.empty
+        , focusedWin = Nothing
+        , allOutputs = M.empty
+        , allLayerShellOutputs = M.empty
+        , focusedOut = nonObject
+        , allWorkspacesTiled = BS.empty
+        , allWorkspacesFloating = BS.empty
+        , allWorkspacesFullscreen = BS.empty
+        , floatingQueue = M.fromList (zip [1 .. 9] (repeat []))
+        , fullscreenQueue = M.fromList (zip [1 .. 9] (repeat []))
+        , newWindowQueue = []
+        , focusedSeat = nonObject
+        , allSeats = M.empty
+        , allWlSeats = M.empty
+        , allOutputWorkspaces = B.empty
+        , lastFocusedWorkspace = 1
+        , workspaceLayouts = defaultLayouts myConfig
+        , currentWM = nonObject
+        , currentXkbBindings = nonObject
+        , currentLayerShell = nonObject
+        , currentXkbConfig = nonObject
+        , currentCursorShapeManager = nonObject
+        , opDeltaState = None
+        , currentOpDelta = (0, 0, 0, 0)
+        , cursorPosition = (0, 0)
+        , persistedStateWindows = oldWindows
+        , persistedStateOutputs = oldOutputs
+        , workspaceFocusHistory = M.empty
+        , currentKeymapFd = Fd <$> fd
+        , subscribers = []
+        }
+
+  startIPCListener "/tmp/rivermonad.sock" queue
+
+  _ <- forkIO $ forever $ do
+    (IPCEvent s conn) <- atomically $ readTQueue queue
+    case s of
+      "Subscribe" -> do
+        modifyMVar_ mvar $ \state -> return state{subscribers = conn : subscribers state}
+      _ -> pure ()
+
   let displayHandlers =
         WlDisplayHandlers
-          { onWlDisplayError = \_ obj code msg ->
-              liftIO $
-                putStrLn ("FATAL wl_display.error: object=" <> show obj <> " code=" <> show code <> " msg=" <> show msg)
+          { onWlDisplayError = \_ obj code msg -> liftIO $ putStrLn ("FATAL wl_display.error: object=" <> show obj <> " code=" <> show code <> " msg=" <> show msg)
           , onWlDisplayDeleteId = \_ _ -> pure ()
           }
-      registryHandlers =
-        WlRegistryHandlers
-          { onWlRegistryGlobal = bindCompositor
-          , onWlRegistryGlobalRemove = \_ name ->
-              liftIO $ putStrLn ("removed: " <> show name)
-          }
+      registryHandlers = mkRegistryHandlers mvar
 
   (disp, aThread) <- connect displayHandlers registryHandlers
-  wait aThread
 
--- display <- wlDisplayConnect nullPtr
--- if display == nullPtr
---   then putStrLn "Failed to connect to Wayland"
---   else putStrLn "Connected to Wayland!"
--- registry <- wlDisplayGetRegistry display
--- if registry == nullPtr
---   then putStrLn "Failed to get registry"
---   else putStrLn "Got registry!"
---
---
--- st <-
---   newMVar
---     WMState
---       { manageQueue = pure ()
---       , renderQueue = pure ()
---       , allWindows = M.empty
---       , focusedWindow = Nothing
---       , allOutputs = M.empty
---       , allLayerShellOutputs = M.empty
---       , focusedOutput = nullPtr
---       , allWorkspacesTiled = BS.empty
---       , allWorkspacesFloating = BS.empty
---       , allWorkspacesFullscreen = BS.empty
---       , floatingQueue = M.fromList (zip [1 .. 9] (repeat []))
---       , fullscreenQueue = M.fromList (zip [1 .. 9] (repeat []))
---       , newWindowQueue = []
---       , focusedSeat = nullPtr
---       , allSeats = M.empty
---       , allWlSeats = M.empty
---       , allOutputWorkspaces = B.empty
---       , lastFocusedWorkspace = 1
---       , workspaceLayouts = defaultLayouts myConfig
---       , currentWindowManager = nullPtr
---       , currentXkbBindings = nullPtr
---       , currentLayerShell = nullPtr
---       , currentXkbConfig = nullPtr
---       , currentCursorShapeManager = nullPtr
---       , opDeltaState = None
---       , currentOpDelta = (0, 0, 0, 0)
---       , cursorPosition = (0, 0)
---       , persistedStateWindows = oldWindows
---       , persistedStateOutputs = oldOutputs
---       , workspaceFocusHistory = M.empty
---       , currentKeymapFd = fd
---       , subscribers = []
---       }
--- stPtr <- newStablePtr st
---
--- reg <- makeRegistryGlobalCallback registryGlobal
--- regRemove <- makeRegistryGlobalRemoveCallback registryGlobalRemove
--- listenerPtr <- malloc :: IO (Ptr WlRegistryListener)
--- poke listenerPtr (WlRegistryListener reg regRemove)
--- _ <- wlProxyAddListener (castPtr registry) (castPtr listenerPtr) (castStablePtrToPtr stPtr)
---
--- _ <- wlDisplayRoundtrip display
---
--- mapM_ (\str -> exec str nullPtr st) (execOnStart myConfig)
---
--- startIPCListener "/tmp/rivermonad.sock" queue
---
--- forever $ do
---   event <- atomically $ tryReadTQueue queue
---   case event of
---     Just (IPCEvent s conn) -> do
---       case s of
---         "Subscribe" -> do
---           modifyMVar_ st $ \state -> return state{subscribers = conn : subscribers state}
---         _ -> pure ()
---     Nothing -> do
---       _ <- wlDisplayDispatch display
---       hFlush stdout
+
+  -- This needs to be after the ipc listener, or else it might connect to an earlier wm and freeze everything
+  mapM_ (\cmd -> runReaderT (exec cmd nonObject mvar) (displayEnv disp)) (execOnStart myConfig)
+
+  wait aThread

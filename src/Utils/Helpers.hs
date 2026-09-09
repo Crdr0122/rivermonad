@@ -146,7 +146,7 @@ pairOf la lb = lens getter setter
 pairOfGetter :: (Is k A_Getter, Is l A_Getter) => Optic' k is s a -> Optic' l js s b -> Getter s (a, b)
 pairOfGetter ga gb = to $ \s -> (s ^. ga, s ^. gb)
 
-edgeRight, edgeTop, edgeLeft, edgeBottom, edgeTopRight, edgeTopLeft, edgeBottomRight, edgeBottomLeft :: Se.Set RiverWindowV1EdgesFlag
+edgeRight, edgeTop, edgeLeft, edgeBottom, edgeTopRight, edgeTopLeft, edgeBottomRight, edgeBottomLeft, allEdges :: Se.Set RiverWindowV1EdgesFlag
 edgeRight = Se.fromList [RiverWindowV1EdgesRight]
 edgeTop = Se.fromList [RiverWindowV1EdgesTop]
 edgeLeft = Se.fromList [RiverWindowV1EdgesLeft]
@@ -155,16 +155,16 @@ edgeTopRight = Se.fromList [RiverWindowV1EdgesRight, RiverWindowV1EdgesTop]
 edgeTopLeft = Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesTop]
 edgeBottomRight = (Se.fromList [RiverWindowV1EdgesRight, RiverWindowV1EdgesBottom])
 edgeBottomLeft = (Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom])
-allEdges :: Se.Set RiverWindowV1EdgesFlag
 allEdges = Se.fromList [RiverWindowV1EdgesLeft, RiverWindowV1EdgesBottom, RiverWindowV1EdgesTop, RiverWindowV1EdgesRight]
 
 modNone, modSuper, modAlt, modShift, modCtrl, modSuperShift, modSuperCtrl, modSuperAlt, modCtrlAlt :: Se.Set RiverSeatV1ModifiersFlag
+-- Change back super for testing
 modNone = Se.singleton RiverSeatV1ModifiersNone
 modSuper = Se.singleton RiverSeatV1ModifiersMod4
 modAlt = Se.singleton RiverSeatV1ModifiersMod1
 modShift = Se.singleton RiverSeatV1ModifiersShift
 modCtrl = Se.singleton RiverSeatV1ModifiersCtrl
-modSuperShift = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersShift]
-modSuperCtrl = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersCtrl]
-modSuperAlt = Se.fromList [RiverSeatV1ModifiersMod4, RiverSeatV1ModifiersMod1]
-modCtrlAlt = Se.fromList [RiverSeatV1ModifiersCtrl, RiverSeatV1ModifiersMod1]
+modSuperShift = Se.union modSuper modShift
+modSuperCtrl = Se.union modSuper modCtrl
+modSuperAlt = Se.union modSuper modAlt
+modCtrlAlt = Se.union modCtrl modAlt

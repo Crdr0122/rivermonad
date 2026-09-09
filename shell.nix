@@ -1,10 +1,9 @@
 {
   pkgs ? import <nixpkgs> { },
 }:
-pkgs.mkShell {
+pkgs.mkShell rec {
   nativeBuildInputs = with pkgs; [
     pkg-config
-    wayland-scanner
     (haskellPackages.ghcWithPackages (p: [
       p.cabal-install
       p.bimap
@@ -14,7 +13,9 @@ pkgs.mkShell {
     ]))
   ];
   buildInputs = with pkgs; [
-    wayland
     libxkbcommon
   ];
+  shellHook = ''
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${toString (pkgs.lib.makeLibraryPath buildInputs)}";
+  '';
 }

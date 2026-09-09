@@ -1,13 +1,13 @@
 Haskell window manager for the river compositor
 
-Uses FFI to libwayland for wayland communication
+Uses waywire for wayland communication
 
 Everything will be hardcoded for personal use
 
 Current protocols: River 0.4.7
 
 # TODO
-- wl_fixed_t into haskell type, currently placeholder, needed for scale, cursor stuff
+- fixedT conversion functions, currently is Word32
 - [-] Layouts 
   - [X] Stack
   - [X] Twopane
@@ -45,9 +45,9 @@ Current protocols: River 0.4.7
   - [ ] Use pointer_enter_output event rather than calculating windows when river publishes the event 
 - [ ] Layout alter geometry rather than only changing ratio
 - [ ] Hotkey repetition
-- [ ] Libinput
+- [ ] Libinput (listeners are there but I have no need to configure them)
 - [-] Multiseats (Not needed?)
-  - [-] Multiseat Focus
+  - [ ] Multiseat Focus
   - [ ] Cursorshape manager for multi seat
   - [X] Global Remove
 - [X] Overview (Grid view?) -> Implemented as a layout
