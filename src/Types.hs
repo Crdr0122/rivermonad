@@ -17,7 +17,6 @@ import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Typeable
 import Data.Word
-import Foreign.C (CInt)
 import GHC.Generics
 import Network.Socket
 import Optics.Core
@@ -123,9 +122,8 @@ data Output = Output
   deriving (Generic, Eq)
 
 data WlSeatData = WlSeatData
-  { wlSeatPtr :: Object WlSeat
-  , wlSeatCapabilities :: Word32
-  , wlSeatListenerHsPtr :: Maybe (MVar WMState, Word32)
+  { wlSeatObj :: Object WlSeat
+  , wlSeatCapabilities :: S.Set WlSeatCapabilityFlag
   , wlPointer :: Maybe (Object WlPointer)
   , wlPointerSerial :: Word32
   , wlCursorShapeDevice :: Maybe (Object WpCursorShapeDeviceV1)

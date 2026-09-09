@@ -58,6 +58,7 @@ executable rivermonad
     Config
     Handlers.InputManagement
     Handlers.LayerShell
+    Handlers.LibInput
     Handlers.Output
     Handlers.PointerBindings
     Handlers.Registry
@@ -78,8 +79,8 @@ executable rivermonad
     Utils.DefaultConfig
     Utils.Helpers
     Utils.KeyDispatches
-    Utils.Keysyms
     Utils.Keymap
+    Utils.Keysyms
 
   -- Wayland.Client
   -- Wayland.ImportedFunctions

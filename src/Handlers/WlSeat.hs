@@ -1,63 +1,63 @@
-module Handlers.WlSeat where
+module Handlers.WlSeat (mkWlSeatHandlers) where
 
 import Control.Concurrent.MVar
+import Control.Monad.Reader
 import Control.Monad.State
-import Foreign
-import Foreign.C
+import Data.Set qualified as S
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
+import Protocols.Generated
 import Types
+import Wayland.Connection
+import Wayland.Generated
 
--- wlSeatCapabilitiesPointer :: CUInt
--- wlSeatCapabilitiesPointer = 1
--- wlSeatCapabilitiesKeyboard :: CUInt
--- wlSeatCapabilitiesKeyboard = 2
--- wlSeatCapabilitiesTouch :: CUInt
--- wlSeatCapabilitiesTouch = 4
---
--- foreign export ccall "hs_wl_seat_capabilities"
---   hsWlSeatCapabilities :: Ptr () -> Ptr WlSeat -> CUInt -> IO ()
---
--- foreign export ccall "hs_wl_seat_name"
---   hsWlSeatName :: Ptr () -> Ptr WlSeat -> CString -> IO ()
---
--- hsWlSeatCapabilities :: Ptr () -> Ptr WlSeat -> CUInt -> IO ()
--- hsWlSeatCapabilities dataPtr wlSeat capabilities = do
---   (stateMVar, name) <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> execStateT (transform name) s
---  where
---   transform name = do
---     #allWlSeats % at name %? #wlSeatCapabilities .= capabilities
---     let hasPointer = capabilities .&. wlSeatCapabilitiesPointer /= 0
---     if hasPointer
---       then do
---         pointerPtr <- liftIO $ wlSeatGetPointer wlSeat
---         _ <- liftIO $ wlProxyAddListener (castPtr pointerPtr) getWlPointerListener dataPtr
---
---         cursorManager <- use #currentCursorShapeManager
---         device <- liftIO $ cursorShapeManagerGetPointer cursorManager pointerPtr
---         #allWlSeats % at name %? #wlCursorShapeDevice ?= device
---         #allWlSeats % at name %? #wlPointer ?= pointerPtr
---       else do
---         #allWlSeats % at name %? #wlPointer .= Nothing
---         #allWlSeats % at name %? #wlCursorShapeDevice .= Nothing
---
---         preuse (#allWlSeats % at name %? #wlCursorShapeDevice % _Just) >>= \case
---           Nothing -> pure ()
---           Just pointerPtr -> liftIO $ cursorShapeDeviceDestroy pointerPtr
---         preuse (#allWlSeats % at name %? #wlPointer % _Just) >>= \case
---           Nothing -> pure ()
---           Just pointerPtr -> liftIO $ wlPointerRelease pointerPtr
---
--- hsWlSeatName :: Ptr () -> Ptr WlSeat -> CString -> IO ()
--- hsWlSeatName _ _ _ = pure ()
---
--- foreign export ccall "hs_wl_pointer_enter"
---   hsWlPointerEnter :: Ptr () -> Ptr WlPointer -> CUInt -> Ptr () -> WlFixedT -> WlFixedT -> IO ()
---
--- hsWlPointerEnter :: Ptr () -> Ptr WlPointer -> CUInt -> Ptr () -> WlFixedT -> WlFixedT -> IO ()
--- hsWlPointerEnter dataPtr _ serial _ _ _ = do
---   (stateMVar, name) <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(s :: WMState) -> do
---     pure $ s & #allWlSeats % at name %? #wlPointerSerial .~ serial
+mkWlSeatHandlers :: MVar WMState -> Word32 -> WlSeatHandlers
+mkWlSeatHandlers mvar name =
+  WlSeatHandlers
+    { onWlSeatCapabilities = seatCapa mvar name
+    , onWlSeatName = \_ _ -> pure ()
+    }
+
+seatCapa :: MVar WMState -> Word32 -> Object WlSeat -> S.Set WlSeatCapabilityFlag -> W ()
+seatCapa mvar name wlSeat capabilities = do
+  modifyMVarW_ mvar $ execStateT transform
+ where
+  transform = do
+    #allWlSeats % at name %? #wlSeatCapabilities .= capabilities
+    let hasPointer = WlSeatCapabilityPointer `S.member` capabilities
+    if hasPointer
+      then do
+        pointer <- lift $ wlSeatGetPointer wlSeat (ptrHandler mvar name)
+
+        cursorManager <- use #currentCursorShapeManager
+        device <- lift $ wpCursorShapeManagerV1GetPointer cursorManager pointer WpCursorShapeDeviceV1Handlers{}
+        #allWlSeats % at name %? #wlCursorShapeDevice ?= device
+        #allWlSeats % at name %? #wlPointer ?= pointer
+      else do
+        #allWlSeats % at name %? #wlPointer .= Nothing
+        #allWlSeats % at name %? #wlCursorShapeDevice .= Nothing
+
+        preuse (#allWlSeats % at name %? #wlCursorShapeDevice % _Just) >>= \case
+          Nothing -> pure ()
+          Just pointer -> lift $ wpCursorShapeDeviceV1Destroy pointer
+        preuse (#allWlSeats % at name %? #wlPointer % _Just) >>= \case
+          Nothing -> pure ()
+          Just pointer -> lift $ wlPointerRelease pointer
+
+ptrHandler :: MVar WMState -> Word32 -> WlPointerHandlers
+ptrHandler mvar name =
+  WlPointerHandlers
+    { onWlPointerEnter = \_ serial _ _ _ -> modifyMVarW_ mvar $ \s -> pure $ s & #allWlSeats % at name %? #wlPointerSerial .~ serial
+    , onWlPointerLeave = \_ _ _ -> pure ()
+    , onWlPointerMotion = \_ _ _ _ -> pure ()
+    , onWlPointerButton = \_ _ _ _ _ -> pure ()
+    , onWlPointerAxis = \_ _ _ _ -> pure ()
+    , onWlPointerFrame = \_ -> pure ()
+    , onWlPointerAxisSource = \_ _ -> pure ()
+    , onWlPointerAxisStop = \_ _ _ -> pure ()
+    , onWlPointerAxisDiscrete = \_ _ _ -> pure ()
+    , onWlPointerAxisValue120 = \_ _ _ -> pure ()
+    , onWlPointerAxisRelativeDirection = \_ _ _ -> pure ()
+    , onWlPointerWarp = \_ _ _ -> pure ()
+    }

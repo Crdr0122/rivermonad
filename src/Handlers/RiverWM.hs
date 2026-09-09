@@ -1,4 +1,4 @@
-module Handlers.RiverWM where
+module Handlers.RiverWM (mkRiverWMHandler) where
 
 import Config
 

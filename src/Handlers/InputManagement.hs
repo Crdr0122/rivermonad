@@ -1,59 +1,31 @@
-module Handlers.InputManagement where
+module Handlers.InputManagement (mkInputManagerHandlers) where
 
 import Config
 import Control.Concurrent.MVar
-import Control.Monad (forM_, void)
-import Foreign hiding (void)
-import Foreign.C
+import Control.Monad (forM_)
 import Optics.Core
+import Protocols.Generated
 import Types
+import Wayland.Connection
 
--- foreign export ccall "hs_input_manager_input_device"
---   hsInputManagerInputDevice :: Ptr () -> Ptr RiverInputManager -> Ptr RiverInputDevice -> IO ()
--- foreign export ccall "hs_input_manager_finished"
---   hsInputManagerFinished :: Ptr () -> Ptr RiverInputManager -> IO ()
---
--- hsInputManagerFinished :: Ptr () -> Ptr RiverInputManager -> IO ()
--- hsInputManagerFinished _ manager = riverInputManagerDestroy manager
---
--- hsInputManagerInputDevice :: Ptr () -> Ptr RiverInputManager -> Ptr RiverInputDevice -> IO ()
--- hsInputManagerInputDevice dataPtr _ device = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) -> do
---     void $ wlProxyAddListener (castPtr device) getRiverInputDeviceListener dataPtr
---     pure state
---
--- foreign export ccall "hs_input_device_name"
---   hsInputDeviceName :: Ptr () -> Ptr RiverInputDevice -> CString -> IO ()
--- foreign export ccall "hs_input_device_type"
---   hsInputDeviceType :: Ptr () -> Ptr RiverInputDevice -> CUInt -> IO ()
--- foreign export ccall "hs_input_device_done"
---   hsInputDeviceDone :: Ptr () -> Ptr RiverInputDevice -> IO ()
--- foreign export ccall "hs_input_device_removed"
---   hsInputDeviceRemoved :: Ptr () -> Ptr RiverInputDevice -> IO ()
---
--- hsInputDeviceRemoved :: Ptr () -> Ptr RiverInputDevice -> IO ()
--- hsInputDeviceRemoved _ device = riverInputDeviceDestroy device
---
--- hsInputDeviceName :: Ptr () -> Ptr RiverInputDevice -> CString -> IO ()
--- hsInputDeviceName _ _ _ = pure ()
---
--- hsInputDeviceType :: Ptr () -> Ptr RiverInputDevice -> CUInt -> IO ()
--- hsInputDeviceType dataPtr device t = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \(state :: WMState) -> do
---     case t of
---       -- Keyboard
---       0 -> forM_ (myConfig ^. #keyboardRepeatInfo) $ \(rate, delay) -> riverInputDeviceSetRepeatInfo device rate delay
---       -- Pointer
---       1 -> pure ()
---       -- Touch
---       2 -> pure ()
---       -- Tablet
---       3 -> pure ()
---       -- Error
---       _ -> pure ()
---     pure state
---
--- hsInputDeviceDone :: Ptr () -> Ptr RiverInputDevice -> IO ()
--- hsInputDeviceDone _ _ = pure ()
+mkInputManagerHandlers :: MVar WMState -> RiverInputManagerV1Handlers
+mkInputManagerHandlers _ =
+  RiverInputManagerV1Handlers
+    { onRiverInputManagerV1Finished = \m -> riverInputManagerV1Destroy m
+    , onRiverInputManagerV1InputDevice = \_ _ -> pure $ Just deviceHandler
+    }
+
+deviceHandler :: RiverInputDeviceV1Handlers
+deviceHandler =
+  RiverInputDeviceV1Handlers
+    { onRiverInputDeviceV1Removed = \d -> riverInputDeviceV1Destroy d
+    , onRiverInputDeviceV1Type = deviceType
+    , onRiverInputDeviceV1Name = \_ _ -> pure ()
+    , onRiverInputDeviceV1Done = \_ -> pure ()
+    }
+
+deviceType :: Object RiverInputDeviceV1 -> RiverInputDeviceV1TypeEnum -> W ()
+deviceType device t = do
+  case t of
+    RiverInputDeviceV1TypeKeyboard -> forM_ (myConfig ^. #keyboardRepeatInfo) $ \(rate, delay) -> riverInputDeviceV1SetRepeatInfo device rate delay
+    _ -> pure ()

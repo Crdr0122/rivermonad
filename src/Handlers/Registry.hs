@@ -1,10 +1,16 @@
-module Handlers.Registry where
+module Handlers.Registry (mkRegistryHandlers) where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_, when)
+import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Map qualified as M
+import Data.Set as S (empty)
 import Data.Text hiding (show)
+import Handlers.InputManagement
+import Handlers.LibInput
+import Handlers.RiverWM
+import Handlers.WlSeat
+import Handlers.XkbConfig
 import Optics.Core
 import Protocols.Generated
 import Types
@@ -14,83 +20,59 @@ import Wayland.Generated
 mkRegistryHandlers :: MVar WMState -> WlRegistryHandlers
 mkRegistryHandlers mvar =
   WlRegistryHandlers
-    { onWlRegistryGlobal = bindCompositor
-    , onWlRegistryGlobalRemove = removeGlobals
+    { onWlRegistryGlobal = bindHandlers mvar
+    , onWlRegistryGlobalRemove = removeGlobals mvar
     }
 
-bindCompositor :: Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
-bindCompositor obj name iface version = case iface of
-  "wl_compositor" -> do
-    compositor <- wlRegistryBind obj name version WlCompositorHandlers{}
-    liftIO $ putStrLn ("bound wl_compositor as " <> show compositor)
+bindHandlers :: MVar WMState -> Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
+bindHandlers mvar reg name iface version = case iface of
+  "wp_cursor_shape_manager_v1" -> do
+    cursor <- wlRegistryBind reg name (min 2 version) WpCursorShapeManagerV1Handlers{}
+    modifyMVarW_ mvar $ pure . (#currentCursorShapeManager .~ cursor)
+    liftIO $ putStrLn $ "Bound Cursor Shape Manager"
+  "river_window_manager_v1" -> do
+    wmPtr <- wlRegistryBind reg name (min 5 version) (mkRiverWMHandler mvar)
+    modifyMVarW_ mvar $ pure . (#currentWM .~ wmPtr)
+    liftIO $ putStrLn $ "Bound Window Manager"
+  "river_xkb_bindings_v1" -> do
+    xkbBindings <- wlRegistryBind reg name (min 3 version) RiverXkbBindingsV1Handlers{}
+    modifyMVarW_ mvar $ pure . (#currentXkbBindings .~ xkbBindings)
+    liftIO $ putStrLn $ "Bound Xkb Bindings"
+  "river_layer_shell_v1" -> do
+    layerShell <- wlRegistryBind reg name (min 1 version) RiverLayerShellV1Handlers{}
+    modifyMVarW_ mvar $ pure . (#currentLayerShell .~ layerShell)
+    liftIO $ putStrLn $ "Bound Layer Shell"
+  "river_input_manager_v1" -> do
+    _ <- wlRegistryBind reg name (min 2 version) (mkInputManagerHandlers mvar)
+    liftIO $ putStrLn $ "Bound Input Manager"
+  "river_libinput_config_v1" -> do
+    _ <- wlRegistryBind reg name (min 2 version) (mkLibInputHandlers mvar)
+    liftIO $ putStrLn $ "Bound Libinput Config"
+  "wl_seat" -> do
+    seat <- wlRegistryBind reg name (min 9 version) (mkWlSeatHandlers mvar name)
+    modifyMVarW_ mvar $ \state -> do
+      let wlSeat =
+            WlSeatData
+              { wlSeatObj = seat
+              , wlSeatCapabilities = S.empty
+              , wlPointerSerial = 0
+              , wlPointer = Nothing
+              , wlCursorShapeDevice = Nothing
+              }
+      pure $ state & #allWlSeats %~ M.insert name wlSeat
+    liftIO $ putStrLn $ "Bound wl_seat: " ++ show name
+  "river_xkb_config_v1" -> do
+    _ <- wlRegistryBind reg name (min 2 version) (mkXkbConfigHandler mvar)
+    liftIO $ putStrLn $ "Bound Xkb Config"
   _ -> pure ()
 
-removeGlobals :: Object WlRegistry -> Word32 -> W ()
-removeGlobals _ _ = pure ()
-
--- registryGlobal :: Ptr () -> Ptr WlRegistry -> CUInt -> CString -> CUInt -> IO ()
--- registryGlobal dataPtr registry name interfacePtr version = do
---   (stateMVar :: MVar WMState) <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   interface <- peekCString interfacePtr
---   case interface of
---     "wl_compositor" -> pure ()
---     "wp_cursor_shape_manager_v1" -> do
---       cursor <- wlRegistryBind registry name cursor_shape_manager_v1_interface (min 2 version)
---       modifyMVar_ stateMVar $ pure . (#currentCursorShapeManager .~ (castPtr cursor))
---     "wl_seat" -> do
---       seatPtr <- wlRegistryBind registry name wl_seat_interface (min 9 version)
---       modifyMVar_ stateMVar $ \state -> do
---         doublePtr <- newStablePtr (stateMVar, name)
---         let wlSeat =
---               WlSeatData
---                 { wlSeatPtr = (castPtr seatPtr)
---                 , wlSeatListenerHsPtr = Just doublePtr
---                 , wlSeatCapabilities = 0
---                 , wlPointerSerial = 0
---                 , wlPointer = Nothing
---                 , wlCursorShapeDevice = Nothing
---                 }
---         _ <- wlProxyAddListener (castPtr seatPtr) getWlSeatListener (castStablePtrToPtr doublePtr)
---         pure $ (state & #allWlSeats %~ M.insert name wlSeat)
---       putStrLn $ "Bound wl_seat: " ++ show name
---     "river_window_manager_v1" -> do
---       wmPtr <- wlRegistryBind registry name river_window_manager_v1_interface (min 5 version)
---       _ <- wlProxyAddListener (castPtr wmPtr) getRiverWmListener dataPtr
---       modifyMVar_ stateMVar $ pure . (#currentWindowManager .~ (castPtr wmPtr))
---       putStrLn $ "Bound Window Manager"
---     "river_xkb_bindings_v1" -> do
---       xkbBindings <- wlRegistryBind registry name river_xkb_bindings_v1_interface (min 3 version)
---       modifyMVar_ stateMVar $ pure . (#currentXkbBindings .~ (castPtr xkbBindings))
---       putStrLn $ "Bound Xkb Bindings"
---     "river_layer_shell_v1" -> do
---       layerShell <- wlRegistryBind registry name river_layer_shell_v1_interface (min 1 version)
---       modifyMVar_ stateMVar $ pure . (#currentLayerShell .~ (castPtr layerShell))
---       putStrLn $ "Bound Layer Shell"
---     "river_input_manager_v1" -> do
---       inputManager <- wlRegistryBind registry name river_input_manager_v1_interface (min 2 version)
---       _ <- wlProxyAddListener (castPtr inputManager) getRiverInputManagerListener dataPtr
---       putStrLn $ "Bound Input Manager"
---     "river_libinput_config_v1" -> do
---       libinput <- wlRegistryBind registry name river_libinput_config_v1_interface (min 2 version)
---       _ <- wlProxyAddListener (castPtr libinput) getRiverLibinputConfigListener dataPtr
---       putStrLn $ "Bound Libinput Config"
---     "river_xkb_config_v1" -> do
---       xkbConfig <- wlRegistryBind registry name river_xkb_config_v1_interface (min 2 version)
---       _ <- wlProxyAddListener (castPtr xkbConfig) getRiverXkbConfigListener dataPtr
---       putStrLn $ "Bound Xkb Config"
---     _ -> pure ()
---
--- registryGlobalRemove :: Ptr () -> Ptr WlRegistry -> CUInt -> IO ()
--- registryGlobalRemove dataPtr _ name = do
---   (stateMVar :: MVar WMState) <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ stateMVar $ \state -> do
---     case M.lookup name (state ^. #allWlSeats) of -- Seat Removed
---       Nothing -> pure state
---       Just wlSeat -> do
---         forM_ (wlSeat ^. #wlCursorShapeDevice) cursorShapeDeviceDestroy
---         forM_ (wlSeat ^. #wlPointer) wlPointerRelease
---         forM_ (wlSeat ^. #wlSeatListenerHsPtr) freeStablePtr
---
---         wlSeatRelease (wlSeat ^. #wlSeatPtr)
---
---         pure $ state & #allWlSeats %~ M.delete name
+removeGlobals :: MVar WMState -> Object WlRegistry -> Word32 -> W ()
+removeGlobals mvar _ name = do
+  modifyMVarW_ mvar $ \state -> do
+    case M.lookup name (state ^. #allWlSeats) of -- Seat Removed
+      Nothing -> pure state
+      Just wlSeat -> do
+        forM_ (wlSeat ^. #wlCursorShapeDevice) wpCursorShapeDeviceV1Destroy
+        forM_ (wlSeat ^. #wlPointer) wlPointerRelease
+        wlSeatRelease (wlSeat ^. #wlSeatObj)
+        pure $ state & #allWlSeats %~ M.delete name
