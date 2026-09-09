@@ -46,29 +46,6 @@ mkWindowHandler mvar =
     , onRiverWindowV1UnreliablePid = \_ _ -> pure ()
     }
 
--- foreign export ccall "hs_window_closed"
---   hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
--- foreign export ccall "hs_window_dimensions"
---   hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
--- foreign export ccall "hs_window_parent"
---   hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
--- foreign export ccall "hs_window_dimensions_hint"
---   hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
--- foreign export ccall "hs_window_title"
---   hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
--- foreign export ccall "hs_window_app_id"
---   hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
--- foreign export ccall "hs_window_identifier"
---   hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
--- foreign export ccall "hs_window_fullscreen_requested"
---   hsWindowFullscreenRequested :: Ptr () -> Ptr RiverWindow -> Ptr RiverOutput -> IO ()
--- foreign export ccall "hs_window_exit_fullscreen_requested"
---   hsWindowExitFullscreenRequested :: Ptr () -> Ptr RiverWindow -> IO ()
--- foreign export ccall "hs_window_maximize_requested"
---   hsWindowMaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
--- foreign export ccall "hs_window_unmaximize_requested"
---   hsWindowUnmaximizeRequested :: Ptr () -> Ptr RiverWindow -> IO ()
---
 -- hsWindowIdentifier :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 -- hsWindowIdentifier dataPtr win identifierPtr = do
 --   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
@@ -97,51 +74,49 @@ mkWindowHandler mvar =
 --             #allWindows % at win %? #isFloating .= True
 --             #allWindows % at win %? #isFullscreen .= True
 --
--- hsWindowClosed :: Ptr () -> Ptr RiverWindow -> IO ()
--- hsWindowClosed dataPtr win = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ \s -> do
---     riverWindowDestroy win
---     pure $ execState transform s
---  where
---   transform = do
---     #allWindows %= M.delete win
---     #workspaceFocusHistory %= M.filter (/= win)
---     deleteWinPtrs win
---     use (pairOfGetter #focusedWindow focusedWorkspace) >>= \case
---       (Just fWin, Just ws) | fWin == win -> do
---         use (workspaceWindows ws) >>= \case
---           S.Empty -> do
---             #focusedWindow .= Nothing
---             #workspaceFocusHistory %= M.delete ws
---           h S.:<| _ -> do
---             setFocusedWindowAndHistory ws h
---       _ -> pure ()
---
--- hsWindowDimensions :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> IO ()
--- hsWindowDimensions dataPtr winPtr w h = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState updateDimensions
---  where
---   updateDimensions =
---     use (pairOfGetter #opDeltaState (#allWindows % at winPtr)) >>= \case
---       (None, Just winRec) -> do
---         let isFloat = view #isFloating winRec
---             isFull = view #isFullscreen winRec
---         when (isFloat && not isFull) $ #allWindows % at winPtr %? #floatingGeometry %?= \r -> r{rw = w, rh = h}
---       _ -> pure ()
---
--- hsWindowParent :: Ptr () -> Ptr RiverWindow -> Ptr RiverWindow -> IO ()
--- hsWindowParent dataPtr win parent = do
---   stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---   modifyMVar_ (stateMVar :: MVar WMState) $ pure . execState transform
---  where
---   transform = do
---     #allWindows % at win %? #parentWindow ?= parent
---     deleteWinPtrs win
---     use focusedWorkspace >>= \case
---       Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
---       Nothing -> pure ()
+closed :: MVar WMState -> Object RiverWindowV1 -> W ()
+closed mvar win = do
+  modifyMVarW_ mvar $ \s -> do
+    riverWindowV1Destroy win
+    pure $ execState transform s
+ where
+  transform = do
+    #allWindows %= M.delete win
+    #workspaceFocusHistory %= M.filter (/= win)
+    deleteWinObjs win
+    use (pairOfGetter #focusedWin focusedWorkspace) >>= \case
+      (Just fWin, Just ws) | fWin == win -> do
+        use (workspaceWindows ws) >>= \case
+          S.Empty -> do
+            #focusedWin .= Nothing
+            #workspaceFocusHistory %= M.delete ws
+          h S.:<| _ -> do
+            setFocusedWindowAndHistory ws h
+      _ -> pure ()
+
+dimensions :: MVar WMState -> Object RiverWindowV1 -> Int32 -> Int32 -> W ()
+dimensions mvar winPtr w h = do
+  modifyMVarW_ mvar $ pure . execState updateDimensions
+ where
+  updateDimensions =
+    use (pairOfGetter #opDeltaState (#allWindows % at winPtr)) >>= \case
+      (None, Just winRec) -> do
+        let isFloat = view #winFloat winRec
+            isFull = view #winFull winRec
+        when (isFloat && not isFull) $ #allWindows % at winPtr %? #winFloatGeo %?= \r -> r{rw = w, rh = h}
+      _ -> pure ()
+
+winParent :: MVar WMState -> Object RiverWindowV1 -> Object RiverWindowV1 -> W ()
+winParent mvar win parent = do
+  modifyMVarW_ mvar $ pure . execState transform
+ where
+  transform = do
+    #allWindows % at win %? #winParent ?= parent
+    deleteWinObjs win
+    use focusedWorkspace >>= \case
+      Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
+      Nothing -> pure ()
+
 --
 -- hsWindowDimensionsHint :: Ptr () -> Ptr RiverWindow -> CInt -> CInt -> CInt -> CInt -> IO ()
 -- hsWindowDimensionsHint dataPtr win minW minH maxW maxH = do
@@ -156,14 +131,14 @@ mkWindowHandler mvar =
 --         Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
 --         Nothing -> pure ()
 --
--- hsWindowTitle :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
--- hsWindowTitle dataPtr win title = do
---   unless (title == nullPtr) $ do
---     stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
---     modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
---       bs <- BStr.packCString title
---       let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
---       pure $ state & #allWindows % at win %? #winTitle .~ decoded
+winTitle :: Ptr () -> Ptr RiverWindowV1 -> CString -> IO ()
+winTitle dataPtr win title = do
+  unless (title == nullPtr) $ do
+    stateMVar <- deRefStablePtr (castPtrToStablePtr dataPtr)
+    modifyMVar_ (stateMVar :: MVar WMState) $ \state -> do
+      bs <- BStr.packCString title
+      let decoded = T.unpack $ TE.decodeUtf8With TEE.lenientDecode bs
+      pure $ state & #allWindows % at win %? #winTitle .~ decoded
 --
 -- hsWindowAppID :: Ptr () -> Ptr RiverWindow -> CString -> IO ()
 -- hsWindowAppID dataPtr win appID = do
