@@ -53,15 +53,15 @@ wlOutput mvar out wlOut = do
 
 removed :: MVar WMState -> Object RiverOutputV1 -> W ()
 removed mvar out = do
-  riverOutputV1Destroy out
-  modifyMVarW_ mvar $ pure . execState transform
+  modifyMVarW_ mvar $ execStateT transform
  where
   transform = do
+    lift $ riverOutputV1Destroy out
     use (#allOutputs % at out) >>= \case
       Nothing -> pure ()
       Just o -> do
         #allLayerShellOutputs %= M.delete (o ^. #outLayerShellObj)
-        #manageQueue >>>= riverLayerShellOutputV1Destroy (o ^. #outLayerShellObj)
+        lift $ riverLayerShellOutputV1Destroy (o ^. #outLayerShellObj)
         #allOutputs %= M.delete out
 
     #allOutputWorkspaces %= B.delete out

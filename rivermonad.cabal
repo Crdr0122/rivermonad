@@ -75,11 +75,11 @@ executable rivermonad
     Protocols.Generated
     Types
     Utils.BiSeqMap
-    Utils.CursorShapes
     Utils.DefaultConfig
     Utils.Helpers
     Utils.KeyDispatches
     Utils.Keysyms
+    Utils.Keymap
 
   -- Wayland.Client
   -- Wayland.ImportedFunctions

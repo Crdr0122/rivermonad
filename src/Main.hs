@@ -23,11 +23,24 @@ import Types
 import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Utils.KeyDispatches
+import Utils.Keymap
 import Wayland.Connection
 import Wayland.Generated
 
 main :: IO ()
 main = do
+  (oldWindows, oldOutputs) <-
+    doesFileExist (statePath myConfig) >>= \case
+      False -> pure (M.empty, M.empty)
+      True ->
+        decode <$> (Byte.readFile (statePath myConfig)) >>= \case
+          Just PersistedState{persistedWindows, persistedOutputs} -> do
+            removeFile (statePath myConfig)
+            pure (persistedWindows, persistedOutputs)
+          _ -> pure (M.empty, M.empty)
+  fd <- rmlvoToKeymapFd (keyboardOptions myConfig)
+  queue <- atomically $ newTQueue
+
   let displayHandlers =
         WlDisplayHandlers
           { onWlDisplayError = \_ obj code msg ->
@@ -54,18 +67,7 @@ main = do
 --   then putStrLn "Failed to get registry"
 --   else putStrLn "Got registry!"
 --
--- (oldWindows, oldOutputs) <-
---   doesFileExist (statePath myConfig) >>= \case
---     False -> pure (M.empty, M.empty)
---     True ->
---       decode <$> (Byte.readFile (statePath myConfig)) >>= \case
---         Just PersistedState{persistedWindows, persistedOutputs} -> do
---           removeFile (statePath myConfig)
---           pure (persistedWindows, persistedOutputs)
---         _ -> pure (M.empty, M.empty)
 --
--- fd <- rmlvoToKeymapFd (keyboardOptions myConfig)
--- queue <- atomically $ newTQueue
 -- st <-
 --   newMVar
 --     WMState

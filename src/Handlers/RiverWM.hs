@@ -4,7 +4,6 @@ import Config
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Reader
 import Handlers.LayerShell
 import Handlers.Output
 import Handlers.PointerBindings

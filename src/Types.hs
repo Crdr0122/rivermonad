@@ -17,6 +17,7 @@ import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Typeable
 import Data.Word
+import Foreign.C (CInt)
 import GHC.Generics
 import Network.Socket
 import Optics.Core
@@ -50,6 +51,8 @@ data WMState = WMState
   { manageQueue :: W ()
   , renderQueue :: W ()
   , newWindowQueue :: [Object RiverWindowV1]
+  , fullscreenQueue :: Map WorkspaceID [Object RiverWindowV1]
+  , floatingQueue :: Map WorkspaceID [Object RiverWindowV1]
   , currentWM :: Object RiverWindowManagerV1
   , currentXkbBindings :: Object RiverXkbBindingsV1
   , currentXkbConfig :: Object RiverXkbConfigV1
@@ -59,6 +62,7 @@ data WMState = WMState
   , allOutputs :: Map (Object RiverOutputV1) Output
   , allSeats :: Map (Object RiverSeatV1) Seat
   , allLayerShellOutputs :: Map (Object RiverLayerShellOutputV1) (Object RiverOutputV1)
+  , allWlSeats :: Map Word32 WlSeatData
   , workspaceLayouts :: Map WorkspaceID SomeLayout
   , focusedWin :: Maybe (Object RiverWindowV1)
   , focusedOut :: Object RiverOutputV1
@@ -68,48 +72,17 @@ data WMState = WMState
   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Object RiverWindowV1)
   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Object RiverWindowV1)
   , workspaceFocusHistory :: Map WorkspaceID (Object RiverWindowV1)
+  , lastFocusedWorkspace :: WorkspaceID
   , persistedStateOutputs :: Map Word32 WorkspaceID
   , cursorPosition :: (Int32, Int32)
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (Int32, Int32, Int32, Int32)
+  , subscribers :: [Socket]
+  , persistedStateWindows :: Map String (WorkspaceID, WindowStatus)
+  , currentKeymapFd :: Maybe CInt
   }
   deriving (Generic)
 
---   { manageQueue :: IO ()
---   , renderQueue :: IO ()
---   , allWindows :: Map (Ptr RiverWindow) Window
---   , allOutputs :: Map (Ptr RiverOutput) Output
---   , allSeats :: Map (Ptr RiverSeat) Seat
---   , allWlSeats :: Map CUInt WlSeatData
---   , focusedWindow :: Maybe (Ptr RiverWindow)
---   , focusedOutput :: Ptr RiverOutput
---   , focusedSeat :: Ptr RiverSeat
---   , allLayerShellOutputs :: Map (Ptr RiverLayerShellOutput) (Ptr RiverOutput)
---   , allOutputWorkspaces :: Bimap (Ptr RiverOutput) WorkspaceID
---   , lastFocusedWorkspace :: WorkspaceID
---   , workspaceLayouts :: Map WorkspaceID SomeLayout
---   , allWorkspacesTiled :: BiSeqMap WorkspaceID (Ptr RiverWindow)
---   , allWorkspacesFloating :: BiSeqMap WorkspaceID (Ptr RiverWindow)
---   , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Ptr RiverWindow)
---   , newWindowQueue :: [Ptr RiverWindow]
---   , floatingQueue :: Map WorkspaceID [Ptr RiverWindow]
---   , fullscreenQueue :: Map WorkspaceID [Ptr RiverWindow]
---   , currentWindowManager :: Ptr RiverWMManager
---   , currentXkbBindings :: Ptr RiverXkbBindings
---   , currentXkbConfig :: Ptr RiverXkbConfig
---   , currentLayerShell :: Ptr RiverLayerShell
---   , currentCursorShapeManager :: Ptr CursorShapeManager
---   , opDeltaState :: OpDeltaState
---   , currentOpDelta :: (CInt, CInt, CInt, CInt)
---   , cursorPosition :: (CInt, CInt)
---   , persistedStateWindows :: Map String (WorkspaceID, WindowStatus)
---   , persistedStateOutputs :: Map Word32 WorkspaceID
---   , workspaceFocusHistory :: Map WorkspaceID (Ptr RiverWindow)
---   , currentKeymapFd :: Maybe CInt
---   , subscribers :: [Socket]
---   }
---   deriving (Generic)
---
 data OpDeltaState = Dragging | DraggingTile | Resizing (S.Set RiverWindowV1EdgesFlag) | ResizingTile | None deriving (Eq)
 
 data WMEvent = IPCEvent String Socket
@@ -140,23 +113,6 @@ data Window = Window
   }
   deriving (Generic)
 
---   { winPtr :: Ptr RiverWindow
---   , nodePtr :: Ptr RiverNode
---   , winIdentifier :: String
---   , winTitle :: String
---   , winAppID :: String
---   , isFloating :: Bool
---   , isFullscreen :: Bool
---   , isPinned :: Bool
---   , isMaximized :: Bool
---   , floatingGeometry :: Maybe Rect
---   , tilingGeometry :: Maybe Rect
---   , ruleSize :: Maybe (CInt, CInt)
---   , dimensionsHint :: (CInt, CInt, CInt, CInt)
---   , parentWindow :: Maybe (Ptr RiverWindow)
---   }
---   deriving (Generic)
---
 data Output = Output
   { outObj :: Object RiverOutputV1
   , outLayerShellObj :: Object RiverLayerShellOutputV1
@@ -165,23 +121,16 @@ data Output = Output
   }
   deriving (Generic, Eq)
 
---   { outPtr :: Ptr RiverOutput
---   , outLayerShell :: Ptr RiverLayerShellOutput
---   , outGeometry :: Rect
---   , outWlOutput :: CUInt
---   }
---   deriving (Generic, Eq)
---
--- data WlSeatData = WlSeatData
---   { wlSeatPtr :: Ptr WlSeat
---   , wlSeatCapabilities :: CUInt
---   , wlSeatListenerHsPtr :: Maybe (StablePtr (MVar WMState, CUInt))
---   , wlPointer :: Maybe (Ptr WlPointer)
---   , wlPointerSerial :: CUInt
---   , wlCursorShapeDevice :: Maybe (Ptr CursorShapeDevice)
---   }
---   deriving (Generic)
---
+data WlSeatData = WlSeatData
+  { wlSeatPtr :: Object WlSeat
+  , wlSeatCapabilities :: Word32
+  , wlSeatListenerHsPtr :: Maybe (MVar WMState, Word32)
+  , wlPointer :: Maybe (Object WlPointer)
+  , wlPointerSerial :: Word32
+  , wlCursorShapeDevice :: Maybe (Object WpCursorShapeDeviceV1)
+  }
+  deriving (Generic)
+
 data Seat = Seat
   { seatObj :: Object RiverSeatV1
   , seatWlSeat :: Word32
@@ -190,13 +139,6 @@ data Seat = Seat
   }
   deriving (Generic)
 
---   { seatPtr :: Ptr RiverSeat
---   , seatName :: CUInt
---   , xkbBindings :: [Ptr RiverXkbBinding]
---   , pointerBindings :: [Ptr RiverPointerBinding]
---   }
---   deriving (Generic)
---
 class (Typeable m) => Message m
 data SomeMessage = forall m. (Message m) => SomeMessage m
 fromMessage :: (Message m) => SomeMessage -> Maybe m
@@ -245,77 +187,37 @@ handleSomeMsg (SomeLayout l) msg =
     Nothing -> Nothing
     Just new_l -> Just (SomeLayout new_l)
 
---
-type RiverEdge = Word32
+data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
 
---
--- edgeNone
---   , edgeTop
---   , edgeBottom
---   , edgeLeft
---   , edgeRight
---   , edgeAll
---   , edgeTopRight
---   , edgeTopLeft
---   , edgeBottomRight
---   , edgeBottomLeft ::
---     RiverEdge
--- edgeAll = edgeBottom .|. edgeLeft .|. edgeTop .|. edgeRight
--- edgeTopRight = edgeTop .|. edgeRight
--- edgeTopLeft = edgeTop .|. edgeLeft
--- edgeBottomRight = edgeBottom .|. edgeRight
--- edgeBottomLeft = edgeBottom .|. edgeLeft
--- edgeNone = 0
--- edgeTop = 1
--- edgeBottom = 2
--- edgeLeft = 4
--- edgeRight = 8
---
--- data WindowDirection = WindowLeft | WindowRight | WindowUp | WindowDown
---
--- data OutputPresentationMode = VsyncPresentationMode | AsyncPresentationMode deriving (Enum, Eq)
---
 data RivermonadConfig = RivermonadConfig
   { gapPx :: Int32
   , borderPx :: Int32
   , xCursorTheme :: (Text, Word32)
   , allKeyBindings :: Map (Keysym, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W ())
   , allPointerBindings :: Map (PointerBtn, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W (), Object RiverSeatV1 -> MVar WMState -> W ())
+  , workspaceRules :: [(String, String, WorkspaceID)]
+  , floatingRules :: [(String, String, WindowStatus)]
+  , windowSizeRules :: [(String, String, Int32, Int32)]
+  , borderColor :: Word32
+  , focusedBorderColor :: Word32
+  , pinnedBorderColor :: Word32
+  , statePath :: FilePath
+  , defaultLayouts :: Map WorkspaceID SomeLayout
+  , execOnStart :: [String]
+  , keyboardOptions :: HsXkbRuleNames
+  , keyboardRepeatInfo :: Maybe (Int32, Int32)
   }
   deriving (Generic)
 
--- { defaultLayouts :: Map WorkspaceID SomeLayout
--- , execOnStart :: [String]
--- , gapPx :: CInt
--- , borderPx :: CInt
--- , borderColor :: Word32
--- , focusedBorderColor :: Word32
--- , pinnedBorderColor :: Word32
--- , xCursorTheme :: (String, CUInt)
--- , workspaceRules :: [(String, String, WorkspaceID)]
--- , floatingRules :: [(String, String, WindowStatus)]
--- , windowSizeRules :: [(String, String, CInt, CInt)]
--- , allPointerBindings :: Map (PointerBtn, KeyMod) (Ptr RiverSeat -> MVar WMState -> IO (), Ptr RiverSeat -> MVar WMState -> IO ())
--- , allKeyBindings :: Map (Keysym, KeyMod) (Ptr RiverSeat -> MVar WMState -> IO ())
--- , statePath :: FilePath
--- , keyboardOptions :: HsXkbRuleNames
--- , keyboardRepeatInfo :: Maybe (CInt, CInt)
--- }
--- deriving (Generic)
+data PersistedState = PersistedState
+  { persistedWindows :: Map String (WorkspaceID, WindowStatus)
+  , persistedOutputs :: Map Word32 WorkspaceID
+  }
+  deriving (Generic)
 
---
--- data PersistedState = PersistedState
---   { persistedWindows :: Map String (WorkspaceID, WindowStatus)
---   , persistedOutputs :: Map Word32 WorkspaceID
---   }
---   deriving (Generic)
---
--- cuintToWord32 :: CUInt -> Word32
--- cuintToWord32 (CUInt x) = x
---
--- instance ToJSON PersistedState
--- instance FromJSON PersistedState
---
+instance ToJSON PersistedState
+instance FromJSON PersistedState
+
 data WindowStatus = Tiled | Floating | Fullscreen | FullscreenFloating deriving (Show, Eq, Generic)
 instance ToJSON WindowStatus
 instance FromJSON WindowStatus

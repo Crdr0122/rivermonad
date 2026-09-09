@@ -123,14 +123,14 @@ opDelta mvar _ dx dy = do
           nY = min (ry + dy) (ry + rh - minminH)
 
           (w, h, x, y)
-            | edgeTop e = (rw, nHm, rx, nY)
-            | edgeBottom e = (rw, nHp, rx, ry)
-            | edgeRight e = (nWp, rh, rx, ry)
-            | edgeLeft e = (nWm, rh, nX, ry)
-            | edgeTopLeft e = (nWm, nHm, nX, nY)
-            | edgeTopRight e = (nWp, nHm, rx, nY)
-            | edgeBottomLeft e = (nWm, nHp, nX, ry)
-            | edgeBottomRight e = (nWp, nHp, rx, ry)
+            | e == edgeTop = (rw, nHm, rx, nY)
+            | e == edgeBottom = (rw, nHp, rx, ry)
+            | e == edgeRight = (nWp, rh, rx, ry)
+            | e == edgeLeft = (nWm, rh, nX, ry)
+            | e == edgeTopLeft = (nWm, nHm, nX, nY)
+            | e == edgeTopRight = (nWp, nHm, rx, nY)
+            | e == edgeBottomLeft = (nWm, nHp, nX, ry)
+            | e == edgeBottomRight = (nWp, nHp, rx, ry)
             | otherwise = (rw, rh, rx, ry)
 
       #manageQueue >>>= riverWindowV1ProposeDimensions winPtr w h
