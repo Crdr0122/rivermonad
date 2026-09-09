@@ -10,9 +10,9 @@ import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Bits
 import Data.Foldable
-import Data.List
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S
+import Data.Text qualified as T
 import Data.Word
 import Optics.Core
 import Optics.State
@@ -58,8 +58,8 @@ startLayout stateMVar = do
                 findOf
                   folded
                   ( \(t, a, _) ->
-                      t `isInfixOf` (win ^. #winTitle)
-                        && a `isInfixOf` (win ^. #winAppId)
+                      t `T.isInfixOf` (win ^. #winTitle)
+                        && a `T.isInfixOf` (win ^. #winAppId)
                   )
                   (myConfig ^. #workspaceRules)
                   ^. non ("", "", focusedWS)
@@ -69,8 +69,8 @@ startLayout stateMVar = do
                 findOf
                   folded
                   ( \(t, a, _) ->
-                      t `isInfixOf` (win ^. #winTitle)
-                        && a `isInfixOf` (win ^. #winAppId)
+                      t `T.isInfixOf` (win ^. #winTitle)
+                        && a `T.isInfixOf` (win ^. #winAppId)
                   )
                   (myConfig ^. #floatingRules)
                   ^. non ("", "", Tiled)
@@ -86,8 +86,8 @@ startLayout stateMVar = do
                 findOf
                   folded
                   ( \(t, a, _, _) ->
-                      t `isInfixOf` (win ^. #winTitle)
-                        && a `isInfixOf` (win ^. #winAppId)
+                      t `T.isInfixOf` (win ^. #winTitle)
+                        && a `T.isInfixOf` (win ^. #winAppId)
                   )
                   (myConfig ^. #windowSizeRules)
                   ^. non ("", "", 0, 0)

@@ -78,7 +78,7 @@ data WMState = WMState
   , opDeltaState :: OpDeltaState
   , currentOpDelta :: (Int32, Int32, Int32, Int32)
   , subscribers :: [Socket]
-  , persistedStateWindows :: Map String (WorkspaceID, WindowStatus)
+  , persistedStateWindows :: Map Text (WorkspaceID, WindowStatus)
   , currentKeymapFd :: Maybe CInt
   }
   deriving (Generic)
@@ -98,9 +98,9 @@ data HsXkbRuleNames = HsXkbRuleNames
 data Window = Window
   { winObj :: Object RiverWindowV1
   , winNodeObj :: Object RiverNodeV1
-  , winIdentifier :: String
-  , winAppId :: String
-  , winTitle :: String
+  , winIdentifier :: Text
+  , winAppId :: Text
+  , winTitle :: Text
   , winFloat :: Bool
   , winFull :: Bool
   , winPinned :: Bool
@@ -195,9 +195,9 @@ data RivermonadConfig = RivermonadConfig
   , xCursorTheme :: (Text, Word32)
   , allKeyBindings :: Map (Keysym, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W ())
   , allPointerBindings :: Map (PointerBtn, S.Set RiverSeatV1ModifiersFlag) (Object RiverSeatV1 -> MVar WMState -> W (), Object RiverSeatV1 -> MVar WMState -> W ())
-  , workspaceRules :: [(String, String, WorkspaceID)]
-  , floatingRules :: [(String, String, WindowStatus)]
-  , windowSizeRules :: [(String, String, Int32, Int32)]
+  , workspaceRules :: [(Text, Text, WorkspaceID)]
+  , floatingRules :: [(Text, Text, WindowStatus)]
+  , windowSizeRules :: [(Text, Text, Int32, Int32)]
   , borderColor :: Word32
   , focusedBorderColor :: Word32
   , pinnedBorderColor :: Word32
@@ -210,7 +210,7 @@ data RivermonadConfig = RivermonadConfig
   deriving (Generic)
 
 data PersistedState = PersistedState
-  { persistedWindows :: Map String (WorkspaceID, WindowStatus)
+  { persistedWindows :: Map Text (WorkspaceID, WindowStatus)
   , persistedOutputs :: Map Word32 WorkspaceID
   }
   deriving (Generic)
