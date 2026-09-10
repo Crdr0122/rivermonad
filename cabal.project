@@ -3,4 +3,4 @@ packages: .
 source-repository-package
   type: git
   location: https://github.com/Crdr0122/waywire
-  tag: a488824ce496f97a0f76b71a1f7b74ae79d36860
+  tag: e0050d94a4664804acbaf1a0149cd9cb729b1b55
