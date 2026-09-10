@@ -442,7 +442,11 @@ moveWindowToWorkspace targetID _ stateMVar = modifyMVarW_ stateMVar $ pure . exe
     | otherwise = #allWorkspacesTiled %= BS.move win targetID
 
 exec :: String -> Object RiverSeatV1 -> MVar WMState -> W ()
-exec command _ _ = void $ liftIO $ spawnCommand ("systemd-run --user --scope --slice=app.slice " ++ command)
+exec command _ _ =
+  void $
+    liftIO $
+      createProcess $
+        (shell ("systemd-run --user --scope --slice=app.slice " ++ command)){close_fds = True}
 
 reloadWindowManager :: FilePath -> Object RiverSeatV1 -> MVar WMState -> W ()
 reloadWindowManager fp _ stateMVar = do

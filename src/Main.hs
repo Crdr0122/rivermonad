@@ -93,7 +93,7 @@ main = do
   (disp, aThread) <- connect displayHandlers registryHandlers
 
 
-  -- This needs to be after the ipc listener, or else it might connect to an earlier wm and freeze everything
+  -- This needs to be after the ipc listener
   mapM_ (\cmd -> runReaderT (exec cmd nonObject mvar) (displayEnv disp)) (execOnStart myConfig)
 
   wait aThread
