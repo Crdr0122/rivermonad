@@ -1,4 +1,4 @@
-module IPC (startIPCListener, broadcastState) where
+module IPC (startIPCListener, broadcastState, notifyReady) where
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -10,6 +10,8 @@ import Network.Socket.ByteString (recv, sendAll)
 import System.Directory (removeFile)
 import System.IO.Error (isDoesNotExistError)
 import Types
+import Network.Socket.ByteString (sendTo)
+import System.Environment (lookupEnv)
 
 removeIfExists :: FilePath -> IO ()
 removeIfExists fileName = removeFile fileName `catch` handleExists
@@ -49,3 +51,16 @@ broadcastState state msg = do
   -- filterM runs the IO action (trySend) for each socket
   activeSubscribers <- filterM (trySend payload) (subscribers state)
   return state{subscribers = activeSubscribers}
+
+notifyReady :: IO ()
+notifyReady = do
+  mPath <- lookupEnv "NOTIFY_SOCKET"
+  case mPath of
+    Nothing -> pure () -- not running under systemd
+    Just path -> do
+      sock <- socket AF_UNIX Datagram defaultProtocol
+      _ <- sendTo sock (BC.pack "READY=1") (SockAddrUnix (fixupAbstract path))
+      close sock
+ where
+  fixupAbstract ('@' : rest) = '\0' : rest
+  fixupAbstract p = p

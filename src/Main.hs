@@ -92,6 +92,7 @@ main = do
 
   (disp, aThread) <- connect displayHandlers registryHandlers
 
+  notifyReady
 
   -- This needs to be after the ipc listener
   mapM_ (\cmd -> runReaderT (exec cmd nonObject mvar) (displayEnv disp)) (execOnStart myConfig)

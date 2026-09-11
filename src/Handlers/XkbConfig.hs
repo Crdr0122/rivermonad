@@ -1,7 +1,7 @@
 module Handlers.XkbConfig (mkXkbConfigHandler) where
 
 import Control.Concurrent.MVar
-import Control.Monad (void)
+import Control.Monad (void, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Protocols.Generated
 import Types
@@ -17,9 +17,7 @@ mkXkbConfigHandler mvar =
 configKbd :: MVar WMState -> Object RiverXkbConfigV1 -> Object RiverXkbKeyboardV1 -> W (Maybe RiverXkbKeyboardV1Handlers)
 configKbd mvar config kbd = do
   modifyMVarW_ mvar $ \state@WMState{currentKeymapFd} -> do
-    case currentKeymapFd of
-      Nothing -> pure ()
-      Just fd -> do
+    forM_ currentKeymapFd $ \fd ->
         void $ riverXkbConfigV1CreateKeymap config fd RiverXkbConfigV1KeymapFormatTextV1 (keymapHandler kbd)
     riverXkbKeyboardV1NumlockEnable kbd
     pure state
