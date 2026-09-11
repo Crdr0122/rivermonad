@@ -1,7 +1,7 @@
 module Handlers.Registry (mkRegistryHandlers) where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_)
+import Control.Monad (forM_, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Map qualified as M
 import Data.Set as S (empty)
@@ -62,8 +62,10 @@ bindHandlers mvar reg name iface version = case iface of
       pure $ state & #allWlSeats %~ M.insert name wlSeat
     liftIO $ putStrLn $ "Bound wl_seat: " ++ show name
   "river_xkb_config_v1" -> do
-    _ <- wlRegistryBind reg name (min 2 version) (mkXkbConfigHandler mvar)
+    config <- wlRegistryBind reg name (min 2 version) (mkXkbConfigHandler mvar)
     liftIO $ putStrLn $ "Bound Xkb Config"
+    withMVarW mvar $ \WMState{currentKeymapFd} -> do
+      forM_ currentKeymapFd $ \fd -> void $ riverXkbConfigV1CreateKeymap config fd RiverXkbConfigV1KeymapFormatTextV1 (mkKeymapHandler mvar)
   _ -> pure ()
 
 removeGlobals :: MVar WMState -> Object WlRegistry -> Word32 -> W ()

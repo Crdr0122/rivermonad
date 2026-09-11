@@ -1,8 +1,10 @@
-module Handlers.XkbConfig (mkXkbConfigHandler) where
+module Handlers.XkbConfig (mkXkbConfigHandler, mkKeymapHandler) where
 
 import Control.Concurrent.MVar
-import Control.Monad (void, forM_)
+import Control.Monad (forM_, void)
 import Control.Monad.IO.Class (liftIO)
+import Optics.Core
+import Optics.Operators
 import Protocols.Generated
 import Types
 import Wayland.Connection
@@ -15,19 +17,22 @@ mkXkbConfigHandler mvar =
     }
 
 configKbd :: MVar WMState -> Object RiverXkbConfigV1 -> Object RiverXkbKeyboardV1 -> W (Maybe RiverXkbKeyboardV1Handlers)
-configKbd mvar config kbd = do
-  modifyMVarW_ mvar $ \state@WMState{currentKeymapFd} -> do
-    forM_ currentKeymapFd $ \fd ->
-        void $ riverXkbConfigV1CreateKeymap config fd RiverXkbConfigV1KeymapFormatTextV1 (keymapHandler kbd)
-    riverXkbKeyboardV1NumlockEnable kbd
-    pure state
+configKbd mvar _ kbd = do
+  modifyMVarW_ mvar $ \state@WMState{currentKeyMap} -> do
+    case currentKeyMap of
+      Left xs -> do
+        riverXkbKeyboardV1NumlockEnable kbd
+        pure $ state & #currentKeyMap .~ (Left (kbd : xs))
+      Right keymap -> do
+        riverXkbKeyboardV1SetKeymap kbd keymap >> riverXkbKeyboardV1NumlockEnable kbd
+        pure $ state
   pure $ Just kbdHandler
 
 kbdHandler :: RiverXkbKeyboardV1Handlers
 kbdHandler =
   RiverXkbKeyboardV1Handlers
     { onRiverXkbKeyboardV1Removed = \kbd -> riverXkbKeyboardV1Destroy kbd
-    , onRiverXkbKeyboardV1InputDevice = \kbd _ -> riverXkbKeyboardV1NumlockEnable kbd
+    , onRiverXkbKeyboardV1InputDevice = \_ _ -> pure ()
     , onRiverXkbKeyboardV1Layout = \_ _ _ -> pure ()
     , onRiverXkbKeyboardV1CapslockEnabled = \_ -> pure ()
     , onRiverXkbKeyboardV1CapslockDisabled = \_ -> pure ()
@@ -36,9 +41,17 @@ kbdHandler =
     , onRiverXkbKeyboardV1Done = \_ -> pure ()
     }
 
-keymapHandler :: Object RiverXkbKeyboardV1 -> RiverXkbKeymapV1Handlers
-keymapHandler kbd =
+mkKeymapHandler :: MVar WMState -> RiverXkbKeymapV1Handlers
+mkKeymapHandler mvar =
   RiverXkbKeymapV1Handlers
-    { onRiverXkbKeymapV1Success = \keymap -> riverXkbKeyboardV1SetKeymap kbd keymap >> riverXkbKeyboardV1NumlockEnable kbd
+    { onRiverXkbKeymapV1Success = keymapSuccess mvar
     , onRiverXkbKeymapV1Failure = \_ e -> liftIO $ print e
     }
+
+keymapSuccess :: MVar WMState -> Object RiverXkbKeymapV1 -> W ()
+keymapSuccess mvar keymap = do
+  modifyMVarW_ mvar $ \s@WMState{currentKeyMap} -> do
+    case currentKeyMap of
+      Left xs -> forM_ xs (\kbd -> riverXkbKeyboardV1SetKeymap kbd keymap >> riverXkbKeyboardV1NumlockEnable kbd)
+      Right _ -> pure ()
+    pure $ s & #currentKeyMap .~ (Right keymap)

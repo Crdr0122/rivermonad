@@ -71,6 +71,7 @@ main = do
         , persistedStateOutputs = oldOutputs
         , workspaceFocusHistory = M.empty
         , currentKeymapFd = Fd <$> fd
+        , currentKeyMap = Left []
         , subscribers = []
         }
 

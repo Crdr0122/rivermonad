@@ -40,6 +40,11 @@ modifyMVarW mvar f = do
     (x', result) <- runReaderT (f x) env
     pure (x', result)
 
+withMVarW :: MVar a -> (a -> W ()) -> W ()
+withMVarW mvar f = do
+  env <- ask
+  liftIO $ withMVar mvar $ \x -> do runReaderT (f x) env
+
 modifyMVarW_ :: MVar a -> (a -> W a) -> W ()
 modifyMVarW_ mvar f = do
   env <- ask
@@ -80,6 +85,7 @@ data WMState = WMState
   , subscribers :: [Socket]
   , persistedStateWindows :: Map Text (WorkspaceID, WindowStatus)
   , currentKeymapFd :: Maybe Fd
+  , currentKeyMap :: Either [Object RiverXkbKeyboardV1] (Object RiverXkbKeymapV1)
   }
   deriving (Generic)
 
