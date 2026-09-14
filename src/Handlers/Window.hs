@@ -51,11 +51,11 @@ newIdent mvar win ident = do
       Nothing -> #newWindowQueue %= (win :)
       Just (ws, status) -> do
         #persistedStateWindows % at ident .= Nothing
-        fWs <- use (focusedWorkspace % non 1)
+        fWs <- use (getFocusedWorkspace % non 1)
         unless (ws == fWs) $ #renderQueue >>>= riverWindowV1Hide win
         case status of
           Tiled -> do
-            #allWorkspacesTiled %= BS.insert ws win
+            #allWorkspaceWindows %= BS.insert ws win
           Floating -> do
             #floatingQueue % at ws %?= (win :)
             #allWindows % at win %? #winFloat .= True
@@ -75,11 +75,10 @@ closed mvar win = do
  where
   transform = do
     #allWindows %= M.delete win
-    #workspaceFocusHistory %= M.filter (/= win)
     deleteWinObjs win
-    use (pairOfGetter #focusedWin focusedWorkspace) >>= \case
+    use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just fWin, Just ws) | fWin == win -> do
-        use (workspaceWindows ws) >>= \case
+        use (getWorkspaceWindows ws) >>= \case
           S.Empty -> do
             #focusedWin .= Nothing
             #workspaceFocusHistory %= M.delete ws
@@ -107,7 +106,7 @@ newParent mvar win (Just parent) = do
   transform = do
     #allWindows % at win %? #winParent ?= parent
     deleteWinObjs win
-    use focusedWorkspace >>= \case
+    use getFocusedWorkspace >>= \case
       Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
       Nothing -> pure ()
 
@@ -119,7 +118,7 @@ dimHint mvar win minW minH maxW maxH = do
     #allWindows % at win %? #winDimHint .= (minW, minH, maxW, maxH)
     when (minW == maxW && minH == maxH && minW /= 0 && minH /= 0) $ do
       deleteWinObjs win
-      use focusedWorkspace >>= \case
+      use getFocusedWorkspace >>= \case
         Just focusedWs -> #floatingQueue % at focusedWs %?= (win :)
         Nothing -> pure ()
 
@@ -141,7 +140,7 @@ fullReq mvar win mOutput = do
  where
   transform = do
     let output = maybe nonObject id mOutput
-    focusedWs <- use focusedWorkspace
+    focusedWs <- use getFocusedWorkspace
     targetWs <- use (#allOutputWorkspaces % to (B.lookup output))
     let actualWs = fromMaybe 1 $ msum [targetWs, focusedWs]
     #allWindows % at win %?= (\w -> w{winFull = True, winPinned = False})
@@ -153,14 +152,13 @@ exitFullReq mvar win = do
   modifyMVarW_ mvar $ pure . execState transform
  where
   transform =
-    use (pairOfGetter (#allWindows % at win) (#allWorkspacesFullscreen % to (BS.lookupA win))) >>= \case
-      (Just Window{winFloat}, Just ws) -> do
+    use (pairOfGetter (#allWindows % at win) (#allWorkspaceWindows % to (BS.lookupA win))) >>= \case
+      (Just Window{winFloat, winFull = True}, Just ws) -> do
         #allWindows % at win %? #winFull .= False
-        #allWorkspacesFullscreen %= BS.delete win
         #manageQueue >>>= (riverWindowV1ExitFullscreen win >> riverWindowV1InformNotFullscreen win)
-        if winFloat
-          then #floatingQueue % at ws %?= (win :)
-          else #allWorkspacesTiled %= BS.insert ws win
+        when winFloat $ do
+          #floatingQueue % at ws %?= (win :)
+          #allWorkspaceWindows %= BS.delete win
       _ -> pure ()
 
 maximizeReq :: MVar WMState -> Object RiverWindowV1 -> W ()

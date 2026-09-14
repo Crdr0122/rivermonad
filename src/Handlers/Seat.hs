@@ -1,7 +1,7 @@
 module Handlers.Seat (mkSeatHandler) where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_, msum, when)
+import Control.Monad (forM_, when)
 import Control.Monad.State
 import Data.Bimap qualified as B
 import Data.Map.Strict qualified as M
@@ -55,10 +55,11 @@ windowInteraction mvar _ win = do
     use (pairOfGetter #focusedWin (#allWindows % at win)) >>= \case
       (Just fWin, _) | fWin == win -> pure ()
       (_, Just winRec) -> do
-        tiled <- use #allWorkspacesTiled
-        floating <- use #allWorkspacesFloating
-        full <- use #allWorkspacesFullscreen
-        forM_ (msum $ BS.lookupA win <$> [tiled, floating, full]) $ \ws -> do
+        -- tiled <- use #allWorkspacesTiled
+        -- floating <- use #allWorkspacesFloating
+        -- full <- use #allWorkspacesFullscreen
+        windows <- use #allWorkspaceWindows
+        forM_ (BS.lookupA win windows) $ \ws -> do
           setFocusedWindowAndHistory ws win
           when (winRec ^. #winFloat) $ #renderQueue >>>= riverNodeV1PlaceTop (winRec ^. #winNodeObj)
 
@@ -88,7 +89,7 @@ opDelta mvar _ dx dy = do
       _ -> pure ()
 
   handleDrag win = forM_ (view #winFloatGeo win) $ \Rect{rx, ry} -> do
-    moutGeom <- use focusedOutputGeom
+    moutGeom <- use getFocusedOutputGeom
     forM_ moutGeom $ \outGeom -> do
       let (newX, newY) = (rx + dx, ry + dy)
       #renderQueue >>>= riverNodeV1SetPosition (view #winNodeObj win) (newX + outGeom ^. #rx) (newY + outGeom ^. #ry)
@@ -96,8 +97,8 @@ opDelta mvar _ dx dy = do
 
   handleTileResize = do
     (oldDx, _, _, _) <- use #currentOpDelta
-    ws <- use (focusedWorkspace % non 1)
-    preuse (focusedOutputGeom %? #rw) >>= \case
+    ws <- use (getFocusedWorkspace % non 1)
+    preuse (getFocusedOutputGeom %? #rw) >>= \case
       Nothing -> pure ()
       Just outW -> do
         let frac = fromIntegral (dx - oldDx) / fromIntegral outW

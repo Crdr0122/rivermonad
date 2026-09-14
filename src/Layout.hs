@@ -48,7 +48,7 @@ startLayout stateMVar = do
     queue <- use #newWindowQueue
     #newWindowQueue .= []
     workmaps <- use #allOutputWorkspaces
-    focusedWS <- use (focusedWorkspace % non 1)
+    focusedWS <- use (getFocusedWorkspace % non 1)
     forM_ queue $ \winPtr -> do
       use (#allWindows % at winPtr) >>= \case
         Nothing -> pure ()
@@ -77,7 +77,7 @@ startLayout stateMVar = do
                   % _3
 
           case status of
-            Tiled -> #allWorkspacesTiled %= BS.insert targetWS winPtr
+            Tiled -> #allWorkspaceWindows %= BS.insert targetWS winPtr
             Floating -> #floatingQueue % at targetWS %?= (winPtr :)
             Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
@@ -116,11 +116,13 @@ startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
       Nothing -> pure ()
       Just currentLayout -> do
         allWindows <- use #allWindows
-        tilingPtrs <- use (#allWorkspacesTiled % to (BS.lookupBs ws))
+        workspaceWindowObjs <- use (#allWorkspaceWindows % to (BS.lookupBs ws))
         fWin <- use #focusedWin
+        let workspaceWindows = (allWindows M.!) <$> workspaceWindowObjs
+
         -- Tiled
-        let idx = fWin >>= (`S.elemIndexL` tilingPtrs)
-            tileable = (allWindows M.!) <$> tilingPtrs
+        let tileable = S.filter (\w -> not (winFloat w || winFull w)) workspaceWindows
+            idx = fWin >>= (`S.elemIndexL` (winObj <$> tileable))
             rawTiles = applySomeLayout currentLayout idx geom tileable
             bordered = shrinkWindows (myConfig ^. #borderPx) $ shrinkWindows (myConfig ^. #gapPx) (toList rawTiles)
 
@@ -132,32 +134,32 @@ startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
           #renderQueue >>>= (riverNodeV1SetPosition node rx ry >> riverWindowV1SetContentClipBox ptr 0 0 rw rh >> riverNodeV1PlaceBottom node)
 
         -- Floating
-        queuedFloatingPtrs <- use (#floatingQueue % at ws % non [])
-        alreadyFloating <- use (#allWorkspacesFloating % to (BS.lookupBs ws) % to S.length)
-        let newFloatingWindows = (allWindows M.!) <$> queuedFloatingPtrs
+        queuedFloatingWins <- use (#floatingQueue % at ws % non [])
+        let alreadyFloating = S.filter (\w -> winFloat w && not (winFull w)) workspaceWindows
+            floatLength = S.length alreadyFloating
+            newFloatingWindows = (allWindows M.!) <$> queuedFloatingWins
             (floatingPositions, floatMAction, floatRAction) =
-              calculateFloatingPositions geom newFloatingWindows alreadyFloating
-        #allWorkspacesFloating %= BS.insertList ws queuedFloatingPtrs
+              calculateFloatingPositions geom newFloatingWindows floatLength
+        #allWorkspaceWindows %= BS.insertList ws queuedFloatingWins
         #manageQueue >>>= floatMAction
         #renderQueue >>>= floatRAction
         forM_ (zip newFloatingWindows floatingPositions) $ \(win, rect) -> do
-          let ptr = win ^. #winObj
-          #allWindows % at ptr %?= \w -> w & #winFloatGeo ?~ rect & #winFloat .~ True
-          #renderQueue >>>= riverWindowV1SetContentClipBox ptr 0 0 0 0
+          let obj = win ^. #winObj
+          #allWindows % at obj %?= \w -> w & #winFloatGeo ?~ rect & #winFloat .~ True
+          #renderQueue >>>= riverWindowV1SetContentClipBox obj 0 0 0 0
 
         -- Fullscreen
         newFullscreenPtrs <- use (#fullscreenQueue % at ws % non [])
         let newFullscreenWindows = (allWindows M.!) <$> newFullscreenPtrs
-        #allWorkspacesFullscreen %= BS.insertList ws newFullscreenPtrs
+        #allWorkspaceWindows %= BS.insertList ws newFullscreenPtrs
         forM_ newFullscreenPtrs $ \ptr -> do
           #allWindows % at ptr %? #winFull .= True
           #manageQueue >>>= (riverWindowV1Fullscreen ptr output >> riverWindowV1InformFullscreen ptr)
         #renderQueue >>>= raiseAllWindows (reverse newFullscreenWindows)
 
         -- Borders
-        floatingPtrs <- use (#allWorkspacesFloating % to (BS.lookupBs ws))
         #manageQueue >>>= mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) tileable
-        #manageQueue >>>= mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) ((allWindows M.!) <$> floatingPtrs)
+        #manageQueue >>>= mapM_ (renderBorder fWin bColor fColor pColor (myConfig ^. #borderPx)) alreadyFloating
 
         -- Cleanup Queues
         #floatingQueue % at ws ?= []

@@ -2,13 +2,13 @@ module Main where
 
 import Config
 import Control.Concurrent
-import Control.Concurrent.Async
+import Control.Concurrent.Async (wait)
 import Control.Concurrent.STM.TQueue
 import Control.Monad (forever)
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Control.Monad.STM (atomically)
-import Data.Aeson hiding (Object)
+import Data.Aeson
 import Data.Bimap qualified as B
 import Data.ByteString.Lazy qualified as Byte
 import Data.Map.Strict qualified as M
@@ -47,9 +47,10 @@ main = do
         , allOutputs = M.empty
         , allLayerShellOutputs = M.empty
         , focusedOut = nonObject
-        , allWorkspacesTiled = BS.empty
-        , allWorkspacesFloating = BS.empty
-        , allWorkspacesFullscreen = BS.empty
+        -- , allWorkspacesTiled = BS.empty
+        -- , allWorkspacesFloating = BS.empty
+        -- , allWorkspacesFullscreen = BS.empty
+        , allWorkspaceWindows = BS.empty
         , floatingQueue = M.fromList (zip [1 .. 9] (repeat []))
         , fullscreenQueue = M.fromList (zip [1 .. 9] (repeat []))
         , newWindowQueue = []
@@ -70,7 +71,6 @@ main = do
         , persistedStateWindows = oldWindows
         , persistedStateOutputs = oldOutputs
         , workspaceFocusHistory = M.empty
-        , currentKeymapFd = Fd <$> fd
         , currentKeyMap = Left []
         , subscribers = []
         }
@@ -89,7 +89,7 @@ main = do
           { onWlDisplayError = \_ obj code msg -> liftIO $ putStrLn ("FATAL wl_display.error: object=" <> show obj <> " code=" <> show code <> " msg=" <> show msg)
           , onWlDisplayDeleteId = \_ _ -> pure ()
           }
-      registryHandlers = mkRegistryHandlers mvar
+      registryHandlers = mkRegistryHandlers mvar (Fd <$> fd)
 
   (disp, aThread) <- connect displayHandlers registryHandlers
 

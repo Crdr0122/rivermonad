@@ -22,7 +22,6 @@ import Network.Socket
 import Optics.Core
 import Optics.State
 import Protocols.Generated
-import System.Posix.Types (Fd)
 import Utils.BiSeqMap
 import Utils.Keysyms
 import Wayland.Connection
@@ -73,9 +72,10 @@ data WMState = WMState
   , focusedOut :: Object RiverOutputV1
   , focusedSeat :: Object RiverSeatV1
   , allOutputWorkspaces :: Bimap (Object RiverOutputV1) WorkspaceID
-  , allWorkspacesTiled :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-  , allWorkspacesFloating :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-  , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+  , allWorkspaceWindows :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+  -- , allWorkspacesTiled :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+  -- , allWorkspacesFloating :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+  -- , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Object RiverWindowV1)
   , workspaceFocusHistory :: Map WorkspaceID (Object RiverWindowV1)
   , lastFocusedWorkspace :: WorkspaceID
   , persistedStateOutputs :: Map Word32 WorkspaceID
@@ -84,7 +84,6 @@ data WMState = WMState
   , currentOpDelta :: (Int32, Int32, Int32, Int32)
   , subscribers :: [Socket]
   , persistedStateWindows :: Map Text (WorkspaceID, WindowStatus)
-  , currentKeymapFd :: Maybe Fd
   , currentKeyMap :: Either [Object RiverXkbKeyboardV1] (Object RiverXkbKeymapV1)
   }
   deriving (Generic)

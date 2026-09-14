@@ -13,19 +13,20 @@ import Handlers.WlSeat
 import Handlers.XkbConfig
 import Optics.Core
 import Protocols.Generated
+import System.Posix.Types (Fd)
 import Types
 import Wayland.Connection
 import Wayland.Generated
 
-mkRegistryHandlers :: MVar WMState -> WlRegistryHandlers
-mkRegistryHandlers mvar =
+mkRegistryHandlers :: MVar WMState -> Maybe Fd -> WlRegistryHandlers
+mkRegistryHandlers mvar fd =
   WlRegistryHandlers
-    { onWlRegistryGlobal = bindHandlers mvar
+    { onWlRegistryGlobal = bindHandlers mvar fd
     , onWlRegistryGlobalRemove = removeGlobals mvar
     }
 
-bindHandlers :: MVar WMState -> Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
-bindHandlers mvar reg name iface version = case iface of
+bindHandlers :: MVar WMState -> Maybe Fd -> Object WlRegistry -> Word32 -> Text -> Word32 -> W ()
+bindHandlers mvar fd reg name iface version = case iface of
   "wp_cursor_shape_manager_v1" -> do
     cursor <- wlRegistryBind reg name (min 2 version) WpCursorShapeManagerV1Handlers{}
     modifyMVarW_ mvar $ pure . (#currentCursorShapeManager .~ cursor)
@@ -64,8 +65,7 @@ bindHandlers mvar reg name iface version = case iface of
   "river_xkb_config_v1" -> do
     config <- wlRegistryBind reg name (min 2 version) (mkXkbConfigHandler mvar)
     liftIO $ putStrLn $ "Bound Xkb Config"
-    withMVarW mvar $ \WMState{currentKeymapFd} -> do
-      forM_ currentKeymapFd $ \fd -> void $ riverXkbConfigV1CreateKeymap config fd RiverXkbConfigV1KeymapFormatTextV1 (mkKeymapHandler mvar)
+    forM_ fd $ \f -> void $ riverXkbConfigV1CreateKeymap config f RiverXkbConfigV1KeymapFormatTextV1 (mkKeymapHandler mvar)
   _ -> pure ()
 
 removeGlobals :: MVar WMState -> Object WlRegistry -> Word32 -> W ()

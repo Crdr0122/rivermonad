@@ -1,10 +1,9 @@
 module Handlers.XkbConfig (mkXkbConfigHandler, mkKeymapHandler) where
 
 import Control.Concurrent.MVar
-import Control.Monad (forM_, void)
+import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Optics.Core
-import Optics.Operators
 import Protocols.Generated
 import Types
 import Wayland.Connection

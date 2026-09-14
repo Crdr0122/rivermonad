@@ -12,7 +12,7 @@ module Utils.BiSeqMap (
   changeSeqOrder,
   insertList,
   insertByIndex,
-  lookUpNext,
+  swapOutSeq,
   fromList,
 ) where
 
@@ -56,15 +56,15 @@ insertByIndex a b index bimap@(BiSeqMap ab ba)
           ba' = M.insert b a ba
        in BiSeqMap ab' ba'
 
-lookUpNext :: (Ord a, Ord b) => a -> Bool -> b -> BiSeqMap a b -> b
-lookUpNext a forward b bimap =
-  let s = lookupBs a bimap
-   in case S.elemIndexL b s of
-        Nothing -> b
-        Just i ->
-          if forward
-            then S.index s ((i + 1) `mod` length s)
-            else S.index s ((i - 1) `mod` length s)
+-- lookUpNext :: (Ord a, Ord b) => a -> Bool -> b -> BiSeqMap a b -> b
+-- lookUpNext a forward b bimap =
+--   let s = lookupBs a bimap
+--    in case S.elemIndexL b s of
+--         Nothing -> b
+--         Just i ->
+--           if forward
+--             then S.index s ((i + 1) `mod` length s)
+--             else S.index s ((i - 1) `mod` length s)
 
 changeSeqOrder :: (Ord a, Ord b) => a -> (S.Seq b -> S.Seq b) -> BiSeqMap a b -> BiSeqMap a b
 changeSeqOrder a fun (BiSeqMap ab ba) = BiSeqMap ab' ba
@@ -75,6 +75,10 @@ insertList :: (Ord a, Ord b) => a -> [b] -> BiSeqMap a b -> BiSeqMap a b
 insertList a bs bm = res
  where
   res = foldr' (\newW oldMap -> insert a newW oldMap) bm (reverse bs)
+
+{--| This function requires the windows are only changed in order-}
+swapOutSeq :: (Ord a) => a -> S.Seq b -> BiSeqMap a b -> BiSeqMap a b
+swapOutSeq a bs bm = bm{aToBs = M.insert a bs (aToBs bm)}
 
 lookupA :: (Ord b) => b -> BiSeqMap a b -> Maybe a
 lookupA b = M.lookup b . bToA

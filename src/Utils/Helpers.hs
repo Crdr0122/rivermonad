@@ -3,12 +3,13 @@
 module Utils.Helpers (
   calculateFloatingPosition,
   calculateFloatingPositions,
-  workspaceWindows,
-  focusedWorkspace,
+  getWorkspaceWindows,
+  getFocusedWorkspace,
   setFocusedWindowAndHistory,
-  focusedOutputGeom,
+  getFocusedOutputGeom,
   pairOfGetter,
   pairOf,
+  lookUpNext,
   edgeRight,
   edgeTop,
   edgeLeft,
@@ -48,11 +49,20 @@ setFocusedWindowAndHistory ws w = do
   #focusedWin ?= w
   #workspaceFocusHistory % at ws ?= w
 
+lookUpNext :: (Eq a) => Bool -> a -> S.Seq a -> a
+lookUpNext forward a s =
+  case S.elemIndexL a s of
+    Nothing -> a
+    Just i ->
+      if forward
+        then S.index s ((i + 1) `mod` length s)
+        else S.index s ((i - 1) `mod` length s)
+
 deleteWinObjs :: (MonadState WMState m) => Object RiverWindowV1 -> m ()
 deleteWinObjs win = do
-  #allWorkspacesFloating %= BS.delete win
-  #allWorkspacesTiled %= BS.delete win
-  #allWorkspacesFullscreen %= BS.delete win
+  -- #allWorkspacesFloating %= BS.delete win
+  -- #allWorkspacesFullscreen %= BS.delete win
+  #allWorkspaceWindows %= BS.delete win
   #newWindowQueue %= L.delete win
   #floatingQueue %= M.map (filter (/= win))
   #fullscreenQueue %= M.map (filter (/= win))
@@ -125,17 +135,18 @@ calculateFloatingPosition
     dx = multX * scaleX
     dy = multY * scaleY
 
-workspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Object RiverWindowV1))
-workspaceWindows ws = to $ \s ->
-  (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
-    S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
-    S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
+getWorkspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Object RiverWindowV1))
+getWorkspaceWindows ws = to $ \s -> s ^. #allWorkspaceWindows % to (BS.lookupBs ws)
 
-focusedWorkspace :: Getter WMState (Maybe WorkspaceID)
-focusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOut)) % _Just
+-- (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
+--   S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
+--   S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
 
-focusedOutputGeom :: Getter WMState (Maybe Rect)
-focusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOut) %? #outGeo
+getFocusedWorkspace :: Getter WMState (Maybe WorkspaceID)
+getFocusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOut)) % _Just
+
+getFocusedOutputGeom :: Getter WMState (Maybe Rect)
+getFocusedOutputGeom = to $ \s -> s ^? #allOutputs % at (s ^. #focusedOut) %? #outGeo
 
 pairOf :: Lens' s a -> Lens' s b -> Lens' s (a, b)
 pairOf la lb = lens getter setter

@@ -42,7 +42,7 @@ focusNone mvar _ = do
     if s ^. #focusedOut == nonObject
       then
         pure $ s & #focusedWin .~ Nothing
-      else case s ^. focusedWorkspace of
+      else case s ^. getFocusedWorkspace of
         Nothing -> pure $ s & #focusedWin .~ Nothing
         Just ws -> case s ^. #workspaceFocusHistory % at ws of
           Nothing -> pure $ s & #focusedWin .~ Nothing
