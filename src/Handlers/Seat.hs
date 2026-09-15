@@ -11,7 +11,6 @@ import Optics.State
 import Optics.State.Operators
 import Protocols.Generated
 import Types
-import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.Connection
 
@@ -52,23 +51,18 @@ windowInteraction mvar _ win = do
   modifyMVarW_ mvar $ pure . execState transform
  where
   transform = do
-    use (pairOfGetter #focusedWin (#allWindows % at win)) >>= \case
+    use (pairOfGetter #focusedWin (pairOfGetter (#allWindows % at win) (getWinWorkspace win))) >>= \case
       (Just fWin, _) | fWin == win -> pure ()
-      (_, Just winRec) -> do
-        -- tiled <- use #allWorkspacesTiled
-        -- floating <- use #allWorkspacesFloating
-        -- full <- use #allWorkspacesFullscreen
-        windows <- use #allWorkspaceWindows
-        forM_ (BS.lookupA win windows) $ \ws -> do
-          setFocusedWindowAndHistory ws win
-          when (winRec ^. #winFloat) $ #renderQueue >>>= riverNodeV1PlaceTop (winRec ^. #winNodeObj)
+      (_, (Just winRec, Just ws)) -> do
+        setFocusedWindowAndHistory ws win
+        when (winRec ^. #winFloat) $ #renderQueue >>>= riverNodeV1PlaceTop (winRec ^. #winNodeObj)
 
-          oToW <- use #allOutputWorkspaces
-          oldO <- use #focusedOut
-          case B.lookupR ws oToW of
-            Just o | o /= oldO -> do
-              #focusedOut .= o
-            _ -> pure ()
+        oToW <- use #allOutputWorkspaces
+        oldO <- use #focusedOut
+        case B.lookupR ws oToW of
+          Just o | o /= oldO -> do
+            #focusedOut .= o
+          _ -> pure ()
       _ -> pure ()
 
 opDelta :: MVar WMState -> Object RiverSeatV1 -> Int32 -> Int32 -> W ()

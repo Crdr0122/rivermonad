@@ -11,6 +11,7 @@ import Control.Monad.State (MonadState)
 import Data.Aeson hiding (Object)
 import Data.Bimap
 import Data.Int
+import Data.IntMap.Strict
 import Data.Map.Strict
 import Data.Sequence
 import Data.Set qualified as S
@@ -22,7 +23,6 @@ import Network.Socket
 import Optics.Core
 import Optics.State
 import Protocols.Generated
-import Utils.BiSeqMap
 import Utils.Keysyms
 import Wayland.Connection
 import Wayland.Generated
@@ -72,10 +72,8 @@ data WMState = WMState
   , focusedOut :: Object RiverOutputV1
   , focusedSeat :: Object RiverSeatV1
   , allOutputWorkspaces :: Bimap (Object RiverOutputV1) WorkspaceID
-  , allWorkspaceWindows :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-  -- , allWorkspacesTiled :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-  -- , allWorkspacesFloating :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-  -- , allWorkspacesFullscreen :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+  , -- , allWorkspaceWindows :: BiSeqMap WorkspaceID (Object RiverWindowV1)
+    allWorkspaceWindows :: IntMap (Seq (Object RiverWindowV1))
   , workspaceFocusHistory :: Map WorkspaceID (Object RiverWindowV1)
   , lastFocusedWorkspace :: WorkspaceID
   , persistedStateOutputs :: Map Word32 WorkspaceID

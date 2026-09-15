@@ -11,13 +11,13 @@ import Control.Monad.STM (atomically)
 import Data.Aeson
 import Data.Bimap qualified as B
 import Data.ByteString.Lazy qualified as Byte
+import Data.IntMap.Strict qualified as IM
 import Data.Map.Strict qualified as M
 import Handlers.Registry
 import IPC
 import System.Directory
 import System.Posix.Types (Fd (..))
 import Types
-import Utils.BiSeqMap qualified as BS
 import Utils.KeyDispatches
 import Utils.Keymap
 import Wayland.Connection
@@ -47,10 +47,7 @@ main = do
         , allOutputs = M.empty
         , allLayerShellOutputs = M.empty
         , focusedOut = nonObject
-        -- , allWorkspacesTiled = BS.empty
-        -- , allWorkspacesFloating = BS.empty
-        -- , allWorkspacesFullscreen = BS.empty
-        , allWorkspaceWindows = BS.empty
+        , allWorkspaceWindows = IM.empty
         , floatingQueue = M.fromList (zip [1 .. 9] (repeat []))
         , fullscreenQueue = M.fromList (zip [1 .. 9] (repeat []))
         , newWindowQueue = []

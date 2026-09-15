@@ -10,6 +10,7 @@ import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Bits
 import Data.Foldable
+import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Sequence qualified as S
 import Data.Text qualified as T
@@ -19,7 +20,6 @@ import Optics.State
 import Optics.State.Operators
 import Protocols.Generated
 import Types
-import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.Connection
 
@@ -77,7 +77,7 @@ startLayout stateMVar = do
                   % _3
 
           case status of
-            Tiled -> #allWorkspaceWindows %= BS.insert targetWS winPtr
+            Tiled -> #allWorkspaceWindows %= addToSeqIntMap targetWS winPtr
             Floating -> #floatingQueue % at targetWS %?= (winPtr :)
             Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
@@ -116,7 +116,7 @@ startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
       Nothing -> pure ()
       Just currentLayout -> do
         allWindows <- use #allWindows
-        workspaceWindowObjs <- use (#allWorkspaceWindows % to (BS.lookupBs ws))
+        workspaceWindowObjs <- use (#allWorkspaceWindows % to (IM.findWithDefault S.empty ws))
         fWin <- use #focusedWin
         let workspaceWindows = (allWindows M.!) <$> workspaceWindowObjs
 
@@ -140,7 +140,7 @@ startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
             newFloatingWindows = (allWindows M.!) <$> queuedFloatingWins
             (floatingPositions, floatMAction, floatRAction) =
               calculateFloatingPositions geom newFloatingWindows floatLength
-        #allWorkspaceWindows %= BS.insertList ws queuedFloatingWins
+        forM_ queuedFloatingWins (\w -> #allWorkspaceWindows %= addToSeqIntMap ws w)
         #manageQueue >>>= floatMAction
         #renderQueue >>>= floatRAction
         forM_ (zip newFloatingWindows floatingPositions) $ \(win, rect) -> do
@@ -151,7 +151,7 @@ startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
         -- Fullscreen
         newFullscreenPtrs <- use (#fullscreenQueue % at ws % non [])
         let newFullscreenWindows = (allWindows M.!) <$> newFullscreenPtrs
-        #allWorkspaceWindows %= BS.insertList ws newFullscreenPtrs
+        forM_ newFullscreenPtrs (\w -> #allWorkspaceWindows %= addToSeqIntMap ws w)
         forM_ newFullscreenPtrs $ \ptr -> do
           #allWindows % at ptr %? #winFull .= True
           #manageQueue >>>= (riverWindowV1Fullscreen ptr output >> riverWindowV1InformFullscreen ptr)

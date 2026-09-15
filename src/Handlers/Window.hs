@@ -13,7 +13,6 @@ import Optics.State
 import Optics.State.Operators
 import Protocols.Generated
 import Types
-import Utils.BiSeqMap qualified as BS
 import Utils.Helpers
 import Wayland.Connection
 
@@ -55,7 +54,7 @@ newIdent mvar win ident = do
         unless (ws == fWs) $ #renderQueue >>>= riverWindowV1Hide win
         case status of
           Tiled -> do
-            #allWorkspaceWindows %= BS.insert ws win
+            #allWorkspaceWindows %= addToSeqIntMap ws win
           Floating -> do
             #floatingQueue % at ws %?= (win :)
             #allWindows % at win %? #winFloat .= True
@@ -152,13 +151,13 @@ exitFullReq mvar win = do
   modifyMVarW_ mvar $ pure . execState transform
  where
   transform =
-    use (pairOfGetter (#allWindows % at win) (#allWorkspaceWindows % to (BS.lookupA win))) >>= \case
+    use (pairOfGetter (#allWindows % at win) (getWinWorkspace win)) >>= \case
       (Just Window{winFloat, winFull = True}, Just ws) -> do
         #allWindows % at win %? #winFull .= False
         #manageQueue >>>= (riverWindowV1ExitFullscreen win >> riverWindowV1InformNotFullscreen win)
         when winFloat $ do
           #floatingQueue % at ws %?= (win :)
-          #allWorkspaceWindows %= BS.delete win
+          #allWorkspaceWindows %= deleteFromSeqIntMap win
       _ -> pure ()
 
 maximizeReq :: MVar WMState -> Object RiverWindowV1 -> W ()

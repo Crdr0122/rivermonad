@@ -7,6 +7,10 @@ module Utils.Helpers (
   getFocusedWorkspace,
   setFocusedWindowAndHistory,
   getFocusedOutputGeom,
+  getWinWorkspace,
+  addToSeqIntMap,
+  moveInSeqIntMap,
+  deleteFromSeqIntMap,
   pairOfGetter,
   pairOf,
   lookUpNext,
@@ -33,6 +37,7 @@ module Utils.Helpers (
 
 import Control.Monad.State
 import Data.Bimap qualified as B
+import Data.IntMap.Strict qualified as IM
 import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Sequence qualified as S
@@ -41,7 +46,6 @@ import Optics.Core
 import Optics.State.Operators
 import Protocols.Generated
 import Types
-import Utils.BiSeqMap qualified as BS
 import Wayland.Connection
 
 setFocusedWindowAndHistory :: (MonadState WMState m) => WorkspaceID -> Object RiverWindowV1 -> m ()
@@ -58,15 +62,30 @@ lookUpNext forward a s =
         then S.index s ((i + 1) `mod` length s)
         else S.index s ((i - 1) `mod` length s)
 
+getWinWorkspace :: Object RiverWindowV1 -> Getter WMState (Maybe WorkspaceID)
+getWinWorkspace win = to $ \s -> case s ^. #allWorkspaceWindows % to (IM.assocs . IM.filter (elem win)) of
+  [] -> Nothing
+  (ws, _) : _ -> Just ws
+
 deleteWinObjs :: (MonadState WMState m) => Object RiverWindowV1 -> m ()
 deleteWinObjs win = do
-  -- #allWorkspacesFloating %= BS.delete win
-  -- #allWorkspacesFullscreen %= BS.delete win
-  #allWorkspaceWindows %= BS.delete win
+  #allWorkspaceWindows %= deleteFromSeqIntMap win
   #newWindowQueue %= L.delete win
   #floatingQueue %= M.map (filter (/= win))
   #fullscreenQueue %= M.map (filter (/= win))
   #workspaceFocusHistory %= M.filter (/= win)
+
+deleteFromSeqIntMap :: (Eq a) => a -> IM.IntMap (S.Seq a) -> IM.IntMap (S.Seq a)
+deleteFromSeqIntMap a = IM.map (S.filter (/= a))
+
+moveInSeqIntMap :: (Eq a) => a -> Int -> IM.IntMap (S.Seq a) -> IM.IntMap (S.Seq a)
+moveInSeqIntMap a target m = inserted
+ where
+  deleted = deleteFromSeqIntMap a m
+  inserted = addToSeqIntMap target a deleted
+
+addToSeqIntMap :: (Eq a) => Int -> a -> IM.IntMap (S.Seq a) -> IM.IntMap (S.Seq a)
+addToSeqIntMap target a m = IM.insertWith (S.><) target (S.singleton a) m
 
 calculateFloatingPositions :: Rect -> [Window] -> Int -> ([Rect], W (), W ())
 calculateFloatingPositions o windows num = result
@@ -136,11 +155,7 @@ calculateFloatingPosition
     dy = multY * scaleY
 
 getWorkspaceWindows :: WorkspaceID -> Getter WMState (S.Seq (Object RiverWindowV1))
-getWorkspaceWindows ws = to $ \s -> s ^. #allWorkspaceWindows % to (BS.lookupBs ws)
-
--- (s ^. #allWorkspacesFullscreen % to (BS.lookupBs ws))
---   S.>< (s ^. #allWorkspacesTiled % to (BS.lookupBs ws))
---   S.>< (s ^. #allWorkspacesFloating % to (BS.lookupBs ws))
+getWorkspaceWindows ws = to $ \s -> s ^. #allWorkspaceWindows % to (maybe S.empty id . IM.lookup ws)
 
 getFocusedWorkspace :: Getter WMState (Maybe WorkspaceID)
 getFocusedWorkspace = to $ \s -> s ^? #allOutputWorkspaces % to (B.lookup (s ^. #focusedOut)) % _Just
