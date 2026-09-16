@@ -52,27 +52,10 @@ startLayout stateMVar = do
         Nothing -> pure ()
         Just win -> do
           let (targetWS, status) = (getWorkspace, getStatus)
-              getWorkspace =
-                findOf
-                  folded
-                  ( \(t, a, _) ->
-                      t `T.isInfixOf` (win ^. #winTitle)
-                        && a `T.isInfixOf` (win ^. #winAppId)
-                  )
-                  (myConfig ^. #workspaceRules)
-                  ^. non ("", "", focusedWS)
-                  % _3
-
-              getStatus =
-                findOf
-                  folded
-                  ( \(t, a, _) ->
-                      t `T.isInfixOf` (win ^. #winTitle)
-                        && a `T.isInfixOf` (win ^. #winAppId)
-                  )
-                  (myConfig ^. #floatingRules)
-                  ^. non ("", "", Tiled)
-                  % _3
+              isInRule :: (Field1 a a T.Text T.Text, Field2 a a T.Text T.Text) => a -> Bool
+              isInRule x = (x ^. _1) `T.isInfixOf` (win ^. #winTitle) && (x ^. _2) `T.isInfixOf` (win ^. #winAppId)
+              getWorkspace = findOf folded isInRule (myConfig ^. #workspaceRules) ^. non ("", "", focusedWS) % _3
+              getStatus = findOf folded isInRule (myConfig ^. #floatingRules) ^. non ("", "", Tiled) % _3
 
           case status of
             Tiled -> #allWorkspaceWindows %= addToSeqIntMap targetWS winPtr
@@ -80,16 +63,7 @@ startLayout stateMVar = do
             Fullscreen -> #fullscreenQueue % at targetWS %?= (winPtr :)
             FullscreenFloating -> #fullscreenQueue % at targetWS %?= (winPtr :)
 
-          let getSize =
-                findOf
-                  folded
-                  ( \(t, a, _, _) ->
-                      t `T.isInfixOf` (win ^. #winTitle)
-                        && a `T.isInfixOf` (win ^. #winAppId)
-                  )
-                  (myConfig ^. #windowSizeRules)
-                  ^. non ("", "", 0, 0)
-                  % to ((^. _3) &&& (^. _4))
+          let getSize = findOf folded isInRule (myConfig ^. #windowSizeRules) ^. non ("", "", 0, 0) % to ((^. _3) &&& (^. _4))
 
           case getSize of
             (0, 0) -> pure ()
