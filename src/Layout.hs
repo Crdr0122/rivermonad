@@ -5,7 +5,7 @@ module Layout where
 import Config
 import Control.Arrow ((&&&))
 import Control.Concurrent.MVar
-import Control.Monad (unless, when)
+import Control.Monad (foldM, unless, when)
 import Control.Monad.State hiding (state)
 import Data.Bimap qualified as B
 import Data.Bits
@@ -25,24 +25,22 @@ import Wayland.Connection
 
 startLayout :: MVar WMState -> W ()
 startLayout stateMVar = do
-  modifyMVarW_ stateMVar $ \state -> do
-    let newState = execState sortNewWindows state
-    newState ^. #manageQueue
-    let
-      o = newState ^. #focusedOut
-      seat = (newState ^. #focusedSeat)
+  modifyMVarW_ stateMVar $ \state0 -> do
+    let sortedState = execState sortNewWindows state0
 
-    maybe (riverSeatV1ClearFocus seat) (riverSeatV1FocusWindow seat) (newState ^. #focusedWin)
+    sortedState ^. #manageQueue
+    let o = sortedState ^. #focusedOut
+        seat = (sortedState ^. #focusedSeat)
 
-    if o /= nonObject
-      then case newState ^? #allOutputs % at o %? #outLayerShellObj of
+    maybe (riverSeatV1ClearFocus seat) (riverSeatV1FocusWindow seat) (sortedState ^. #focusedWin)
+
+    when (o /= nonObject) $
+      case sortedState ^? #allOutputs % at o %? #outLayerShellObj of
         Nothing -> pure ()
         Just oRec -> riverLayerShellOutputV1SetDefault oRec
-      else pure ()
 
-    pure $ newState & #manageQueue .~ pure ()
-  state <- liftIO $ readMVar stateMVar
-  mapM_ (startLayoutOutput stateMVar) $ B.toList (state ^. #allOutputWorkspaces)
+    let clearedState = sortedState & #manageQueue .~ pure ()
+    foldM layoutOneOutput clearedState (B.toList (clearedState ^. #allOutputWorkspaces))
  where
   sortNewWindows = do
     queue <- use #newWindowQueue
@@ -100,8 +98,8 @@ startLayout stateMVar = do
           when (targetWS == focusedWS) $ setFocusedWindowAndHistory focusedWS winPtr
           unless (targetWS `elem` B.keysR workmaps) $ #renderQueue >>>= riverWindowV1Hide winPtr
 
-startLayoutOutput :: MVar WMState -> (Object RiverOutputV1, WorkspaceID) -> W ()
-startLayoutOutput stateMVar (output, ws) = modifyMVarW_ stateMVar $ \state ->
+layoutOneOutput :: WMState -> (Object RiverOutputV1, WorkspaceID) -> W WMState
+layoutOneOutput state (output, ws) =
   case state ^? #allOutputs % at output %? #outGeo of
     Nothing -> pure state
     Just geom -> do
