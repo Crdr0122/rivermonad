@@ -124,13 +124,11 @@ toggleFullscreenCurrentWindow _ stateMVar = modifyMVarW_ stateMVar $ pure . exec
  where
   transform = do
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
-      (Just win, Just ws) -> do
+      (Just win, Just ws) ->
         use (#allWindows % at win) >>= \case
-          Just winRec | not (winRec ^. #winPinned) -> do
-            let currentlyFullscreen = winRec ^. #winFull
-                currentlyFloating = winRec ^. #winFloat
-            if currentlyFullscreen
-              then exitFullscreen win currentlyFloating ws
+          Just winRec@Window{winPinned = False} -> do
+            if winRec ^. #winFull
+              then exitFullscreen win (winRec ^. #winFloat) ws
               else enterFullscreen win ws
             #allWindows % at win %? #winFull %= not
           _ -> pure ()
@@ -153,7 +151,7 @@ toggleFloatingCurrentWindow _ stateMVar = modifyMVarW_ stateMVar $ pure . execSt
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just win, Just ws) -> do
         use (#allWindows % at win) >>= \case
-          Just winRec | not (winRec ^. #winPinned || winRec ^. #winFull) -> do
+          Just winRec@Window{winPinned = False, winFull = False} -> do
             unless (view #winFloat winRec) $ enterFloating win ws
             #allWindows % at win %? #winFloat %= not
           _ -> pure ()
@@ -169,7 +167,7 @@ togglePinWindow _ stateMVar = do
     case s ^. #focusedWin of
       Nothing -> pure s
       Just w -> case s ^? #allWindows % at w % _Just of
-        Just win | win ^. #winFloat && not (win ^. #winFull) -> pure $ s & #allWindows % at w %? #winPinned %~ not
+        Just Window{winFloat = True, winFull = False} -> pure $ s & #allWindows % at w %? #winPinned %~ not
         _ -> pure s
 
 toggleMaximizeWindow :: Object RiverSeatV1 -> MVar WMState -> W ()
@@ -193,7 +191,7 @@ cycleWindows forward _ stateMVar = modifyMVarW_ stateMVar $ pure . execState tra
       (Just w, Just focusedWs) -> do
         allWins <- use #allWindows
         allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty focusedWs)))
-        let (tiledWins, nonTiledWins) = S.partition (\x -> not (winFloat x || winFull x)) allWinObjs
+        let (nonTiledWins, tiledWins) = S.partition (\x -> winFloat x || winFull x) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
             newTiled = cycleW forward tiled
             newFocused = lookUpNext forward w newTiled
@@ -271,10 +269,11 @@ switchWorkspace targetID _ stateMVar = modifyMVarW_ stateMVar $ \state -> do
       Just currentWs | currentWs /= target -> do
         #allOutputWorkspaces %= B.insert currentO target
         allWins <- use #allWindows
-        currentWins <- use (getWorkspaceWindows currentWs)
-        newWins <- use (getWorkspaceWindows target)
+
         -- Pinned windows are moved to new workspace
         itraverseOf_ (itraversed % filtered (^. #winPinned)) (\p _ -> #allWorkspaceWindows %= moveInSeqIntMap p target) $ allWins
+        currentWins <- use (getWorkspaceWindows currentWs)
+        newWins <- use (getWorkspaceWindows target)
 
         case B.lookupR target outWorkmaps of
           -- Target workspace was hidden

@@ -121,12 +121,12 @@ layoutOneOutput state (output, ws) =
           #renderQueue >>>= riverWindowV1SetContentClipBox obj 0 0 0 0
 
         -- Fullscreen
-        newFullscreenPtrs <- use (#fullscreenQueue % at ws % non [])
-        let newFullscreenWindows = (allWindows M.!) <$> newFullscreenPtrs
-        forM_ newFullscreenPtrs (\w -> #allWorkspaceWindows %= addToSeqIntMap ws w)
-        forM_ newFullscreenPtrs $ \ptr -> do
-          #allWindows % at ptr %? #winFull .= True
-          #manageQueue >>>= (riverWindowV1Fullscreen ptr output >> riverWindowV1InformFullscreen ptr)
+        newFullscreenObjs <- use (#fullscreenQueue % at ws % non [])
+        let newFullscreenWindows = (allWindows M.!) <$> newFullscreenObjs
+        forM_ newFullscreenObjs (\w -> #allWorkspaceWindows %= addToSeqIntMap ws w)
+        forM_ newFullscreenObjs $ \obj -> do
+          #allWindows % at obj %? #winFull .= True
+          #manageQueue >>>= (riverWindowV1Fullscreen obj output >> riverWindowV1InformFullscreen obj)
         #renderQueue >>>= raiseAllWindows (reverse newFullscreenWindows)
 
         -- Borders
