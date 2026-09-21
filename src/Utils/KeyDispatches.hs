@@ -77,7 +77,7 @@ closeAllWindowsOnWorkspace _ stateMVar = do
     case state ^. getFocusedWorkspace of
       Nothing -> pure state
       Just ws -> do
-        let wins = state ^. #allWorkspaceWindows % to (IM.findWithDefault S.empty ws)
+        let wins = state ^. getWorkspaceWindows ws
         pure $ state & #manageQueue >>~ (forM_ wins riverWindowV1Close)
 
 toggleFocusFloating :: Object RiverSeatV1 -> MVar WMState -> W ()
@@ -90,7 +90,7 @@ toggleFocusFloating _ stateMVar = modifyMVarW_ stateMVar $ pure . execState tran
         use (pairOfGetter (#allWindows % at w) getFocusedWorkspace) >>= \case
           (Just win, Just ws) | not (win ^. #winFull) -> do
             allWins <- use #allWindows
-            allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty ws)))
+            allWinObjs <- use (getWorkspaceWindows ws % to ((allWins M.!) <$>))
             let (nonTiledWins, tiledWins) = S.partition (\x -> winFloat x || winFull x) allWinObjs
                 tiled = winObj <$> tiledWins
                 floating = winObj <$> S.filter (not . winFull) nonTiledWins
@@ -190,7 +190,7 @@ cycleWindows forward _ stateMVar = modifyMVarW_ stateMVar $ pure . execState tra
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just w, Just focusedWs) -> do
         allWins <- use #allWindows
-        allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty focusedWs)))
+        allWinObjs <- use (getWorkspaceWindows focusedWs % to ((allWins M.!) <$>))
         let (nonTiledWins, tiledWins) = S.partition (\x -> winFloat x || winFull x) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
             newTiled = cycleW forward tiled
@@ -212,7 +212,7 @@ cycleWindowSlaves forward _ stateMVar = modifyMVarW_ stateMVar $ pure . execStat
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just w, Just focusedWs) -> do
         allWins <- use #allWindows
-        allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty focusedWs)))
+        allWinObjs <- use (getWorkspaceWindows focusedWs % to ((allWins M.!) <$>))
         let (nonTiledWins, tiledWins) = S.partition (\x -> winFloat x || winFull x) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
             newTiled = cycleW forward tiled
@@ -237,7 +237,7 @@ zoomWindow _ stateMVar = modifyMVarW_ stateMVar $ pure . execState transform
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
         allWins <- use #allWindows
-        allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty ws)))
+        allWinObjs <- use (getWorkspaceWindows ws % to ((allWins M.!) <$>))
         let (nonTiledWins, tiledWins) = S.partition (\w -> winFloat w || winFull w) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
         let (newSeq, newFocus) = zoom currentWin tiled
@@ -366,7 +366,7 @@ swapWindow direction seat stateMVar = modifyMVarW_ stateMVar $ pure . execState 
     use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
       (Just currentWin, Just ws) -> do
         allWins <- use #allWindows
-        allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty ws)))
+        allWinObjs <- use (getWorkspaceWindows ws % to ((allWins M.!) <$>))
         let (nonTiledWins, tiledWins) = S.partition (\w -> winFloat w || winFull w) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
         case S.elemIndexL currentWin tiled of
@@ -506,7 +506,7 @@ stopDragging seat stateMVar = modifyMVarW_ stateMVar $ pure . execState finalize
         (curX, curY, _, _) <- use #currentOpDelta
 
         allWins <- use #allWindows
-        allWinObjs <- use (#allWorkspaceWindows % to (((allWins M.!) <$>) . (IM.findWithDefault S.empty ws)))
+        allWinObjs <- use (getWorkspaceWindows ws % to ((allWins M.!) <$>))
         let (nonTiledWins, tiledWins) = S.partition (\x -> winFloat x || winFull x) allWinObjs
             (tiled, nonTiled) = (winObj <$> tiledWins, winObj <$> nonTiledWins)
 
@@ -520,7 +520,6 @@ stopDragging seat stateMVar = modifyMVarW_ stateMVar $ pure . execState finalize
             newTiled = S.insertAt targetIndex win tiled
 
         #allWorkspaceWindows %= IM.insert ws (newTiled S.>< nonTiled)
-      -- #allWorkspaceWindows %= BS.insertByIndex ws win targetIndex
       _ -> pure ()
     #opDeltaState .= None
     #currentOpDelta .= (0, 0, 0, 0)

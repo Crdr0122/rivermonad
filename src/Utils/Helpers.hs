@@ -57,10 +57,7 @@ lookUpNext :: (Eq a) => Bool -> a -> S.Seq a -> a
 lookUpNext forward a s =
   case S.elemIndexL a s of
     Nothing -> a
-    Just i ->
-      if forward
-        then S.index s ((i + 1) `mod` length s)
-        else S.index s ((i - 1) `mod` length s)
+    Just i -> S.index s (((if forward then (+) else (-)) i 1) `mod` length s)
 
 getWinWorkspace :: Object RiverWindowV1 -> Getter WMState (Maybe WorkspaceID)
 getWinWorkspace win = to $ \s -> case s ^. #allWorkspaceWindows % to (IM.assocs . IM.filter (elem win)) of
