@@ -111,8 +111,7 @@ myConfig =
           , hsXkbVariant = Nothing
           , hsXkbOptions = Just "compose:rctrl"
           }
-    , keyboardRepeatInfo = Nothing
-    , outputRules = [("HDMI-A-1", (2560, 1440), 143999, ZwlrOutputHeadV1AdaptiveSyncStateEnabled)]
+    , outputRules = [("HDMI-A-1", (2560, 1440), 144000, ZwlrOutputHeadV1AdaptiveSyncStateEnabled)]
     }
 
 cycleWindowsOrSlaves :: Bool -> Object RiverSeatV1 -> MVar WMState -> W ()

@@ -95,19 +95,21 @@ managerDone :: MVar WMState -> Object ZwlrOutputManagerV1 -> Word32 -> W ()
 managerDone mvar m serial = do
   modifyMVarW_ mvar $ execStateT transform
  where
+  sameRefresh a b = abs (a - b) <= refreshToleranceMHz
+  refreshToleranceMHz = 15
   transform = do
     c <- lift $ zwlrOutputManagerV1CreateConfiguration m serial mkConfigHandlers
     outs <- use (#tempWlrOuts % to M.elems)
     let rules = myConfig ^. #outputRules
     forM_ rules $ \(name, size, refresh, sync) -> do
       case L.find (\o -> wlrOutName o == name) outs of
-        Nothing -> pure ()
+        Nothing -> liftIO $ putStrLn "Failed to find out"
         Just out -> do
           ch <- lift $ zwlrOutputConfigurationV1EnableHead c (wlrOutObj out) ZwlrOutputConfigurationHeadV1Handlers{}
-          unless (wlrOutSync out == sync) $ (lift $ zwlrOutputConfigurationHeadV1SetAdaptiveSync ch sync)
+          unless (wlrOutSync out == sync) (lift $ zwlrOutputConfigurationHeadV1SetAdaptiveSync ch sync)
           let modes = wlrOutMode out
-          case L.find (\mode -> modeSize mode == size && modeRefresh mode == refresh) modes of
-            Nothing -> pure ()
-            Just WlrMode{modeObj} -> unless (wlrOutCurMode out == modeObj) $ (lift $ zwlrOutputConfigurationHeadV1SetMode ch modeObj)
+          case L.find (\mode -> modeSize mode == size && sameRefresh (modeRefresh mode) refresh) modes of
+            Nothing -> liftIO $ putStrLn "Failed to find mode"
+            Just WlrMode{modeObj} -> unless (wlrOutCurMode out == modeObj) $ lift $ zwlrOutputConfigurationHeadV1SetMode ch modeObj
     lift $ zwlrOutputConfigurationV1Apply c
     #tempWlrOuts .= M.empty
