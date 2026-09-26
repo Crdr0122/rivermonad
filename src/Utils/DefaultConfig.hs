@@ -110,4 +110,5 @@ defaultConfig =
     , execOnStart = []
     , keyboardOptions = HsXkbRuleNames Nothing Nothing Nothing Nothing Nothing
     , keyboardRepeatInfo = Nothing
+    , outputRules = []
     }

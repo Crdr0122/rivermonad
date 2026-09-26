@@ -72,8 +72,7 @@ data WMState = WMState
   , focusedOut :: Object RiverOutputV1
   , focusedSeat :: Object RiverSeatV1
   , allOutputWorkspaces :: Bimap (Object RiverOutputV1) WorkspaceID
-  , -- , allWorkspaceWindows :: BiSeqMap WorkspaceID (Object RiverWindowV1)
-    allWorkspaceWindows :: IntMap (Seq (Object RiverWindowV1))
+  , allWorkspaceWindows :: IntMap (Seq (Object RiverWindowV1))
   , workspaceFocusHistory :: Map WorkspaceID (Object RiverWindowV1)
   , lastFocusedWorkspace :: WorkspaceID
   , persistedStateOutputs :: Map Word32 WorkspaceID
@@ -83,6 +82,7 @@ data WMState = WMState
   , subscribers :: [Socket]
   , persistedStateWindows :: Map Text (WorkspaceID, WindowStatus)
   , currentKeyMap :: Either [Object RiverXkbKeyboardV1] (Object RiverXkbKeymapV1)
+  , tempWlrOuts :: Map (Object ZwlrOutputHeadV1) WlrOut
   }
   deriving (Generic)
 
@@ -121,6 +121,23 @@ data Output = Output
   , outLayerShellObj :: Object RiverLayerShellOutputV1
   , outGeo :: Rect
   , outWlOut :: Word32
+  }
+  deriving (Generic, Eq)
+
+data WlrOut = WlrOut
+  { wlrOutObj :: Object ZwlrOutputHeadV1
+  , wlrOutName :: Text
+  , wlrOutMode :: Map (Object ZwlrOutputModeV1) WlrMode
+  , wlrOutCurMode :: Object ZwlrOutputModeV1
+  , wlrOutSerial :: Text
+  , wlrOutSync :: ZwlrOutputHeadV1AdaptiveSyncStateEnum
+  }
+  deriving (Generic, Eq)
+
+data WlrMode = WlrMode
+  { modeObj :: Object ZwlrOutputModeV1
+  , modeSize :: (Int32, Int32)
+  , modeRefresh :: Int32
   }
   deriving (Generic, Eq)
 
@@ -208,6 +225,7 @@ data RivermonadConfig = RivermonadConfig
   , execOnStart :: [String]
   , keyboardOptions :: HsXkbRuleNames
   , keyboardRepeatInfo :: Maybe (Int32, Int32)
+  , outputRules :: [(Text, (Int32, Int32), Int32, ZwlrOutputHeadV1AdaptiveSyncStateEnum)]
   }
   deriving (Generic)
 

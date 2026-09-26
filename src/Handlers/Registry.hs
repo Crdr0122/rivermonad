@@ -11,6 +11,7 @@ import Handlers.LibInput
 import Handlers.RiverWM
 import Handlers.WlSeat
 import Handlers.XkbConfig
+import Handlers.WlrOutput
 import Optics.Core
 import Protocols.Generated
 import System.Posix.Types (Fd)
@@ -49,6 +50,9 @@ bindHandlers mvar fd reg name iface version = case iface of
   "river_libinput_config_v1" -> do
     _ <- wlRegistryBind reg name (min 2 version) (mkLibInputHandlers mvar)
     liftIO $ putStrLn $ "Bound Libinput Config"
+  "zwlr_output_manager_v1" -> do
+    _ <- wlRegistryBind reg name (min 4 version) (mkWlrOutputManagerHandlers mvar)
+    liftIO $ putStrLn $ "Bound Wlr Output Manager"
   "wl_seat" -> do
     seat <- wlRegistryBind reg name (min 9 version) (mkWlSeatHandlers mvar name)
     modifyMVarW_ mvar $ \state -> do

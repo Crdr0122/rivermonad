@@ -70,6 +70,7 @@ main = do
         , workspaceFocusHistory = M.empty
         , currentKeyMap = Left []
         , subscribers = []
+        , tempWlrOuts = M.empty
         }
 
   startIPCListener "/tmp/rivermonad.sock" queue
