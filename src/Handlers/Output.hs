@@ -4,9 +4,12 @@ import Control.Concurrent.MVar
 import Control.Monad (when)
 import Control.Monad.State
 import Data.Bimap qualified as B
+import Data.Foldable
+import Data.IntMap qualified as I
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe
+import Data.Sequence qualified as S
 import Optics.Core
 import Optics.State
 import Optics.State.Operators
@@ -40,16 +43,27 @@ wlOutput mvar out wlOut = do
   transform = do
     #allOutputs % at out %? #outWlOut .= wlOut
     oWs <- use #allOutputWorkspaces
-    use (#persistedStateOutputs % at wlOut) >>= \case
-      Just oldW | B.notMemberR oldW oWs -> do
-        #allOutputWorkspaces %= B.insert out oldW
-      _ -> do
-        let remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ oWs) [1 ..]
-        #allOutputWorkspaces %= B.insert out remainingWorkspace
+    newWorkspaceId <-
+      use (#persistedStateOutputs % at wlOut) >>= \case
+        Just oldW | B.notMemberR oldW oWs -> do
+          #allOutputWorkspaces %= B.insert out oldW
+          pure oldW
+        _ -> do
+          let remainingWorkspace = fromMaybe 0 $ L.find (\n -> B.notMemberR n $ oWs) [1 ..]
+          #allOutputWorkspaces %= B.insert out remainingWorkspace
+          pure remainingWorkspace
 
     #persistedStateOutputs % at wlOut .= Nothing
+
+    allWins <- use #allWorkspaceWindows
+    let toShowWins = maybe S.empty id $ I.lookup newWorkspaceId allWins
+    #renderQueue >>>= forM_ toShowWins riverWindowV1Show
+
     fO <- use #focusedOut
-    when (fO == nonObject) $ #focusedOut .= out
+    when (fO == nonObject) $ do
+      #focusedOut .= out
+      hiddenWins <- use (#allOutputWorkspaces % to B.keysR % to (L.foldr I.delete allWins) % to I.elems % to (concatMap toList))
+      #renderQueue >>>= forM_ hiddenWins riverWindowV1Hide
 
 removed :: MVar WMState -> Object RiverOutputV1 -> W ()
 removed mvar out = do

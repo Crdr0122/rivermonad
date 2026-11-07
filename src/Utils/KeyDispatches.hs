@@ -106,18 +106,23 @@ cycleWindowFocus :: Bool -> Object RiverSeatV1 -> MVar WMState -> W ()
 cycleWindowFocus forward _ stateMVar = modifyMVarW_ stateMVar $ pure . execState transform
  where
   transform =
-    use (pairOfGetter #focusedWin getFocusedWorkspace) >>= \case
-      (Just w, Just focusedWs) -> do
-        wins <- use (getWorkspaceWindows focusedWs)
-        let next = lookUpNext forward w wins
-        nextWinData <- use (#allWindows % at next)
-        let renderAction = case nextWinData of
-              Just nData | view #winFull nData || view #winFloat nData -> riverNodeV1PlaceTop (view #winNodeObj nData)
-              _ -> pure ()
+    use #focusedWin >>= \case
+      Nothing -> pure ()
+      Just w ->
+        use (pairOfGetter (#allWindows % at w) getFocusedWorkspace) >>= \case
+          (Just Window{winFloat = f}, Just focusedWs) -> do
+            allWins <- use #allWindows
+            allWinObjs <- use (getWorkspaceWindows focusedWs % to ((allWins M.!) <$>))
+            let (floatWins, tiledWins) = S.partition winFloat allWinObjs
+                next = if f then lookUpNext forward w (winObj <$> floatWins) else lookUpNext forward w (winObj <$> tiledWins)
+            nextWinData <- use (#allWindows % at next)
+            let renderAction = case nextWinData of
+                  Just nData | view #winFull nData || view #winFloat nData -> riverNodeV1PlaceTop (view #winNodeObj nData)
+                  _ -> pure ()
 
-        setFocusedWindowAndHistory focusedWs next
-        #renderQueue >>>= renderAction
-      _ -> pure ()
+            setFocusedWindowAndHistory focusedWs next
+            #renderQueue >>>= renderAction
+          _ -> pure ()
 
 toggleFullscreenCurrentWindow :: Object RiverSeatV1 -> MVar WMState -> W ()
 toggleFullscreenCurrentWindow _ stateMVar = modifyMVarW_ stateMVar $ pure . execState transform
