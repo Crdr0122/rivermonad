@@ -38,6 +38,8 @@ mkWindowHandler mvar =
     , onRiverWindowV1ShowWindowMenuRequested = \_ _ _ -> pure ()
     , onRiverWindowV1PresentationHint = \_ _ -> pure ()
     , onRiverWindowV1UnreliablePid = \_ _ -> pure ()
+    , onRiverWindowV1TouchMoveRequested = \_ _ _ -> pure ()
+    , onRiverWindowV1TouchResizeRequested = \_ _ _ _ -> pure ()
     }
 
 newIdent :: MVar WMState -> Object RiverWindowV1 -> T.Text -> W ()

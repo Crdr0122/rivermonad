@@ -4,7 +4,7 @@ Uses waywire for wayland communication
 
 Everything will be hardcoded for personal use
 
-Current protocols: River 0.4.7
+Current protocols: River 0.5.0
 
 # TODO
 - fixedT conversion functions, currently is Word32
@@ -38,7 +38,7 @@ Current protocols: River 0.4.7
   - [ ] Copy swayipc
 - [X] Window pinning (Only floating)
 - [X] Directional window focus and swapping
-- [X] Xkb Keymap (Needs manually writing keymap string but works)
+- [X] Xkb Keymap
 - [ ] Ext-workspace (wait for river)
 - [X] Cursor shape
 - [X] Multimonitor focus other outputs

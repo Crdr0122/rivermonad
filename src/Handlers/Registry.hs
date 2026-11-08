@@ -33,7 +33,7 @@ bindHandlers mvar fd reg name iface version = case iface of
     modifyMVarW_ mvar $ pure . (#currentCursorShapeManager .~ cursor)
     liftIO $ putStrLn $ "Bound Cursor Shape Manager"
   "river_window_manager_v1" -> do
-    wmPtr <- wlRegistryBind reg name (min 5 version) (mkRiverWMHandler mvar)
+    wmPtr <- wlRegistryBind reg name (min 6 version) (mkRiverWMHandler mvar)
     modifyMVarW_ mvar $ pure . (#currentWM .~ wmPtr)
     liftIO $ putStrLn $ "Bound Window Manager"
   "river_xkb_bindings_v1" -> do

@@ -26,6 +26,9 @@ mkSeatHandler mvar =
     , onRiverSeatV1PointerPosition = pointerPosition mvar
     , onRiverSeatV1WlSeat = wlSeat mvar
     , onRiverSeatV1Removed = removed mvar
+    , onRiverSeatV1OpDeltaTouch = \_ _ _ _ -> pure ()
+    , onRiverSeatV1OpReleaseTouch = \_ _ -> pure ()
+    , onRiverSeatV1OpCancelTouch = \_ _ -> pure ()
     }
 
 wlSeat :: MVar WMState -> Object RiverSeatV1 -> Word32 -> W ()

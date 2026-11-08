@@ -21,7 +21,7 @@ magnifier' :: Double -> SomeLayout -> SomeLayout
 magnifier' ratio child = SomeLayout $ MagnifierLayout ratio child (StackWins 1) True
 
 magnifierNum :: Double -> SomeLayout -> Int -> SomeLayout
-magnifierNum ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num) True
+magnifierNum ratio child num = SomeLayout $ MagnifierLayout ratio child (AllWins num) True
 
 magnifierNum' :: Double -> SomeLayout -> Int -> SomeLayout
 magnifierNum' ratio child num = SomeLayout $ MagnifierLayout ratio child (StackWins num) True
